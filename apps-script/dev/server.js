@@ -7,6 +7,8 @@ class Range {
   constructor(sh, r, c, nr, nc) { Object.assign(this, { sh, r, c, nr, nc }); }
   getValues() { const out = []; for (let i = 0; i < this.nr; i++) { const row = []; for (let j = 0; j < this.nc; j++) { const v = (this.sh.rows[this.r - 1 + i] || [])[this.c - 1 + j]; row.push(v === undefined ? '' : v); } out.push(row); } return out; }
   setValues(v) { v.forEach((row, i) => { const R = this.sh.rows[this.r - 1 + i] = this.sh.rows[this.r - 1 + i] || []; row.forEach((x, j) => R[this.c - 1 + j] = x); }); return this; }
+  getValue() { return this.getValues()[0][0]; }
+  setValue(v) { return this.setValues([[v]]); }
   setFontWeight() { return this; } setBackground() { return this; }
 }
 class Sheet {
@@ -31,6 +33,8 @@ const ctx = {
   GmailApp: null,
   HtmlService: {}
 };
+ctx.__viewer = '';
+ctx.Session = { getEffectiveUser: () => ({ getEmail: () => 'polishdent.pl@gmail.com' }), getActiveUser: () => ({ getEmail: () => ctx.__viewer }), getScriptTimeZone: () => 'Europe/Warsaw' };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), ctx);
 ctx.setup();
@@ -56,7 +60,6 @@ ctx.GmailApp = {
 };
 const props = {};
 ctx.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) };
-ctx.Session = { getEffectiveUser: () => ({ getEmail: () => 'polishdent.pl@gmail.com' }), getScriptTimeZone: () => 'Europe/Warsaw' };
 ctx.__inbox = inbox; ctx.__sentMail = sentMail; ctx.__sheets = sheets;
 module.exports = ctx;
 

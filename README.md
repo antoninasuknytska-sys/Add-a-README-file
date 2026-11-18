@@ -40,29 +40,41 @@ Pomijane automatycznie: maile Diagdent (tomografie mają własną automatyzację
 
 Wyszukiwarka u góry przeszukuje też skrzynkę z ostatnich 14 dni.
 
-## Instalacja (ok. 15 minut, jednorazowo)
+## Instalacja (ok. 20 minut, jednorazowo)
 
-Wszystko rób na koncie **PolishDent.pl@gmail.com**: tablica czyta pocztę tego konta.
+**Gdzie co jest:**
+- **dentonia.pl@gmail.com** (właściciel) jest **właścicielem pliku tablicy**: zarządza nim, widzi historię zmian i może w każdej chwili odebrać dostęp. Tu przychodzą raporty.
+- **PolishDent.pl@gmail.com** (recepcja) ma dostęp jako **Edytor**. Na tym koncie przychodzą wszystkie maile i to z tego konta tablica je czyta.
 
-1. Otwórz [sheets.new](https://sheets.new) i utwórz nowy arkusz, np. „Tablica spraw”.
-2. Menu **Rozszerzenia → Apps Script**.
-3. W pliku `Code.gs` wklej zawartość pliku [`apps-script/Code.gs`](apps-script/Code.gs) (zastąp wszystko, co tam jest).
-4. Kliknij **＋ → HTML**, nazwij plik `Index` (dokładnie tak) i wklej zawartość [`apps-script/Index.html`](apps-script/Index.html).
-5. ⚙️ **Ustawienia projektu** (ikona zębatki po lewej) → **Strefa czasowa: (GMT+01:00) Warszawa**. Bez tego raporty o 20:30 przyjdą o złej godzinie.
-6. Kliknij 💾 **Zapisz**. Na liście funkcji u góry wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Jeśli pojawi się „Aplikacja niezweryfikowana”, kliknij **Zaawansowane → Przejdź do projektu** (to Twój własny skrypt).
-7. Wróć do arkusza. Pojawią się arkusze:
-   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). **PolishDent.pl@gmail.com** to poczta recepcji (wszystkie maile przychodzą tutaj, na tym koncie działa tablica). **dentonia.pl@gmail.com** to poczta właściciela (`ownerEmail`), do której recepcja nie ma dostępu. Tam przychodzą tylko: **codziennie o 20:30 raport dzienny** oraz **ostatniego dnia miesiąca o 20:30 raport miesięczny** (godzina: `reportTime`). Wpisz też `debtsSheetUrl` (link do arkusza potrąceń na koncie właściciela, patrz „💰 Potrącenia”) i ewentualnie `staff`, czyli pozostałych pracowników do potrąceń (np. asystentki), po przecinku. Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
-   - **Lekarze**: lista jest już wpisana: Krzysztof Dragun, Andrzej Kulpa, Stanisław Tsydzik, Ewa Winiarska, Piotr Wereski, Vasyl Kuz, Kornelia Borska, Artur oraz higienistki Oliwia i Antonina.
-     - Kolumna A: nazwa widoczna na tablicy.
-     - Kolumna B (opcjonalnie): **prywatny numer WhatsApp lekarza** w formacie `48XXXXXXXXX`. Służy tylko do przycisku „🔔 Przypomnij lekarzowi”: otwiera czat z tym lekarzem z gotowym tekstem („Dzień dobry! Przypominam w sprawie pacjenta…”). Bez numeru przycisk tylko zapisuje, że przypomniano ustnie.
-     - Kolumna C: **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, Oliwia Kowalska*). Wpisz pełne imię i nazwisko z ZnanyLekarz i nazwę z Booksy. Po tym tablica rozpoznaje, do kogo jest wizyta. Gdy w Booksy jest „Dowolny lekarz”, tablica pokaże „Dowolny lekarz”.
-8. W Apps Script: **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**.
-   - *Wykonaj jako*: **Ja**
-   - *Kto ma dostęp*: **Tylko ja** (najbezpieczniej: dane pacjentów widzi tylko osoba zalogowana na konto gabinetu)
+Czy plik na koncie właściciela zmienia czytanie poczty recepcji? **Nie**, pod jednym warunkiem: kroki 3–7 robi się **zalogowanym na PolishDent.pl**. Automaty (sprawdzanie poczty co 5 min, raporty) działają na koncie, które uruchomiło `setup`. Jeśli spróbuje go uruchomić inne konto, tablica pokaże błąd.
+
+**Na koncie dentonia.pl (właściciel):**
+1. Otwórz [sheets.new](https://sheets.new) i utwórz arkusz, np. „Tablica spraw — PolishDent”.
+2. **Udostępnij** → dodaj `polishdent.pl@gmail.com` jako **Edytor** (odznacz „Powiadom” albo zostaw, bez znaczenia).
+
+**Na koncie PolishDent.pl (recepcja):**
+
+3. Otwórz ten arkusz (Dysk Google → „Udostępnione dla mnie”) → menu **Rozszerzenia → Apps Script**.
+4. W pliku `Code.gs` wklej zawartość [`apps-script/Code.gs`](apps-script/Code.gs) (zastąp wszystko). Kliknij **＋ → HTML**, nazwij plik `Index` (dokładnie tak) i wklej [`apps-script/Index.html`](apps-script/Index.html).
+5. ⚙️ **Ustawienia projektu** → **Strefa czasowa: (GMT+01:00) Warszawa**. Bez tego raporty o 20:30 przyjdą o złej godzinie.
+6. 💾 **Zapisz** → na liście funkcji wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Przy „Aplikacja niezweryfikowana” kliknij **Zaawansowane → Przejdź do projektu** (to Wasz własny skrypt).
+7. **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**:
+   - *Wykonaj jako*: **Użytkownik uzyskujący dostęp do aplikacji internetowej**
+   - *Kto ma dostęp*: **Każdy, kto ma konto Google**
    - **Wdróż** → skopiuj link.
-9. Otwórz link na komputerze w recepcji i **dodaj do zakładek**. Właściciel otwiera ten sam link w telefonie, zalogowany w przeglądarce na konto gabinetu. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja.
 
-> Po zmianach w kodzie: **Wdróż → Zarządzaj wdrożeniami → ✏️ → Wersja: nowa → Wdróż**. Link się nie zmienia.
+   Tablicę otworzy tylko ktoś, kto ma dostęp do arkusza (właściciel i konto recepcji). Komuś obcemu z linkiem pokaże się błąd braku dostępu. Dzięki temu tablica wie, kto ją otworzył: właściciel wchodzi **swoim kontem dentonia.pl**, a tylko on może oznaczać potrącenia jako rozliczone.
+
+**Uzupełnij arkusze** (pojawią się po `setup`):
+- **Ustawienia**: `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*); `ownerEmail` = **dentonia.pl@gmail.com** (tam przychodzą tylko raport dzienny o 20:30 i miesięczny ostatniego dnia miesiąca o 20:30, godzina: `reportTime`); ewentualnie `staff`, czyli inni pracownicy do potrąceń (np. asystentki). Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`): wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
+- **Lekarze**: lista jest już wpisana: Krzysztof Dragun, Andrzej Kulpa, Stanisław Tsydzik, Ewa Winiarska, Piotr Wereski, Vasyl Kuz, Kornelia Borska, Artur oraz higienistki Oliwia i Antonina. **Wszystko można w każdej chwili dopisać lub poprawić ręcznie** w arkuszu. Tablica bierze zmiany przy następnym odświeżeniu, bez ponownego wdrażania.
+  - Kolumna A: nazwa widoczna na tablicy.
+  - Kolumna B (opcjonalnie): **prywatny numer WhatsApp lekarza** w formacie `48XXXXXXXXX`. Służy tylko do przycisku „🔔 Przypomnij lekarzowi”: otwiera czat z tym lekarzem z gotowym tekstem. Bez numeru przycisk tylko zapisuje, że przypomniano ustnie.
+  - Kolumna C: **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, Oliwia Kowalska*). Po tym tablica rozpoznaje, do kogo jest wizyta. „Dowolny lekarz” z Booksy pokaże się jako „Dowolny lekarz”.
+
+**Otwieranie tablicy:** na komputerze w recepcji (przeglądarka zalogowana na PolishDent.pl) dodaj link do zakładek. Właściciel otwiera ten sam link w telefonie zalogowany na dentonia.pl, wtedy w „Na zmianie” sam ustawi się „Właściciel”. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja. Przy pierwszym otwarciu każde konto raz zatwierdza uprawnienia.
+
+> Po zmianach w kodzie (na koncie PolishDent.pl): **Wdróż → Zarządzaj wdrożeniami → ✏️ → Wersja: nowa → Wdróż**. Link się nie zmienia.
 
 Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić pocztę albo wysłać raport dzienny / miesięczny do właściciela, żeby to przetestować.
 
@@ -90,22 +102,12 @@ Temat musi zaczynać się dokładnie od `CRM SMS` lub `CRM NIEODEBRANE`. Po tym 
 Zakładka **💰 Potrącenia** zbiera wszystko, co na koniec miesiąca trzeba potrącić pracownikom: reklamacje lekarzy (poprawka pracy, koszt laboratorium) i pacjentów, za których lekarz pokrywa koszty (zwrot, rabat).
 
 - **Dodawanie**: przycisk „➕ Dodaj potrącenie” albo „💰 Potrącenie” w karcie sprawy (pacjent i lekarz wpiszą się same). Pola: kogo dotyczy, kwota (np. `450,50`), data, kategoria, pacjent, opis.
-- **Kto co widzi i może:** recepcja **widzi listę i sumy** (żeby mogła przypomnieć właścicielowi), dodaje wpisy i poprawia swoje. **✅ Potrącono** i usuwanie: tylko właściciel (w „Na zmianie” wybrany „Właściciel”).
+- **Kto co widzi i może:** recepcja **widzi listę i sumy** (żeby mogła przypomnieć właścicielowi), dodaje wpisy i poprawia swoje. **✅ Potrącono** i usuwanie: tylko właściciel, zalogowany swoim kontem dentonia.pl (sprawdza to serwer, nie da się tego obejść, wybierając „Właściciel” na liście).
 - **Widok:** wybór miesiąca, **podsumowanie na osobę** (razem / już potrącono / do potrącenia), lista wpisów z datą, pacjentem i opisem oraz osobna lista nierozliczonych z wcześniejszych miesięcy.
 - Osoby do wyboru: lekarze i higienistki z arkusza „Lekarze” + pracownicy z `staff` + rejestratorki.
 - Ostatniego dnia miesiąca podsumowanie potrąceń (na osobę i ze szczegółami) jest w raporcie miesięcznym na dentonia.pl.
 
-### Arkusz potrąceń na koncie właściciela (dentonia.pl)
-
-Dane potrąceń leżą w pliku właściciela, więc właściciel nim zarządza, widzi historię zmian i w każdej chwili może odebrać dostęp. Recepcja ma dostęp przez swoje konto PolishDent.pl.
-
-1. Zaloguj się na **dentonia.pl@gmail.com** → [sheets.new](https://sheets.new) → nazwij plik np. „Potrącenia — PolishDent”.
-2. **Udostępnij** → dodaj `polishdent.pl@gmail.com` jako **Edytor** (tablica musi móc zapisywać wpisy).
-3. Skopiuj link do pliku i wklej go w arkuszu tablicy: „Ustawienia” → `debtsSheetUrl`.
-4. W Apps Script uruchom jeszcze raz `setup`: Google poprosi o zgodę na dostęp do arkuszy, a w pliku właściciela pojawi się zakładka „Potrącenia” z nagłówkami.
-5. Kto i kiedy zmienił wpis, właściciel sprawdzi w swoim pliku: **Plik → Historia wersji**.
-
-Jeśli `debtsSheetUrl` jest puste, potrącenia zapisują się w arkuszu tablicy.
+Potrącenia leżą w arkuszu „Potrącenia” w pliku tablicy, czyli na koncie właściciela. Historię zmian (kto, kiedy, co zmienił) właściciel sprawdzi w **Plik → Historia wersji**. Opcjonalnie można trzymać je w osobnym pliku: link wpisz w „Ustawieniach” → `debtsSheetUrl` (plik musi być udostępniony dla polishdent.pl jako Edytor).
 
 ## 📧 Raporty na e-mail właściciela (dentonia.pl)
 
@@ -113,7 +115,7 @@ Jeśli `debtsSheetUrl` jest puste, potrącenia zapisują się w arkuszu tablicy.
 
 **Ostatniego dnia miesiąca o 20:30 (raport miesięczny za ten miesiąc):**
 - sprawy: nowe, zrobione, zamknięte bez realizacji, średni czas realizacji, podział na typy;
-- **osobno listy pacjentów: 🦷 Tomografia, 🩻 RTG, 📋 Plan leczenia, 📌 Bieżące zadania**: pacjent, lekarz, o co chodzi, status (✅ umówiony / ⏳ etap / ✖️ bez realizacji, zaległe na czerwono), data utworzenia;
+- **osobno listy pacjentów: 🦷 Tomografia i 🩻 RTG (razem), 📋 Plan leczenia, 📞 Telefony po zabiegu, 🧪 Laboratorium, ✅ Potwierdzenia wizyt, 📌 Bieżące zadania, 📣 Ogłoszenia FB**: pacjent, lekarz, o co chodzi, status (✅ umówiony / ⏳ etap / ✖️ bez realizacji, zaległe na czerwono), data utworzenia;
 - skrzynka: ile wiadomości z każdego źródła (Booksy, ZnanyLekarz, strona, maile, SMS, telefony, WeTransfer), ile obsłużono i jak szybko;
 - praca recepcji na osobę: działania, utworzone i zamknięte sprawy, nieodebrane telefony, przypomnienia lekarzom, odpowiedzi na pytania;
 - ile razy recepcja musiała przypominać każdemu lekarzowi;
@@ -124,7 +126,7 @@ Raporty można wysłać ręcznie z menu „🦷 Tablica spraw” w arkuszu (rapo
 
 ## Typy spraw
 
-🙋 Nowe zapytanie · 🦷 Tomografia · 🩻 RTG · 📋 Plan leczenia · 📞 Telefon po zabiegu · 🧪 Laboratorium · ✅ Potwierdzenie wizyty · 🔁 Wizyta kontrolna · 📌 Bieżące zadania.
+🙋 Nowe zapytanie · 📣 Ogłoszenia FB (pacjenci z reklam na Facebooku/Instagramie) · 🦷 Tomografia · 🩻 RTG · 📋 Plan leczenia · 📞 Telefon po zabiegu · 🧪 Laboratorium · ✅ Potwierdzenie wizyty · 🔁 Wizyta kontrolna · 📌 Bieżące zadania.
 
 RTG przysłane przez WeTransfer → „➕ Utwórz sprawę” zakłada sprawę 🩻 RTG (lub 🦷 Tomografia, gdy w nazwie nie ma „rtg”) od razu na etapie „pokazać lekarzowi”.
 

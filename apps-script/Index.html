@@ -565,7 +565,7 @@
   const monthKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
   const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
   const monthLabel = k => MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(0, 4);
-  const isOwner = () => me() === cfg().ownerName;
+  const isOwner = () => cfg().viewer ? cfg().viewerIsOwner : me() === cfg().ownerName;
   const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().staff || [], cfg().admins.filter(a => a !== cfg().ownerName));
   S.pin = ''; S.debts = null; S.debtMonth = monthKey(Date.now());
 
@@ -873,6 +873,7 @@
     if (sel.options.length !== c.admins.length + 1) {
       sel.innerHTML = '<option value="">— wybierz —</option>' + c.admins.map(a => '<option>' + esc(a) + '</option>').join('');
       if (saved && c.admins.indexOf(saved) >= 0) sel.value = saved;
+      if (c.viewerIsOwner && c.admins.indexOf(c.ownerName) >= 0) sel.value = c.ownerName; // właściciel zalogowany swoim kontem
     }
     const open = openTasks();
     const nowCount = open.filter(t => ['overdue', 'today'].indexOf(urgency(t)) >= 0).length;

@@ -54,6 +54,15 @@ const TYPES = {
       { n: 'Umówiony', done: true }
     ]
   },
+  fb: {
+    label: 'Ogłoszenia FB', icon: '📣',
+    stages: [
+      { n: 'Oddzwonić / odpisać', due: 1 },
+      { n: 'Nie odebrał — ponowić', due: 3, retry: true },
+      { n: 'Pacjent się zastanawia', due: 72 },
+      { n: 'Umówiony', done: true }
+    ]
+  },
   kt: {
     label: 'Tomografia', icon: '🦷',
     stages: [
@@ -128,6 +137,17 @@ const TYPES = {
   }
 };
 
+/** Sekcje raportu miesięcznego (listy pacjentów). */
+const REPORT_GROUPS = [
+  { title: '🦷 Tomografia i 🩻 RTG', types: ['kt', 'rtg'] },
+  { title: '📋 Plan leczenia', types: ['plan'] },
+  { title: '📞 Telefony po zabiegu', types: ['call_after'] },
+  { title: '🧪 Laboratorium', types: ['lab'] },
+  { title: '✅ Potwierdzenia wizyt', types: ['confirm'] },
+  { title: '📌 Bieżące zadania', types: ['other'] },
+  { title: '📣 Ogłoszenia FB', types: ['fb'] }
+];
+
 /** Lekarze i higienistki: [nazwa na tablicy, WhatsApp, inne nazwy w Booksy / ZnanyLekarz]. */
 const DEFAULT_DOCTORS = [
   ['Krzysztof Dragun', '', 'Krzysztof, dr Dragun'],
@@ -173,6 +193,12 @@ function onOpen() {
 /** Uruchom raz: tworzy arkusze i automatyczne wyzwalacze. */
 function setup() {
   const ss = SpreadsheetApp.getActive();
+  // Wyzwalacze czytają pocztę konta, które uruchomiło setup — musi to być skrzynka recepcji
+  const box = (mailboxes_(getSettings_())[0] || {}).email;
+  const runner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  if (box && runner && runner !== box) {
+    throw new Error('Uruchom „setup” zalogowana na koncie ' + box + ' (teraz: ' + runner + '). Wyzwalacze czytają pocztę konta, które je utworzyło.');
+  }
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_SHIFTS, SHIFT_HEADERS);
   ensureSheet_(ss, SHEET_INBOX, INBOX_HEADERS);
@@ -240,6 +266,8 @@ function getData() {
       ownerName: String(s.ownerName || 'Właściciel').trim(),
       staff: String(s.staff || '').split(',').map(x => x.trim()).filter(Boolean),
       hasPin: !!String(s.ownerPin || '').trim(),
+      viewer: activeEmail_(),
+      viewerIsOwner: !!activeEmail_() && activeEmail_() === String(s.ownerEmail || '').toLowerCase().trim(),
       debtsUrl: String(s.debtsSheetUrl || '').trim(),
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
     },
@@ -325,6 +353,11 @@ function saveShift(entry) {
 
 /* ===================== Potrącenia (reklamacje, koszty do pokrycia) ===================== */
 
+/** E-mail osoby, która otworzyła tablicę (gdy aplikacja działa jako „użytkownik uzyskujący dostęp”). */
+function activeEmail_() {
+  try { return String(Session.getActiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { return ''; }
+}
+
 function checkPin_(pin) {
   const p = String(getSettings_().ownerPin || '').trim();
   if (p && String(pin || '').trim() !== p) throw new Error('Nieprawidłowy PIN');
@@ -351,6 +384,11 @@ function saveDebt(payload) {
     });
     if (rowIdx > 0) {
       checkPin_(payload.pin);
+      const oldStatus = sh.getRange(rowIdx, DEBT_COLS.indexOf('status') + 1).getValue();
+      const viewer = activeEmail_(), owner = String(getSettings_().ownerEmail || '').toLowerCase().trim();
+      if (viewer && owner && viewer !== owner && String(payload.debt.status) !== String(oldStatus)) {
+        throw new Error('Tylko właściciel może oznaczać potrącenia jako rozliczone i je usuwać.');
+      }
       sh.getRange(rowIdx, 1, 1, row.length).setValues([row]);
     } else {
       sh.appendRow(row);
@@ -880,14 +918,16 @@ function monthlyReport() {
     '</b> · średnio dni do realizacji: <b>' + avg(done.map(t => t.closedAt - t.createdAt), 864e5) + '</b></p>' +
     '<p>Stan na dziś: otwartych <b>' + open.length + '</b>, zaległych <b style="color:#c62828">' + open.filter(t => t.dueAt && t.dueAt < now).length + '</b>.</p>' +
     '<h3>Sprawy według typów</h3>' + tbl(['Typ', 'Nowe', 'Zrobione', 'Bez realizacji', 'Otwarte teraz', 'Śr. dni'], typeRows) +
-    ['kt', 'rtg', 'plan', 'other'].map(k => {
-      const l = tasks.filter(t => t.type === k && (inM(t.createdAt) || inM(t.closedAt || 0) || t.status === 'open'))
+    REPORT_GROUPS.map(g => {
+      const l = tasks.filter(t => g.types.indexOf(t.type) >= 0 && (inM(t.createdAt) || inM(t.closedAt || 0) || t.status === 'open'))
         .sort((a, b) => a.createdAt - b.createdAt);
       const st = t => t.status === 'done' ? '✅ ' + esc_(stageName_(t)) : t.status === 'cancelled' ? '✖️ bez realizacji' : '⏳ ' + esc_(stageName_(t)) + (t.dueAt && t.dueAt < now ? ' <b style="color:#c62828">(zaległe)</b>' : '');
-      return '<h3>' + TYPES[k].icon + ' ' + TYPES[k].label + ' — ' + l.length + '</h3>' +
-        tbl(['Pacjent', 'Lekarz', 'O co chodzi', 'Status', 'Utworzono'], l.map(t => [
+      const head = ['Pacjent', 'Lekarz', 'O co chodzi', 'Status', 'Utworzono'].concat(g.types.length > 1 ? ['Typ'] : []);
+      return '<h3>' + g.title + ' — ' + l.length + ' <span style="font-weight:normal;color:#666">(zrobione: ' + l.filter(t => t.status === 'done').length +
+        ', otwarte: ' + l.filter(t => t.status === 'open').length + ')</span></h3>' +
+        tbl(head, l.map(t => [
           '<b>' + esc_(t.patient) + '</b>', esc_(t.doctor || ''), esc_(String(t.purpose || '').slice(0, 140)), st(t),
-          Utilities.formatDate(new Date(t.createdAt), Session.getScriptTimeZone(), 'dd.MM')]));
+          Utilities.formatDate(new Date(t.createdAt), Session.getScriptTimeZone(), 'dd.MM')].concat(g.types.length > 1 ? [TYPES[t.type].icon + ' ' + TYPES[t.type].label] : [])));
     }).join('') +
     '<h3>📥 Skrzynka: ' + inbox.length + ' wiadomości</h3>' + tbl(['Źródło', 'Wiadomości', 'Obsłużone', 'Zrobiono sprawę', 'Śr. czas reakcji'], inboxRows) +
     '<h3>👩‍💼 Praca recepcji</h3>' + tbl(['Kto', 'Działań', 'Utworzone sprawy', 'Zamknięte', 'Nieodebrane telefony', 'Przypomnienia lekarzom', 'Odpowiedzi na pytania'],
