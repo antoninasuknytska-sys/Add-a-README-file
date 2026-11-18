@@ -96,12 +96,9 @@ order.forEach(pref => {
 const docsNow = sheets['Довідники'].data.slice(3, 20).map(r => r[0]);
 ok(docsNow.includes('Lekarz Testowy') && docsNow.includes('Nowy Lekarz'), 'FDUR adds doctors ' + docsNow);
 ok(sheets['Довідники'].data[3 + docsNow.indexOf('Lekarz Testowy')][3] === 1.25, 'FDUR hours');
-ok(lastRow(V) === v2 + 4, 'wplaty -> 4 visits');
-const wv = V.slice(v2 + 1, v2 + 5);
-ok(wv[1][6] === 'Protetyka' && wv[1][8] === 2000 && wv[1][11] === 'Karta' && wv[1][12] === 'Виконано', 'wplata korona ' + JSON.stringify(wv[1].slice(0, 14)));
-ok(wv[2][5] === 'Lekarz Testowy' && wv[2][13] === 1.25 && wv[0][5] === '' && wv[0][13] === 0.7, 'doctor from addedBy + durations ' + wv.map(r => r[5] + '/' + r[13]));
-ok(wv[1][4] === 'Z sieci' && wv[0][4] === '', 'source from pozyskanie; Brak informacji -> empty');
-ok(lastRow(Ex) === e0 + 1 && Ex[e0 + 1][2] === 'Technik / laboratorium (koszt z Felgdent)' && Ex[e0 + 1][7] === 'Lekarz Testowy' && Ex[e0 + 1][5] === 300, 'koszty -> Витрати ' + JSON.stringify(Ex[e0 + 1]));
+const W = sheets['Wpłaty Felgdent'].data;
+ok(lastRow(V) === v2 && W.filter(r => r[2] === 'Anna Próbna' && r[5] === 2000).length === 1, 'wplaty -> Wpłaty Felgdent (not visits)');
+ok(lastRow(Ex) === e0 + 1 && Ex[e0 + 1][2] === 'Koszty z Felgdent (kontrola)' && Ex[e0 + 1][7] === 'Lekarz Testowy' && Ex[e0 + 1][5] === 300, 'koszty -> Витрати ' + JSON.stringify(Ex[e0 + 1]));
 const FS = sheets['Felgdent статуси'].data;
 ok(FS.filter(r => r[2] === 'Неявка' && r[3] === 12).length === 1 && FS[1][0] instanceof Date, 'status wizyt stored');
 const Z = sheets['Записи Felgdent'].data;
@@ -109,6 +106,24 @@ ok(Z.filter(r => r[3] === 'Перенесено').length === 1 && Z.filter(r => 
 // повторний імпорт — без дублів
 const f2 = rep.find(x => x.file.startsWith('Koszty'));
 ctx.importujArkusze_(f2.file, f2.sheets.map(sh => ({ name: sh.name, rows: sh.rows.map(r => r.map(revive)) })), 'WPLATY', null);
-ok(lastRow(V) === v2 + 4 && lastRow(Ex) === e0 + 1, 'no duplicates (forced WPLATY imports both sheets)');
+ok(lastRow(V) === v2 && lastRow(Ex) === e0 + 1 && W.filter(r => r[2] === 'Anna Próbna').length === 1, 'no duplicates (forced WPLATY imports both sheets)');
+// Status wizyt oraz wpłat → Візити
+const fwf = rep.find(x => x.file.startsWith('Status_wizyt_oraz'));
+console.log(ctx.importujArkusze_(fwf.file, fwf.sheets.map(sh => ({ name: sh.name, rows: sh.rows.map(r => r.map(revive)) })), 'AUTO', null));
+const fv = V.slice(v2 + 1, v2 + 6);
+ok(lastRow(V) === v2 + 5, 'fwizyty -> 5 visit rows');
+ok(fv[0][6] === 'Endodoncja' && fv[0][13] === 1.25 && fv[0][18] === 1900 && fv[0][19] === '' && fv[1][19] === 'dodatkowa' && fv[1][13] === 0, 'fwizyty row data ' + JSON.stringify(fv[1]));
+ok(fv[3][3] === 'Так' && fv[3][6] === 'Profilaktyka' && fv[3][4] === 'Znajomy' && fv[4][12] === 'Скасовано' && fv[4][6] === 'Chirurgia', 'fwizyty new patient / direction from type');
+// Реєстр фактур (аркуш «102026»): лікар за назвою з «Довідників», лабораторія за правилом
+const Dd = sheets['Довідники'].data; Dd[3 + docsNow.indexOf('Lekarz Testowy')][1] = 'KRZYSZTOF';
+const F0 = lastRow(F), rf = rep.find(x => x.file.startsWith('Rejestr'));
+console.log(ctx.importujArkusze_(rf.file, rf.sheets.map(sh => ({ name: sh.name, rows: sh.rows.map(r => r.map(revive)) })), 'AUTO', null));
+const nf = F.slice(F0 + 1, F0 + 6);
+ok(lastRow(F) === F0 + 5, 'register -> 5 invoices');
+ok(nf.find(r => r[2] === 'KRZYSZTOF')[6] === 'Wynagrodzenie lekarza / higienistki (faktura)', 'doctor invoice category');
+ok(nf.find(r => r[2] === 'ANDREZJ TECHNIK')[6] === 'Laboratorium – płatność (звірка)' && nf.find(r => r[2] === 'POLENERGIA')[6] === 'Samochód (paliwo, ładowanie)', 'register categories');
+ok(nf.find(r => r[2] === 'ZUS')[1] instanceof Date && nf.find(r => r[2] === 'ZUS')[4] === 3994.14 && nf.find(r => r[2] === 'WYNAJEM TEST')[7] instanceof Date, 'register dates / paid');
+console.log(ctx.importujArkusze_(rf.file, rf.sheets.map(sh => ({ name: sh.name, rows: sh.rows.map(r => r.map(revive)) })), 'AUTO', null));
+ok(lastRow(F) === F0 + 5, 'register re-import without duplicates');
 
 console.log('OK — ' + n + ' перевірок Kod.gs на імітації пройдено');

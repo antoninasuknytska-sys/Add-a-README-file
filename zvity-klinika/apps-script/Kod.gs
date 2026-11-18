@@ -8,11 +8,12 @@ var FOLDER_DONE = 'Оброблено';
 
 var UKLAD = {
   VISITS:   { sheet: 'Візити', last: 3001, keyCol: 18,
-              cols: { date: 1, patient: 3, isNew: 4, source: 5, doctor: 6, direction: 7, service: 8, amount: 9, lab: 10, prep: 11, payment: 12, status: 13, duration: 14 } },
+              cols: { date: 1, patient: 3, isNew: 4, source: 5, doctor: 6, direction: 7, service: 8, amount: 9, lab: 10, prep: 11, payment: 12, status: 13, duration: 14, paid: 19, pos: 20 } },
   BANK:     { sheet: 'Банк', last: 3001, keyCol: 11,
               cols: { date: 1, amount: 3, counterparty: 4, description: 5, autoCat: 6, manualCat: 7, account: 10 } },
   INVOICES: { sheet: 'Фактури', last: 3001, keyCol: 11,
-              cols: { number: 1, date: 2, seller: 3, nip: 4, gross: 5, due: 6, category: 7, paidDate: 8 } },
+              cols: { number: 1, date: 2, seller: 3, nip: 4, gross: 5, due: 6, category: 7, paidDate: 8, notes: 14 } },
+  WPLATY:   { sheet: 'Wpłaty Felgdent', last: 3001, keyCol: 8, cols: { date: 1, patient: 3, service: 4, payment: 5, amount: 6, addedBy: 7 } },
   PATIENTS: { sheet: 'Пацієнти', last: 3001, keyCol: 4, cols: { patient: 1, regDate: 2, source: 3 } },
   ONLINE:   { sheet: 'Онлайн-записи', last: 3001, keyCol: 8,
               cols: { date: 1, platform: 3, patient: 4, doctor: 5, service: 6, status: 7 } },
@@ -29,6 +30,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('🦷 Звіти клініки / Raporty kliniki')
     .addItem('Завантажити файли… / Wczytaj pliki…', 'pokazDialog')
     .addItem('Імпорт з папки Google Drive / Import z folderu Drive', 'importZFolderuMenu')
+    .addItem('Оновити фактури з реєстру / Odśwież faktury z rejestru', 'importujRejestrFakturMenu')
     .addSeparator()
     .addItem('Перерахувати категорії банку / Przelicz kategorie banku', 'przeliczKategorieMenu')
     .addItem('Звірити фактури з банком / Uzgodnij faktury z bankiem', 'zestawFakturyMenu')
@@ -92,7 +94,9 @@ function importujArkusze_(name, sheets, forcedType, month) {
       if (det.error) { if (multi) return; throw new Error(det.error); }
       type = det.type; hdr = det.header;
     }
-    var res = mapRecords(type, rows, hdr, { statusRules: cfg.statuses, month: month || null });
+    var sm = String(sh.name).match(/^(\d{1,2})[ ._\-]?(20\d{2})$/);   // аркуш «102026» = жовтень 2026
+    var sheetMonth = sm ? new Date(+sm[2], +sm[1] - 1, 1) : null;
+    var res = mapRecords(type, rows, hdr, { statusRules: cfg.statuses, month: sheetMonth || month || null });
     var st = zapisz_(type, res.records, cfg);
     if (type === 'BANK') { przeliczKategorie_(cfg); zestawFaktury_(); }
     if (type === 'INVOICES') { kategorieFaktur_(cfg); zestawFaktury_(); }
@@ -157,7 +161,8 @@ function Tabela_(kind) {
   var u = UKLAD[kind];
   var sh = SpreadsheetApp.getActive().getSheetByName(u.sheet);
   var n = u.last - 1;
-  var data = sh.getRange(2, 1, n, u.keyCol).getValues();
+  var width = Math.max.apply(null, [u.keyCol].concat(Object.keys(u.cols).map(function (f) { return u.cols[f]; })));
+  var data = sh.getRange(2, 1, n, width).getValues();
   var keys = {}, next = 0;
   for (var i = 0; i < n; i++) {
     var k = data[i][u.keyCol - 1];
@@ -207,9 +212,12 @@ function zapisz_(type, recs, cfg) {
 
   } else if (type === 'INVOICES') {
     var f = Tabela_('INVOICES');
+    var aliasy = SpreadsheetApp.getActive().getSheetByName('Довідники').getRange('B4:B20').getValues()
+      .map(function (r) { return norm(r[0]); }).filter(String);
     recs.forEach(function (r) {
-      if (!r.category) r.category = categorize(r.seller, '', -1, cfg.rules);
-      count(f.upsert(r.key, r, ['number', 'date', 'seller', 'nip', 'gross', 'due', 'category'], ['gross', 'due']));
+      if (!r.category && aliasy.indexOf(norm(r.seller)) >= 0) r.category = 'Wynagrodzenie lekarza / higienistki (faktura)';
+      if (!r.category) r.category = categorize(r.seller, r.notes, -1, cfg.rules);
+      count(f.upsert(r.key, r, ['number', 'date', 'seller', 'nip', 'gross', 'due', 'category', 'paidDate', 'notes'], ['gross', 'due', 'paidDate', 'notes']));
     });
     f.save();
 
@@ -263,7 +271,12 @@ function zapisz_(type, recs, cfg) {
     });
     rng.setValues(vals);
 
-  } else if (type === 'VISITS' || type === 'WPLATY') {
+  } else if (type === 'WPLATY') {
+    var wp = Tabela_('WPLATY');
+    recs.forEach(function (r) { count(wp.upsert(r.key, r, ['date', 'patient', 'service', 'payment', 'amount', 'addedBy'], ['amount', 'payment'])); });
+    wp.save();
+
+  } else if (type === 'VISITS' || type === 'FWIZYTY') {
     var res = zapiszWizyty_(recs);
     added = res.added; updated = res.updated; warnings = res.warnings;
   }
@@ -342,7 +355,7 @@ function zapiszWizyty_(recs) {
     var dirs = lines.map(function (l) { return usluga(l).dir; }).filter(String);
     if (!r.direction) {
       dirs.sort(function (a, b) { return PRIORYTET_NAPRAMKU.indexOf(a) - PRIORYTET_NAPRAMKU.indexOf(b); });
-      r.direction = dirs[0] || directionFromDoctor(r.doctor);
+      r.direction = dirs[0] || r.typeDirection || directionFromDoctor(r.doctor);
     }
     if (r.duration === null) {
       var durs = lines.map(function (l) { return Number(usluga(l).dur) || 0; });
@@ -359,8 +372,8 @@ function zapiszWizyty_(recs) {
     if (r.lab === null) delete r.lab;
     if (r.prep === null) delete r.prep;
     var res = t.upsert(r.key, r,
-      ['date', 'patient', 'isNew', 'source', 'doctor', 'direction', 'service', 'amount', 'lab', 'prep', 'payment', 'status', 'duration'],
-      ['amount', 'status', 'payment', 'lab', 'prep']);
+      ['date', 'patient', 'isNew', 'source', 'doctor', 'direction', 'service', 'amount', 'lab', 'prep', 'payment', 'status', 'duration', 'paid', 'pos'],
+      ['amount', 'status', 'payment', 'lab', 'prep', 'paid']);
     if (res.isNew) added++; else updated++;
     if (!res.isNew) {   // напрям / лікар / джерело дописуємо лише в порожні клітинки — ручні правки не затираються
       ['source', 'direction', 'doctor', 'duration'].forEach(function (f) { if (!t.get(res.index, f) && r[f]) t.set(res.index, f, r[f]); });
@@ -474,6 +487,7 @@ function uzupelnijZrodlaMenu() { uzupelnijZrodla_(); alert_('Джерела та
 
 /** Імпорт усіх файлів з папки Drive «Звіти клініки – Імпорт». Оброблені → підпапка «Оброблено». */
 function importZFolderu() {
+  try { importujRejestrFaktur(); } catch (e) { Logger.log('Реєстр фактур: ' + e.message); }
   var it = DriveApp.getFoldersByName(FOLDER_IMPORT);
   var folder = it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER_IMPORT);
   var di = folder.getFoldersByName(FOLDER_DONE);
@@ -500,6 +514,18 @@ function importZFolderuMenu() {
   var r = importZFolderu();
   alert_(r.length ? r.join('\n\n') : 'Папка «' + FOLDER_IMPORT + '» порожня. Скиньте туди файли й повторіть.');
 }
+
+/** Реєстр фактур з Google Таблиці (посилання в «Налаштування»!B10): усі аркуші-місяці («102026», «112026»…). */
+function importujRejestrFaktur() {
+  var url = String(SpreadsheetApp.getActive().getSheetByName('Налаштування').getRange('B10').getValue() || '').trim();
+  if (!url) return 'Посилання на реєстр фактур не вказано (Налаштування, B10).';
+  var src = SpreadsheetApp.openByUrl(url);
+  var sheets = src.getSheets().map(function (sh) { return { name: sh.getName(), rows: sh.getDataRange().getValues() }; });
+  var lock = LockService.getDocumentLock(); lock.waitLock(60000);
+  try { return importujArkusze_('Реєстр фактур: ' + src.getName(), sheets, 'INVOICES', null); }
+  finally { lock.releaseLock(); }
+}
+function importujRejestrFakturMenu() { alert_(importujRejestrFaktur()); }
 
 /** Нічний імпорт + звіт 15-го о 21:00 (за Варшавою). */
 function ustawHarmonogram() {
@@ -530,10 +556,10 @@ function wyczyscDemo() {
 
 // ------------------------------------------------------------------ захист від випадкового редагування
 /** Колонки з формулами: редагувати може лише власник (адміністратор — ні). */
-var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H', 'I'], 'Фактури': ['I', 'J'], 'Витрати': ['B', 'D'], 'Записи Felgdent': ['B'],
+var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H', 'I'], 'Фактури': ['I', 'J', 'L', 'M'], 'Wpłaty Felgdent': ['B'], 'Витрати': ['B', 'D'], 'Записи Felgdent': ['B'],
   'Персонал': ['B', 'G'], 'Онлайн-записи': ['B'], 'Google Ads': ['B'] };
 /** Колонки, які заповнює скрипт: попередження при ручній зміні (скрипт пише вільно). */
-var SKRYPT_KOLUMNY = { 'Візити': ['R'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'],
+var SKRYPT_KOLUMNY = { 'Візити': ['R', 'S', 'T'], 'Wpłaty Felgdent': ['H'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'],
   'Витрати': ['I'], 'Felgdent статуси': ['E'], 'Записи Felgdent': ['H'] };
 var CALE_ARKUSZE = ['Raport', 'Rok', 'Інструкція', 'Instrukcja'];
 

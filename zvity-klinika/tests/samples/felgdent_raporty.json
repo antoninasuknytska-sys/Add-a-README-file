@@ -309,5 +309,352 @@
     ]
    }
   ]
+ },
+ {
+  "file": "Status_wizyt_oraz_wplat_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Status wizyt oraz wpłat",
+    "rows": [
+     [
+      "Godzina",
+      "",
+      "Dzień",
+      "Status wizyty",
+      "Typ",
+      "Pacjent",
+      "Lekarz",
+      "Gabinet",
+      "Opis",
+      "Elementy",
+      "Kwoty",
+      "Zapłacone",
+      "Waluta",
+      "Metoda płatności",
+      "Wartość rabatu",
+      "Przed rabatem",
+      "Po rabacie"
+     ],
+     [
+      "Wpisy spoza kalendarza",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "Wpis bez wizyty",
+      "",
+      {
+       "$d": "2026-10-05T00:00:00"
+      },
+      "Wpis bez wizyty",
+      "Wpis bez wizyty",
+      "Jan Testowy",
+      "Lekarz Testowy",
+      "Gabinet",
+      "Wpis bez wizyty",
+      "Wizyta bez wykonanych elementów",
+      "---",
+      "---",
+      "---",
+      "---",
+      "",
+      "",
+      ""
+     ],
+     [
+      "Wpisy z kalendarza",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "09:00",
+      "10:15",
+      {
+       "$d": "2026-10-05T00:00:00"
+      },
+      "Wizyta odbyła się",
+      "Endodoncja",
+      "Anna Próbna",
+      "ENDODONTA Lekarz Testowy",
+      "Gabinet",
+      "",
+      "3.6 Leczenie endodontyczne z wypełnieniem 3 kanałów",
+      1900,
+      1900,
+      "PLN",
+      "Karta płatnicza/kredytowa",
+      "",
+      "",
+      ""
+     ],
+     [
+      "09:00",
+      "10:15",
+      {
+       "$d": "2026-10-05T00:00:00"
+      },
+      "Wizyta odbyła się",
+      "Endodoncja",
+      "Anna Próbna",
+      "ENDODONTA Lekarz Testowy",
+      "Gabinet",
+      "",
+      "3.6 Odbudowa brakujących ścianek przed leczeniem kanałowym",
+      300,
+      0,
+      "PLN",
+      "-",
+      "",
+      "",
+      ""
+     ],
+     [
+      "11:00",
+      "11:30",
+      {
+       "$d": "2026-10-06T00:00:00"
+      },
+      "Pacjent nie przyszedł",
+      "Pierwsza wizyta",
+      "Ewa Przykład",
+      "HIGIENA Anna Testowa",
+      "Gabinet",
+      "hig",
+      "Wizyta bez wpisu w EDM",
+      "---",
+      "---",
+      "---",
+      "---",
+      "",
+      "",
+      ""
+     ],
+     [
+      "12:00",
+      "12:45",
+      {
+       "$d": "2026-10-06T00:00:00"
+      },
+      "Wizyta odbyła się",
+      "Pierwsza wizyta",
+      "Adam Inny",
+      "HIGIENA Anna Testowa",
+      "Gabinet",
+      "",
+      "Profilaktyka stomatologiczna/Higienizacja",
+      400,
+      330,
+      "PLN",
+      "Karta płatnicza/kredytowa",
+      "17.5%",
+      400,
+      330
+     ],
+     [
+      "13:00",
+      "13:20",
+      {
+       "$d": "2026-10-07T00:00:00"
+      },
+      "Wizyta potwierdzona",
+      "Kontrola",
+      "Jan Testowy",
+      "Lekarz Testowy",
+      "Gabinet",
+      "",
+      "Wizyta bez wykonanych elementów",
+      "---",
+      "---",
+      "---",
+      "---",
+      "",
+      "",
+      ""
+     ],
+     [
+      "14:00",
+      "14:30",
+      {
+       "$d": "2026-10-07T00:00:00"
+      },
+      "Pacjent odwołał",
+      "Chirurgia",
+      "Jan Testowy",
+      "Lekarz Testowy",
+      "Gabinet",
+      "",
+      "Wizyta bez wpisu w EDM",
+      "---",
+      "---",
+      "---",
+      "---",
+      "",
+      "",
+      ""
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "file": "Rejestr_faktur_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "102026",
+    "rows": [
+     [
+      "\nFAKTURY PAŹDZIERNIK 2026",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "KTO TO"
+     ],
+     [
+      "DATA WYSTAWIENIA",
+      "FIRMA",
+      "NR FAKTURY",
+      "KWOTA",
+      "TERMIN PŁATNOŚCI",
+      "DATA OPŁ",
+      "SPOSÓB PŁATNOŚCI",
+      "✓",
+      ""
+     ],
+     [
+      {
+       "$d": "2026-10-01T00:00:00"
+      },
+      "WYNAJEM TEST",
+      "017-10-U-2026",
+      246,
+      {
+       "$d": "2026-10-08T00:00:00"
+      },
+      "",
+      "",
+      true,
+      ""
+     ],
+     [
+      {
+       "$d": "2026-10-17T00:00:00"
+      },
+      "POLENERGIA",
+      "FA-368-10-2026",
+      46.81,
+      {
+       "$d": "2026-10-17T00:00:00"
+      },
+      {
+       "$d": "1900-02-15T19:26:24"
+      },
+      "SZEF",
+      true,
+      ""
+     ],
+     [
+      {
+       "$d": "2026-10-31T00:00:00"
+      },
+      "KRZYSZTOF ",
+      {
+       "$d": "2026-10-01T00:00:00"
+      },
+      27700,
+      {
+       "$d": "2026-11-21T00:00:00"
+      },
+      "",
+      "",
+      false,
+      ""
+     ],
+     [
+      "",
+      "ZUS",
+      {
+       "$d": "2026-10-01T00:00:00"
+      },
+      "3 994,14 ",
+      {
+       "$d": "2026-11-20T00:00:00"
+      },
+      "",
+      "",
+      false,
+      ""
+     ],
+     [
+      "",
+      "LILI",
+      "",
+      0,
+      "",
+      "",
+      "",
+      false,
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      126287.31,
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      {
+       "$d": "2026-10-28T00:00:00"
+      },
+      "ANDREZJ TECHNIK",
+      "39-2026",
+      600,
+      "?",
+      {
+       "$d": "2026-11-07T00:00:00"
+      },
+      "",
+      true,
+      1530.36
+     ]
+    ]
+   }
+  ]
  }
 ]

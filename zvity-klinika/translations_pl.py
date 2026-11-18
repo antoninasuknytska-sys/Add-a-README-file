@@ -96,6 +96,12 @@ PLAIN = {
         "Niewielka różnica jest normalna: laboratorium i wynagrodzenia często płaci się w następnym miesiącu.",
     "Фактури": "Faktury", "Прострочені": "Przeterminowane", "Очікують оплати": "Oczekują na płatność", "Без терміну, не оплачені": "Bez terminu, nieopłacone",
     "9. АВТОМАТИЧНІ ПІДКАЗКИ: ДЕ ОПТИМІЗУВАТИ": "9. AUTOMATYCZNE WSKAZÓWKI: GDZIE OPTYMALIZOWAĆ",
+    "Витрати / фактури без категорії": "Koszty / faktury bez kategorii",
+    "Аркуш «Фактури»: вибрати категорію (червоні) або додати правило в «Правила банку»": "Arkusz «Фактури»: wybrać kategorię (czerwone) lub dodać regułę w «Правила банку»",
+    "* Прибуток клініки = вартість − технік − спецпрепарати − виплата лікарю (фактура з реєстру, якщо є; інакше за %). Оцінка: порівняно із середнім по клініці.":
+        "* Zysk kliniki = wartość − technik − preparaty − wynagrodzenie lekarza (faktura z rejestru, jeśli jest; inaczej wg %). Ocena: w porównaniu ze średnią kliniki.",
+    "Інші витрати (фактури + ручні)": "Pozostałe koszty (faktury + ręczne)",
+    "Борги пацієнтів (неоплачені візити)": "Należności pacjentów (nieopłacone wizyty)",
     "до мин. міс.": "do poprz. mies.",
     # Рік
     "ДИНАМІКА ЗА РІК": "DYNAMIKA ROCZNA", "Рік:": "Rok:", "Разом / сер.": "Razem / śr.",
@@ -153,6 +159,8 @@ HEADERS = {
     "Сума брутто, zł": "Kwota brutto, zł", "Термін оплати": "Termin płatności", "Категорія": "Kategoria",
     "Дата оплати (скрипт / вручну)": "Data płatności (skrypt / ręcznie)", "Статус (авто)": "Status (auto)", "Днів до терміну (авто)": "Dni do terminu (auto)",
     "Категорія витрат": "Kategoria kosztów", "Опис / постачальник": "Opis / dostawca", "Сума, zł": "Kwota, zł", "Лікар (для техніка)": "Lekarz (dla technika)",
+    "Оплачено пацієнтом, zł": "Zapłacono przez pacjenta, zł", "Позиція візиту": "Pozycja wizyty",
+    "Контрагент (FIRMA)": "Firma", "Місяць (авто)": "Miesiąc (auto)", "Нотатки": "Uwagi",
     "Дата (будь-який день місяця)": "Data (dowolny dzień miesiąca)", "Працівник": "Pracownik", "Роль": "Rola", "Годин за місяць": "Godzin w miesiącu",
     "Ставка, zł/год": "Stawka, zł/godz.", "Сума, zł (авто)": "Kwota, zł (auto)",
 }

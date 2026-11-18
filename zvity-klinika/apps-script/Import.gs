@@ -13,6 +13,7 @@ var TYPY = {
   BOOKSY: 'Booksy – записи',
   ADS: 'Google Ads – звіт',
   WPLATY: 'Felgdent – wpłaty (оплати)',
+  FWIZYTY: 'Felgdent – status wizyt oraz wpłat',
   FKOSZTY: 'Felgdent – koszty (технік)',
   FSOURCES: 'Felgdent – pozyskanie pacjenta',
   FSTATUS: 'Felgdent – status wizyt',
@@ -108,7 +109,7 @@ function mkDate(y, m, d) {
 function parseDate(v) {
   if (v === null || v === undefined || v === '') return null;
   if (Object.prototype.toString.call(v) === '[object Date]') {
-    return isNaN(v.getTime()) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    return isNaN(v.getTime()) || v.getFullYear() < 2000 ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
   }
   if (typeof v === 'number') {
     if (v > 20000 && v < 80000) { var b = new Date(1899, 11, 30); b.setDate(b.getDate() + Math.floor(v)); return b; }
@@ -196,7 +197,7 @@ function findHeader(rows, fields) {
 
 /** Визначає тип файлу за назвою файлу та заголовками колонок. */
 function detectType(rows, fieldsByType, hints, fileName) {
-  var fn = norm(fileName);
+  var fn = norm(String(fileName || '').replace(/[_.\-]+/g, ' '));
   var cands = [];
   Object.keys(fieldsByType).forEach(function (t) {
     var h = findHeader(rows, fieldsByType[t]);
@@ -276,6 +277,16 @@ function directionFromService(text) {
 }
 var PRIORYTET_NAPRAMKU = SLOWA_NAPRAMKU.map(function (x) { return x[0]; });
 
+/** Напрям з «Typ wizyty» у Felgdent (якщо в рядку немає послуги). */
+function directionFromType(typ) {
+  var t = norm(typ);
+  var map = [['endodon', 'Endodoncja'], ['chirurg', 'Chirurgia'], ['higien', 'Profilaktyka'], ['ortodon', 'Ortodoncja'], ['protet', 'Protetyka'],
+    ['implant', 'Implantologia'], ['pedodon', 'Dziecięca'], ['periodon', 'Zachowawcza'], ['zachowaw', 'Zachowawcza'], ['wybiel', 'Profilaktyka'],
+    ['estety', 'Zachowawcza'], ['awaryj', 'Zachowawcza'], ['kontrol', 'Zachowawcza'], ['konsult', 'Zachowawcza'], ['pierwsza', 'Zachowawcza']];
+  for (var i = 0; i < map.length; i++) if (t.indexOf(map[i][0]) >= 0) return map[i][1];
+  return '';
+}
+
 /** Рядки послуг з поля «Opis» Felgdent: «Wypełnienie … (25)\nKorona … (12)» → без номерів зубів. */
 function splitServices(opis) {
   return String(opis || '').split(/\r?\n|;/).map(function (x) { return x.replace(/\s*\([\d,\s\-]+\)\s*$/, '').trim(); }).filter(String);
@@ -317,7 +328,7 @@ function mapRecords(type, rows, header, opts) {
   function g(row, f) { return m[f] === undefined ? undefined : row[m[f]]; }
   function str(v) { return v === undefined || v === null ? '' : String(v).replace(/[ \u00a0]{2,}/g, ' ').trim(); }
   function uniq(key) { seen[key] = (seen[key] || 0) + 1; return key + '#' + seen[key]; }
-  var unknownStatuses = {};
+  var unknownStatuses = {}, visitSeen = {};
   if (type === 'BANK') {
     var hdrRow = rows[header.row].map(norm), mapped = {};
     Object.keys(m).forEach(function (k) { mapped[m[k]] = true; });
@@ -349,12 +360,21 @@ function mapRecords(type, rows, header, opts) {
       rec.key = uniq(['B', ymd(d), rec.amount.toFixed(2), norm(cp).slice(0, 40), norm(ds).slice(0, 60)].join('|'));
 
     } else if (type === 'INVOICES') {
-      var num = str(g(row, 'number')), d2 = parseDate(g(row, 'date')), gross = parseNumber(g(row, 'gross'));
-      if (!num || !d2 || gross === null) { skipped++; continue; }
+      var seller = str(g(row, 'seller')).replace(/\s+$/, '');
+      var gross = parseNumber(g(row, 'gross'));
+      var rawNum = g(row, 'number');
+      var num = Object.prototype.toString.call(rawNum) === '[object Date]' ? '' : str(rawNum);
+      var d2 = parseDate(g(row, 'date')) || opts.month || null;   // зарплати / ZUS без дати → місяць аркуша
+      if (!seller || gross === null || gross === 0 || !d2) { skipped++; continue; }
+      if (!num) num = seller + ' ' + ymd(d2).slice(0, 7);
       var nip = str(g(row, 'nip')).replace(/\D/g, '');
-      rec = { number: num, date: d2, seller: str(g(row, 'seller')), nip: nip, gross: Math.abs(gross),
-        due: parseDate(g(row, 'due')), category: str(g(row, 'category')) };
-      rec.key = 'F|' + norm(num).replace(/\s/g, '') + '|' + (nip || norm(rec.seller).slice(0, 30));
+      var paid = parseDate(g(row, 'paidDate'));
+      var flag = g(row, 'paidFlag');
+      if (!paid && (flag === true || yesLike(flag) || norm(flag) === '✓')) paid = parseDate(g(row, 'due')) || d2;
+      var notes = str(g(row, 'notes'));
+      rec = { number: num, date: d2, seller: seller, nip: nip, gross: gross, due: parseDate(g(row, 'due')),
+        category: str(g(row, 'category')), paidDate: paid || '', notes: notes };
+      rec.key = uniq('F|' + norm(num).replace(/\s/g, '') + '|' + (nip || norm(seller).slice(0, 30)));
 
     } else if (type === 'VISITS') {
       var d3 = parseDate(g(row, 'date')), pat = str(g(row, 'patient'));
@@ -402,6 +422,30 @@ function mapRecords(type, rows, header, opts) {
         clicks: parseNumber(g(row, 'clicks')) || 0, cost: cost, conversions: parseNumber(g(row, 'conversions')) || 0 };
       rec.key = 'A|' + ymd(d5) + '|' + norm(rec.campaign);
 
+    } else if (type === 'FWIZYTY') {
+      var t12 = str(g(row, 'start'));
+      if (!/^\d{1,2}:\d{2}$/.test(t12)) { skipped++; continue; }   // розділи «Wpisy…», «Wpis bez wizyty»
+      var d12 = parseDate(g(row, 'date')), p12 = str(g(row, 'patient'));
+      if (!d12 || !p12) { skipped++; continue; }
+      var raw12 = str(g(row, 'status'));
+      var st12 = mapStatus(raw12, opts.statusRules || []);
+      if (st12 === 'Пропустити') { skipped++; continue; }
+      if (!st12) { st12 = raw12; unknownStatuses[raw12] = true; }
+      var el = str(g(row, 'elements'));
+      var svc = /^wizyta bez|^brak/i.test(norm(el)) ? '' : el.replace(/^\d+(\.\d+)?\s+/, '');
+      var doc12 = str(g(row, 'doctor'));
+      var vkey = [ymd(d12), t12, norm(p12), norm(doc12)].join('|');
+      var firstRow = !visitSeen[vkey]; visitSeen[vkey] = true;
+      var endIdx = m.start + 1;
+      var typ = str(g(row, 'type'));
+      var a12 = parseNumber(g(row, 'amount')), paid12 = parseNumber(g(row, 'paid'));
+      rec = { date: d12, patient: p12, doctor: doc12, service: svc, amount: a12 || 0, status: st12,
+        duration: firstRow ? (parseDuration(null, t12, row[endIdx]) || 0) : 0,
+        lab: null, prep: null, payment: mapPayment(g(row, 'payment') === '---' || g(row, 'payment') === '-' ? '' : g(row, 'payment')),
+        direction: '', typeDirection: directionFromType(typ), isNew: /pierwsza/.test(norm(typ)) ? 'Так' : 'Ні', source: '',
+        paid: paid12 === null ? '' : paid12, pos: firstRow ? '' : 'dodatkowa' };
+      rec.key = uniq(['FW', ymd(d12), t12, norm(p12), norm(doc12), norm(svc)].join('|'));
+
     } else if (type === 'WPLATY') {
       var d6 = parseDate(g(row, 'date')), p6 = str(g(row, 'patient')), a6 = parseNumber(g(row, 'amount'));
       if (!d6 || a6 === null) { skipped++; continue; }
@@ -416,7 +460,7 @@ function mapRecords(type, rows, header, opts) {
       if (!d7 || a7 === null) { skipped++; continue; }
       var opis7 = str(g(row, 'description'));
       rec = { date: d7, doctor: str(g(row, 'addedBy')), description: opis7, amount: Math.abs(a7), payment: mapPayment(g(row, 'payment')),
-        category: /techn|labor|protet|pracowni/i.test(norm(opis7)) ? 'Technik / laboratorium (koszt z Felgdent)' : 'Inne koszty gabinetu (Felgdent)' };
+        category: 'Koszty z Felgdent (kontrola)' };
       rec.key = uniq(['K', ymd(d7), norm(rec.doctor), rec.amount.toFixed(2), norm(opis7).slice(0, 40)].join('|'));
 
     } else if (type === 'FSOURCES') {
@@ -528,5 +572,5 @@ if (typeof module !== 'undefined') {
   module.exports = { norm: norm, parseCsvText: parseCsvText, parseNumber: parseNumber, parseDate: parseDate, parseDuration: parseDuration,
     findHeader: findHeader, detectType: detectType, mapRecords: mapRecords, categorize: categorize, dirFromText: dirFromText,
     matchInvoices: matchInvoices, mapStatus: mapStatus, mapPayment: mapPayment, directionFromDoctor: directionFromDoctor,
-    directionFromService: directionFromService, splitServices: splitServices, felgdentStatus: felgdentStatus, PRIORYTET_NAPRAMKU: PRIORYTET_NAPRAMKU };
+    directionFromService: directionFromService, directionFromType: directionFromType, splitServices: splitServices, felgdentStatus: felgdentStatus, PRIORYTET_NAPRAMKU: PRIORYTET_NAPRAMKU };
 }

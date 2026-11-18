@@ -95,7 +95,7 @@
   "INVOICES": [
    {
     "name": "number",
-    "required": "так",
+    "required": "ні",
     "aliases": [
      "numer faktury",
      "nr faktury",
@@ -107,7 +107,7 @@
    },
    {
     "name": "date",
-    "required": "так",
+    "required": "ні",
     "aliases": [
      "data wystawienia",
      "data faktury",
@@ -118,8 +118,9 @@
    },
    {
     "name": "seller",
-    "required": "ні",
+    "required": "так",
     "aliases": [
+     "firma",
      "sprzedawca",
      "nazwa sprzedawcy",
      "dostawca",
@@ -157,9 +158,39 @@
     "aliases": [
      "termin platnosci",
      "termin zaplaty",
-     "data platnosci",
      "termin",
      "due date"
+    ]
+   },
+   {
+    "name": "paidDate",
+    "required": "ні",
+    "aliases": [
+     "data opl",
+     "data oplaty",
+     "data zaplaty",
+     "data platnosci",
+     "zaplacono dnia"
+    ]
+   },
+   {
+    "name": "paidFlag",
+    "required": "ні",
+    "aliases": [
+     "✓",
+     "oplacone",
+     "zaplacone",
+     "oplacono"
+    ]
+   },
+   {
+    "name": "notes",
+    "required": "ні",
+    "aliases": [
+     "sposob platnosci",
+     "uwagi",
+     "kto to",
+     "notatki"
     ]
    },
    {
@@ -530,6 +561,85 @@
     ]
    }
   ],
+  "FWIZYTY": [
+   {
+    "name": "start",
+    "required": "так",
+    "aliases": [
+     "godzina"
+    ]
+   },
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "dzien"
+    ]
+   },
+   {
+    "name": "status",
+    "required": "так",
+    "aliases": [
+     "status wizyty"
+    ]
+   },
+   {
+    "name": "type",
+    "required": "ні",
+    "aliases": [
+     "typ"
+    ]
+   },
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent"
+    ]
+   },
+   {
+    "name": "doctor",
+    "required": "так",
+    "aliases": [
+     "lekarz"
+    ]
+   },
+   {
+    "name": "elements",
+    "required": "так",
+    "aliases": [
+     "elementy"
+    ]
+   },
+   {
+    "name": "amount",
+    "required": "так",
+    "aliases": [
+     "kwoty"
+    ]
+   },
+   {
+    "name": "paid",
+    "required": "ні",
+    "aliases": [
+     "zaplacone"
+    ]
+   },
+   {
+    "name": "payment",
+    "required": "ні",
+    "aliases": [
+     "metoda platnosci"
+    ]
+   },
+   {
+    "name": "discount",
+    "required": "ні",
+    "aliases": [
+     "wartosc rabatu"
+    ]
+   }
+  ],
   "WPLATY": [
    {
     "name": "date",
@@ -734,7 +844,7 @@
   },
   {
    "fragments": [
-    "odwolan",
+    "odwol",
     "anulowan",
     "rezygnac",
     "cancel"
@@ -743,6 +853,7 @@
   },
   {
    "fragments": [
+    "nie odpowiada",
     "przesuni",
     "zaplanowan",
     "potwierdzon",
@@ -759,6 +870,8 @@
    "fragments": [
     "zrealizowan",
     "odbyt",
+    "odbyla",
+    "poczekalni",
     "wykonan",
     "zakonczon",
     "obecny",
@@ -772,6 +885,12 @@
   }
  ],
  "hints": [
+  {
+   "type": "FWIZYTY",
+   "fragments": [
+    "status wizyt oraz"
+   ]
+  },
   {
    "type": "WPLATY",
    "fragments": [
@@ -877,6 +996,106 @@
   }
  ],
  "rules": [
+  {
+   "kw": "pozyczka",
+   "dir": "any",
+   "category": "Pożyczka właściciela (wpływ / spłata)"
+  },
+  {
+   "kw": "fiserv",
+   "dir": "out",
+   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+  },
+  {
+   "kw": "polcard",
+   "dir": "out",
+   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+  },
+  {
+   "kw": "znanylek",
+   "dir": "out",
+   "category": "ZnanyLekarz"
+  },
+  {
+   "kw": "play",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "polenergia",
+   "dir": "out",
+   "category": "Samochód (paliwo, ładowanie)"
+  },
+  {
+   "kw": "greenway",
+   "dir": "out",
+   "category": "Samochód (paliwo, ładowanie)"
+  },
+  {
+   "kw": "orlen",
+   "dir": "out",
+   "category": "Samochód (paliwo, ładowanie)"
+  },
+  {
+   "kw": "freedom",
+   "dir": "out",
+   "category": "Laboratorium – płatność (звірка)"
+  },
+  {
+   "kw": "technik",
+   "dir": "out",
+   "category": "Laboratorium – płatność (звірка)"
+  },
+  {
+   "kw": "dental tree",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "miwo dent",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "biogentech",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "amexmed",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "inlay",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "globald",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "solid",
+   "dir": "out",
+   "category": "Ochrona / monitoring"
+  },
+  {
+   "kw": "furgonetka",
+   "dir": "out",
+   "category": "Wysyłki / kurier"
+  },
+  {
+   "kw": "allegro",
+   "dir": "out",
+   "category": "Biuro i drobne"
+  },
+  {
+   "kw": "biedronka",
+   "dir": "out",
+   "category": "Biuro i drobne"
+  },
   {
    "kw": "google",
    "dir": "out",
@@ -1270,12 +1489,17 @@
   {
    "kw": "prowizja",
    "dir": "out",
-   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+   "category": "Opłaty bankowe"
   },
   {
    "kw": "oplata za",
    "dir": "out",
-   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+   "category": "Opłaty bankowe"
+  },
+  {
+   "kw": "oplata mies",
+   "dir": "out",
+   "category": "Opłaty bankowe"
   },
   {
    "kw": "payu",

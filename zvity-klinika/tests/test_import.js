@@ -93,15 +93,16 @@ rep.forEach(f => f.sheets.forEach(sh => {
   const rows = sh.rows.map(r => r.map(rv));
   const det = I.detectType(rows, cfg.fields, cfg.hints, (f.sheets.length > 1 ? sh.name + ' | ' : '') + f.file);
   if (det.error) return;
-  got[det.type] = I.mapRecords(det.type, rows, det.header, { statusRules: cfg.statuses, month: new Date(2026, 9, 1) });
+  const sm = sh.name.match(/^(\d{1,2})(20\d{2})$/);
+  got[det.type] = I.mapRecords(det.type, rows, det.header, { statusRules: cfg.statuses, month: sm ? new Date(+sm[2], +sm[1] - 1, 1) : new Date(2026, 9, 1) });
 }));
-ok(Object.keys(got).sort().join() === 'FDUR,FKOSZTY,FSOURCES,FSTATUS,FZAPISY,WPLATY', 'felgdent types ' + Object.keys(got));
+ok(Object.keys(got).sort().join() === 'FDUR,FKOSZTY,FSOURCES,FSTATUS,FWIZYTY,FZAPISY,INVOICES,WPLATY', 'felgdent types ' + Object.keys(got));
 const w = got.WPLATY.records;
 ok(w.length === 4 && w[0].payment === 'Czek' && w[1].payment === 'Karta' && w[3].payment === 'Wpłata mieszana' && w[1].amount === 2000, 'wplaty');
 ok(w[1].lines.length === 3 && w[1].lines[0] === 'korona cyrkonowa TEST', 'wplaty lines ' + w[1].lines);
 ok(I.directionFromService(w[0].lines[0]) === 'Profilaktyka' && I.directionFromService(w[1].lines[0]) === 'Protetyka' &&
    I.directionFromService(w[2].lines[0]) === 'Zachowawcza' && I.directionFromService(w[3].lines[0]) === 'Zachowawcza', 'service directions');
-ok(got.FKOSZTY.records[0].category === 'Technik / laboratorium (koszt z Felgdent)' && got.FKOSZTY.records[0].doctor === 'Lekarz Testowy', 'koszty');
+ok(got.FKOSZTY.records[0].category === 'Koszty z Felgdent (kontrola)' && got.FKOSZTY.records[0].doctor === 'Lekarz Testowy', 'koszty');
 ok(got.FSOURCES.records.length === 3 && got.FSOURCES.records[2].patient === 'ADAM INNY' && got.FSOURCES.records[0].source === 'Z sieci', 'sources');
 ok(got.FSTATUS.records.find(r => r.raw === 'Pacjentów nie przyszło').status === 'Неявка' && got.FSTATUS.records.find(r => r.raw === 'Odbytych wizyt').status === 'Виконано' &&
    got.FSTATUS.records.find(r => r.raw === 'Odwołanych wizyt przez gabinet').status === 'Скасовано', 'fstatus');
@@ -110,5 +111,20 @@ const z = got.FZAPISY.records;
 ok(z.length === 5 && got.FZAPISY.skipped === 1, 'zapisy rows ' + z.length);
 ok(z.map(x => x.status).join() === 'Перенесено,Виконано,Скасовано,Неявка,Видалено' && +z[1].date === +new Date(2026, 9, 8), 'zapisy statuses ' + z.map(x => x.status));
 ok(+I.parseDate('09:35 07/10/2026') === +new Date(2026, 9, 7), 'felgdent datetime');
+
+// Status wizyt oraz wpłat: одна послуга на рядок, тривалість лише в першому рядку візиту
+const fw = got.FWIZYTY.records;
+ok(fw.length === 5 && got.FWIZYTY.skipped === 4, 'fwizyty rows ' + fw.length + '/' + got.FWIZYTY.skipped);
+ok(fw[0].service === 'Leczenie endodontyczne z wypełnieniem 3 kanałów' && fw[0].amount === 1900 && fw[0].paid === 1900 && fw[0].duration === 1.25 && fw[0].pos === '', 'fw first row');
+ok(fw[1].duration === 0 && fw[1].pos === 'dodatkowa' && fw[1].paid === 0 && fw[1].payment === '', 'fw second row of visit');
+ok(fw[2].status === 'Неявка' && fw[2].isNew === 'Так' && fw[2].service === '' && fw[3].isNew === 'Так' && fw[3].paid === 330, 'fw noshow / first visit');
+ok(fw[4].status === 'Скасовано' && fw[4].typeDirection === 'Chirurgia', 'fw cancelled');
+// Реєстр фактур: місяць з назви аркуша, оплата через ✓, лікар, ZUS без дати
+const iv = got.INVOICES.records;
+ok(iv.length === 5 && got.INVOICES.skipped === 2, 'register rows ' + iv.length + '/' + got.INVOICES.skipped);
+ok(iv[0].paidDate && +iv[0].paidDate === +new Date(2026, 9, 8) && iv[1].paidDate && +iv[1].paidDate === +new Date(2026, 9, 17), 'paid via ✓ (1900 date ignored)');
+ok(iv[2].seller === 'KRZYSZTOF' && iv[2].number === 'KRZYSZTOF 2026-10' && iv[2].paidDate === '', 'doctor invoice number fallback');
+ok(iv[3].gross === 3994.14 && +iv[3].date === +new Date(2026, 9, 1), 'ZUS: amount text + month from sheet name');
+ok(iv[4].due === null && I.categorize(iv[4].seller, '', -1, cfg.rules) === 'Laboratorium – płatność (звірка)', 'lab invoice');
 
 console.log('OK — ' + n + ' перевірок пройдено');

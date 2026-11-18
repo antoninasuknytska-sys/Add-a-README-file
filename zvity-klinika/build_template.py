@@ -115,6 +115,10 @@ for i, (lbl, val, fmt, note) in enumerate([
 st["A8"] = "Звітний місяць, 1-ше число (авто)"; st["B8"] = "=DATE(YEAR(B3),MONTH(B3),1)"; st["B8"].number_format = MON
 st["A9"] = "Попередній місяць (авто)"; st["B9"] = "=DATE(YEAR(B3),MONTH(B3)-1,1)"; st["B9"].number_format = MON
 MCUR, MPREV = f"{S}$B$8", f"{S}$B$9"
+st["A10"] = "Посилання на реєстр фактур (Google Таблиця)"; st["A10"].font = font()
+c = st["B10"]; c.fill = INP; c.font = font(color="0000FF"); c.border = BOX
+st["E10"] = "Якщо вписати посилання на вашу Google-таблицю з фактурами, скрипт щоночі сам забиратиме з неї всі аркуші (напр. «102026», «112026»)."
+st["E10"].font = font(italic=True, color="666666")
 
 st["A11"] = "ПОРОГИ КОЛЬОРІВ (зелений / оранжевий / червоний)"; st["A11"].font = font(bold=True, size=12)
 header(st, 12, ["Показник", "ЗЕЛЕНИЙ (добре), якщо", "ОРАНЖЕВИЙ (середньо), якщо", "Напрям", "Пояснення"])
@@ -163,10 +167,10 @@ D = "'Довідники'!"
 dv["A1"] = "ДОВІДНИКИ: заповніть один раз, далі вони підтягуються у випадаючі списки та звіти"; dv["A1"].font = font(bold=True, size=12)
 dv["A2"] = "Жовті клітинки можна змінювати. Імена та % — приклад. Нових лікарів і послуги з Felgdent скрипт додає сам (порожній % підсвічується червоним)."
 dv["A2"].font = font(italic=True, color="666666")
-docs = [("Lekarz 1", "Лікар", 0.35, 0.9), ("Lekarz 2", "Лікар", 0.35, 0.75), ("Lekarz 3", "Лікар", 0.40, 1.05), ("Lekarz 4", "Лікар", 0.40, 1.0),
-        ("Lekarz 5", "Лікар", 0.35, 1.0), ("Lekarz 6", "Лікар", 0.40, 0.4), ("Lekarz 7", "Лікар", 0.30, 1.2),
-        ("Higienistka 1", "Гігієністка", 0.20, 0.95), ("Higienistka 2", "Гігієністка", 0.20, 0.95)]
-header(dv, 3, ["Лікар / гігієністка (як у Felgdent)", "Роль", "% від (вартість − технік − спецпрепарати)", "Сер. тривалість візиту, год (з Felgdent)"], 1)
+docs = [("Lekarz 1", None, 0.35, 0.9), ("Lekarz 2", None, 0.35, 0.75), ("Lekarz 3", None, 0.40, 1.05), ("Lekarz 4", None, 0.40, 1.0),
+        ("Lekarz 5", None, 0.35, 1.0), ("Lekarz 6", None, 0.40, 0.4), ("Lekarz 7", None, 0.30, 1.2),
+        ("Higienistka 1", None, 0.20, 0.95), ("Higienistka 2", None, 0.20, 0.95)]
+header(dv, 3, ["Лікар / гігієністка (як у Felgdent)", "Назва в реєстрі фактур (FIRMA)", "% від (вартість − технік − спецпрепарати)", "Сер. тривалість візиту, год (з Felgdent)"], 1)
 for i in range(17):
     vals = docs[i] if i < len(docs) else (None, None, None, None)
     for j, v in enumerate(vals):
@@ -200,6 +204,7 @@ for i, gr in enumerate(groups):
     for j, v in enumerate(gr):
         c = dv.cell(row=4 + i, column=13 + j, value=v); c.fill = INP; c.border = BOX; c.font = font(color="0000FF")
         if j: c.number_format = "0%"
+dv["B3"].comment = Comment("Як лікар записаний у колонці FIRMA реєстру фактур (напр. KRZYSZTOF). Тоді у звіт іде фактична сума його фактури за місяць, а не розрахунок за %.", "Шаблон")
 dv["N3"].comment = Comment("Орієнтовні галузеві норми (емпіричні, не з офіційного джерела). Скоригуйте під себе.", "Шаблон")
 cats = [("Materiały i narzędzia (zakupy)", "Матеріали"),
         ("Czynsz", "Приміщення"), ("Media (prąd, woda, ogrzewanie)", "Приміщення"), ("Sprzątanie / pranie", "Приміщення"),
@@ -208,11 +213,17 @@ cats = [("Materiały i narzędzia (zakupy)", "Матеріали"),
         ("Vouchery i materiały promocyjne", "Маркетинг"), ("Inny marketing (strona, foto, SMM)", "Маркетинг"),
         ("Księgowość", "Адміністрування"), ("Oprogramowanie (Felgdent i in.)", "Адміністрування"), ("Telefon / internet", "Адміністрування"),
         ("Ubezpieczenie OC / mienia", "Адміністрування"), ("Szkolenia", "Адміністрування"), ("Biuro i drobne", "Адміністрування"),
-        ("Prowizje (terminal, PayU, Mediraty, bank)", "Фінансові витрати"), ("Kredyty / odsetki", "Фінансові витрати"),
+        ("Prowizje (terminal, PayU, Mediraty, bank)", "Фінансові витрати"), ("Opłaty bankowe", "Фінансові витрати"), ("Kredyty / odsetki", "Фінансові витрати"),
         ("Podatki (PIT/CIT, VAT)", "Податки і ZUS"), ("ZUS", "Податки і ZUS"), ("Wypłata właściciela", "Власник (виплата собі)"),
-        ("Technik / laboratorium (koszt z Felgdent)", "Лабораторія (технік)"), ("Inne koszty gabinetu (Felgdent)", "Адміністрування"),
-        ("Laboratorium – płatność (звірка)", "Не рахувати: лабораторія"),
-        ("Implanty / preparaty – płatność (звірка)", "Не рахувати: препарати"),
+        ("Technik / laboratorium (koszt z Felgdent)", "Не рахувати: Felgdent"), ("Inne koszty gabinetu (Felgdent)", "Не рахувати: Felgdent"),
+        ("Laboratorium – płatność (звірка)", "Лабораторія (технік)"),
+        ("Implanty / preparaty – płatność (звірка)", "Спецпрепарати / імпланти"),
+        ("Wynagrodzenie lekarza / higienistki (faktura)", "Лікарі і гігієністки"),
+        ("Wynagrodzenia personelu", "Персонал погодинно"),
+        ("Samochód (paliwo, ładowanie)", "Адміністрування"), ("Ochrona / monitoring", "Адміністрування"),
+        ("Wysyłki / kurier", "Адміністрування"),
+        ("Pożyczka właściciela (wpływ / spłata)", "Не рахувати: перекази"),
+        ("Koszty z Felgdent (kontrola)", "Не рахувати: Felgdent"),
         ("Wypłaty lekarzy i personelu (звірка)", "Не рахувати: зарплати"),
         ("Przelew między własnymi rachunkami", "Не рахувати: перекази"),
         ("Надходження: термінал", "Надходження"), ("Надходження: PayU raty", "Надходження"), ("Надходження: Mediraty", "Надходження"),
@@ -239,6 +250,17 @@ CAT_GROUP = dict(cats)
 
 # =============== Правила банку ===============
 RULES = [
+    ("POZYCZKA", "будь-яка", "Pożyczka właściciela (wpływ / spłata)"),
+    ("FISERV", "витрата", "Prowizje (terminal, PayU, Mediraty, bank)"), ("POLCARD", "витрата", "Prowizje (terminal, PayU, Mediraty, bank)"),
+    ("ZNANYLEK", "витрата", "ZnanyLekarz"), ("PLAY", "витрата", "Telefon / internet"),
+    ("POLENERGIA", "витрата", "Samochód (paliwo, ładowanie)"), ("GREENWAY", "витрата", "Samochód (paliwo, ładowanie)"),
+    ("ORLEN", "витрата", "Samochód (paliwo, ładowanie)"),
+    ("FREEDOM", "витрата", "Laboratorium – płatność (звірка)"), ("TECHNIK", "витрата", "Laboratorium – płatność (звірка)"),
+    ("DENTAL TREE", "витрата", "Materiały i narzędzia (zakupy)"), ("MIWO DENT", "витрата", "Materiały i narzędzia (zakupy)"),
+    ("BIOGENTECH", "витрата", "Materiały i narzędzia (zakupy)"), ("AMEXMED", "витрата", "Materiały i narzędzia (zakupy)"),
+    ("INLAY", "витрата", "Materiały i narzędzia (zakupy)"), ("GLOBALD", "витрата", "Materiały i narzędzia (zakupy)"),
+    ("SOLID", "витрата", "Ochrona / monitoring"), ("FURGONETKA", "витрата", "Wysyłki / kurier"),
+    ("ALLEGRO", "витрата", "Biuro i drobne"), ("BIEDRONKA", "витрата", "Biuro i drobne"),
     ("GOOGLE", "витрата", "Google Ads"), ("FACEBK", "витрата", "Meta Ads (Instagram/Facebook)"), ("FACEBOOK", "витрата", "Meta Ads (Instagram/Facebook)"),
     ("META PLATFORMS", "витрата", "Meta Ads (Instagram/Facebook)"), ("INSTAGRAM", "витрата", "Meta Ads (Instagram/Facebook)"),
     ("ZNANYLEKARZ", "витрата", "ZnanyLekarz"), ("ZNANY LEKARZ", "витрата", "ZnanyLekarz"), ("DOCPLANNER", "витрата", "ZnanyLekarz"),
@@ -273,7 +295,7 @@ RULES = [
     ("WYPLATA WLASCICIELA", "витрата", "Wypłata właściciela"),
     ("PRZELEW WLASNY", "будь-яка", "Przelew między własnymi rachunkami"), ("PRZELEW MIEDZY", "будь-яка", "Przelew między własnymi rachunkami"),
     ("RATA KREDYTU", "витрата", "Kredyty / odsetki"), ("ODSETKI", "витрата", "Kredyty / odsetki"),
-    ("PROWIZJA", "витрата", "Prowizje (terminal, PayU, Mediraty, bank)"), ("OPLATA ZA", "витрата", "Prowizje (terminal, PayU, Mediraty, bank)"),
+    ("PROWIZJA", "витрата", "Opłaty bankowe"), ("OPLATA ZA", "витрата", "Opłaty bankowe"), ("OPLATA MIES", "витрата", "Opłaty bankowe"),
     ("PAYU", "витрата", "Prowizje (terminal, PayU, Mediraty, bank)"),
     ("PAYU", "надходження", "Надходження: PayU raty"), ("MEDIRATY", "надходження", "Надходження: Mediraty"), ("MEDI RATY", "надходження", "Надходження: Mediraty"),
     ("ELAVON", "надходження", "Надходження: термінал"), ("PAYTEL", "надходження", "Надходження: термінал"), ("FISERV", "надходження", "Надходження: термінал"),
@@ -306,12 +328,15 @@ FIELDS = {
           ("counterparty", "ні", "nadawca/odbiorca; nadawca / odbiorca; odbiorca/nadawca; kontrahent; dane kontrahenta; nazwa kontrahenta; odbiorca; nadawca; counterparty; beneficiary"),
           ("description", "так", "opis operacji; opis transakcji; tytul operacji; tytul; opis; szczegoly; description; title; details"),
           ("account", "ні", "numer rachunku; rachunek; konto; account")],
- "INVOICES": [("number", "так", "numer faktury; nr faktury; numer dokumentu; nr dokumentu; numer; invoice number"),
-          ("date", "так", "data wystawienia; data faktury; data dokumentu; data; issue date"),
-          ("seller", "ні", "sprzedawca; nazwa sprzedawcy; dostawca; wystawca; kontrahent; nazwa kontrahenta; seller"),
+ "INVOICES": [("number", "ні", "numer faktury; nr faktury; numer dokumentu; nr dokumentu; numer; invoice number"),
+          ("date", "ні", "data wystawienia; data faktury; data dokumentu; data; issue date"),
+          ("seller", "так", "firma; sprzedawca; nazwa sprzedawcy; dostawca; wystawca; kontrahent; nazwa kontrahenta; seller"),
           ("nip", "ні", "nip sprzedawcy; nip; nip kontrahenta"),
           ("gross", "так", "kwota brutto; brutto; wartosc brutto; razem brutto; do zaplaty; kwota; gross"),
-          ("due", "ні", "termin platnosci; termin zaplaty; data platnosci; termin; due date"),
+          ("due", "ні", "termin platnosci; termin zaplaty; termin; due date"),
+          ("paidDate", "ні", "data opl; data oplaty; data zaplaty; data platnosci; zaplacono dnia"),
+          ("paidFlag", "ні", "✓; oplacone; zaplacone; oplacono"),
+          ("notes", "ні", "sposob platnosci; uwagi; kto to; notatki"),
           ("category", "ні", "kategoria")],
  "VISITS": [("date", "так", "data wizyty; data; dzien; termin wizyty; data zabiegu"),
           ("patient", "так", "pacjent; imie i nazwisko; nazwisko i imie; nr karty; numer karty; id pacjenta"),
@@ -347,6 +372,9 @@ FIELDS = {
           ("clicks", "ні", "klikniecia; clicks"),
           ("cost", "так", "koszt; cost"),
           ("conversions", "ні", "konwersje; conversions")],
+ "FWIZYTY": [("start", "так", "godzina"), ("date", "так", "dzien"), ("status", "так", "status wizyty"), ("type", "ні", "typ"),
+          ("patient", "так", "pacjent"), ("doctor", "так", "lekarz"), ("elements", "так", "elementy"), ("amount", "так", "kwoty"),
+          ("paid", "ні", "zaplacone"), ("payment", "ні", "metoda platnosci"), ("discount", "ні", "wartosc rabatu")],
  "WPLATY": [("date", "так", "data; data wplaty"), ("patient", "так", "pacjent"), ("description", "так", "opis"),
           ("payment", "так", "metoda platnosci"), ("amount", "так", "kwota"), ("addedBy", "ні", "dodane przez")],
  "FKOSZTY": [("date", "так", "data"), ("addedBy", "так", "dodane przez"), ("description", "так", "opis"),
@@ -360,13 +388,13 @@ FIELDS = {
 }
 TYPE_LBL = {"BANK": "Виписка з банку", "INVOICES": "Фактури (реєстр)", "VISITS": "Felgdent – візити", "PATIENTS": "Felgdent – пацієнти",
             "ZL": "ZnanyLekarz – записи", "BOOKSY": "Booksy – записи", "ADS": "Google Ads – звіт",
-            "WPLATY": "Felgdent – wpłaty", "FKOSZTY": "Felgdent – koszty", "FSOURCES": "Felgdent – pozyskanie pacjenta",
+            "WPLATY": "Felgdent – wpłaty", "FWIZYTY": "Felgdent – status wizyt oraz wpłat", "FKOSZTY": "Felgdent – koszty", "FSOURCES": "Felgdent – pozyskanie pacjenta",
             "FSTATUS": "Felgdent – status wizyt", "FDUR": "Felgdent – średnia długość wizyty", "FZAPISY": "Felgdent – przesunięcia wizyt"}
 STATUSES = [("nieobecn; nie przysz; nie stawil; niestawien; no-show; no show; noshow", "Неявка"),
-            ("odwolan; anulowan; rezygnac; cancel", "Скасовано"),
-            ("przesuni; zaplanowan; potwierdzon; umowion; oczekuj; planned; confirmed; booked; nowa", "Пропустити"),
-            ("zrealizowan; odbyt; wykonan; zakonczon; obecny; obecna; przyszedl; completed; done; finished", "Виконано")]
-HINTS = [("WPLATY", "wplaty"), ("FKOSZTY", "koszty"), ("FSOURCES", "pozyskani"), ("FSTATUS", "status wizyt"),
+            ("odwol; anulowan; rezygnac; cancel", "Скасовано"),
+            ("nie odpowiada; przesuni; zaplanowan; potwierdzon; umowion; oczekuj; planned; confirmed; booked; nowa", "Пропустити"),
+            ("zrealizowan; odbyt; odbyla; poczekalni; wykonan; zakonczon; obecny; obecna; przyszedl; completed; done; finished", "Виконано")]
+HINTS = [("FWIZYTY", "status wizyt oraz"), ("WPLATY", "wplaty"), ("FKOSZTY", "koszty"), ("FSOURCES", "pozyskani"), ("FSTATUS", "status wizyt"),
          ("FDUR", "dlugosc wizyty; czas wizyty"), ("FZAPISY", "przesuni"), ("BOOKSY", "booksy"), ("ZL", "znany; docplanner"), ("ADS", "google ads; googleads; adwords; kampani; campaign"),
          ("INVOICES", "faktur; ksef; invoice"), ("PATIENTS", "pacjenci; pacjentow; patients"),
          ("VISITS", "felg; wizyty; wizyt; zabiegi"), ("BANK", "wyciag; historia; pko; mbank; santander; ing; pekao; millennium; alior; bnp; credit agricole; bank; operacj")]
@@ -425,9 +453,9 @@ vs = wb.create_sheet("Візити")
 V = "'Візити'!"
 header(vs, 1, ["Дата візиту", "Місяць (авто)", "Пацієнт (ID / прізвище)", "Новий пацієнт? (Так/Ні)", "Джерело пацієнта", "Лікар", "Напрям",
                "Послуга", "Вартість, zł", "Технік (лабораторія), zł", "Спецпрепарати / імплант, zł", "Спосіб оплати", "Статус", "Тривалість, год",
-               "% лікаря (авто)", "Виплата лікарю (авто), zł", "Маржа клініки (авто), zł", "Ключ імпорту"])
+               "% лікаря (авто)", "Виплата лікарю (авто), zł", "Маржа клініки (авто), zł", "Ключ імпорту", "Оплачено пацієнтом, zł", "Позиція візиту"])
 vs.freeze_panes = "C2"; vs.row_dimensions[1].height = 45
-widths(vs, {"A": 12, "B": 10, "C": 18, "D": 10, "E": 20, "F": 15, "G": 15, "H": 34, "I": 11, "J": 11, "K": 12, "L": 18, "M": 11, "N": 9, "O": 9, "P": 13, "Q": 13, "R": 30})
+widths(vs, {"A": 12, "B": 10, "C": 18, "D": 10, "E": 20, "F": 15, "G": 15, "H": 34, "I": 11, "J": 11, "K": 12, "L": 18, "M": 11, "N": 9, "O": 9, "P": 13, "Q": 13, "R": 30, "S": 12, "T": 11})
 vs.column_dimensions["R"].hidden = True
 doc_dirs = {"Lekarz 1": ["Zachowawcza", "Endodoncja"], "Lekarz 2": ["Zachowawcza", "Dziecięca"], "Lekarz 3": ["Endodoncja"],
             "Lekarz 4": ["Chirurgia", "Implantologia"], "Lekarz 5": ["Protetyka"], "Lekarz 6": ["Ortodoncja"],
@@ -549,19 +577,21 @@ cf_rules(bk, f"C2:C{N}", 'AND(ISNUMBER($C2),$C2>0)', None, None)
 # =============== Фактури ===============
 fv = wb.create_sheet("Фактури")
 FV = "'Фактури'!"
-header(fv, 1, ["Номер фактури", "Дата виставлення", "Контрагент (продавець)", "NIP", "Сума брутто, zł", "Термін оплати", "Категорія",
-               "Дата оплати (скрипт / вручну)", "Статус (авто)", "Днів до терміну (авто)", "Ключ імпорту"])
+header(fv, 1, ["Номер фактури", "Дата виставлення", "Контрагент (FIRMA)", "NIP", "Сума брутто, zł", "Термін оплати", "Категорія",
+               "Дата оплати (скрипт / вручну)", "Статус (авто)", "Днів до терміну (авто)", "Ключ імпорту", "Місяць (авто)", "Група (авто)", "Нотатки"])
 fv.freeze_panes = "A2"; fv.row_dimensions[1].height = 45
-widths(fv, {"A": 20, "B": 12, "C": 30, "D": 13, "E": 13, "F": 12, "G": 32, "H": 14, "I": 16, "J": 12, "K": 30})
+widths(fv, {"A": 20, "B": 12, "C": 30, "D": 13, "E": 13, "F": 12, "G": 32, "H": 14, "I": 16, "J": 12, "K": 30, "L": 10, "M": 22, "N": 30})
 fv.column_dimensions["K"].hidden = True
+fv["P1"] = ("ГОЛОВНЕ ДЖЕРЕЛО ВИТРАТ. Сюди імпортується ваш реєстр фактур (DATA WYSTAWIENIA, FIRMA, NR FAKTURY, KWOTA, TERMIN, DATA OPŁ, ✓). "
+            "Звіт рахує витрати за місяцем фактури. Банк — лише рух грошей і перевірка оплат.")
+fv["P1"].font = font(bold=True, color="9C0006"); fv["P1"].alignment = Alignment(wrap_text=True); fv.column_dimensions["P"].width = 60
 inv = []
-for m in (9, 10):
-    inv += [(f"2026/{m:02d}/118", dt.date(2026, m, 3), "HENRY SCHEIN POLSKA", "5260001111", 5200, dt.date(2026, m, 17), "Materiały i narzędzia (zakupy)", dt.date(2026, m, 16)),
-            (f"{400+m}/2026", dt.date(2026, m, 8), "SIGMA DENTAL", "5270002222", 4400, dt.date(2026, m, 22), "Materiały i narzędzia (zakupy)", dt.date(2026, m, 22)),
-            (f"LAB/{m:02d}/2026", dt.date(2026, m, 10), "LAB PROTETYK SP. Z O.O.", "5280003333", None, dt.date(2026, m, 24), "Laboratorium – płatność (звірка)", dt.date(2026, m, 18)),
-            (f"FV/{m:02d}/2026/15", dt.date(2026, m, 1), "BIURO RACHUNKOWE ABC", "5290004444", 1500, dt.date(2026, m, 14), "Księgowość", dt.date(2026, m, 14))]
-inv[2] = inv[2][:4] + (next(b for b in bank_rows if b[2].startswith("LAB") and b[0].month == 9)[1] * -1,) + inv[2][5:]
-inv[6] = inv[6][:4] + (next(b for b in bank_rows if b[2].startswith("LAB") and b[0].month == 10)[1] * -1,) + inv[6][5:]
+for k, (d, amt, cp, desc, manual) in enumerate(bank_rows):
+    if amt >= 0: continue
+    cat = manual or categorize(cp, desc, amt)
+    if not cat or CAT_GROUP.get(cat, "").startswith("Не рахувати") or cat == "Opłaty bankowe": continue
+    if CAT_GROUP.get(cat) in ("Лабораторія (технік)", "Спецпрепарати / імпланти"): continue   # у демо технік уже є у «Візитах»
+    inv.append((f"DEMO/{d.month:02d}/{k+1:03d}", dt.date(d.year, d.month, 1), cp, None, -amt, d + dt.timedelta(days=3), cat, d))
 inv += [("FV 2026/11/031", dt.date(2026, 11, 2), "SERWIS DENTAL", "5300005555", 1850, dt.date(2026, 11, 30), "Serwis i naprawy sprzętu", None),
         ("FV/10/889", dt.date(2026, 10, 20), "PRO-DENT", "5310006666", 2340, dt.date(2026, 11, 3), "Materiały i narzędzia (zakupy)", None)]
 for i in range(2, N + 1):
@@ -572,9 +602,21 @@ for i in range(2, N + 1):
     fv.cell(row=i, column=5).number_format = ZL2
     fv.cell(row=i, column=9, value=f'=IF(A{i}="","",IF(H{i}<>"","Оплачено",IF(F{i}="","Не оплачено",IF(F{i}<TODAY(),"Прострочено","Очікує оплати"))))')
     fv.cell(row=i, column=10, value=f'=IF(OR(A{i}="",H{i}<>"",F{i}=""),"",F{i}-TODAY())').number_format = '0;-0'
-    for col in (9, 10): fv.cell(row=i, column=col).fill = CALC
+    fv.cell(row=i, column=12, value=f'=IF(B{i}="","",DATE(YEAR(B{i}),MONTH(B{i}),1))').number_format = MON
+    fv.cell(row=i, column=13, value=f'=IF(A{i}="","",IF(G{i}="","⚠ без категорії",IFERROR(INDEX({CAT_G},MATCH(G{i},{CAT_N},0)),"⚠ без категорії")))')
+    for col in (9, 10, 12, 13): fv.cell(row=i, column=col).fill = CALC
 add_list(fv, f"G2:G{N}", CAT_N)
 cf_text(fv, f"I2:J{N}", 'IF($I2="Оплачено","добре",IF($I2="Прострочено","погано",IF($I2="","","середньо")))')
+cf_rules(fv, f"G2:G{N}", None, None, 'AND($A2<>"",$M2="⚠ без категорії")')
+
+# Wpłaty z Felgdent (довідково)
+wpf = wb.create_sheet("Wpłaty Felgdent")
+header(wpf, 1, ["Data", "Місяць (авто)", "Pacjent", "Opis", "Metoda płatności", "Kwota, zł", "Dodane przez", "Ключ імпорту"])
+widths(wpf, {"A": 12, "B": 10, "C": 24, "D": 50, "E": 20, "F": 12, "G": 20, "H": 30}); wpf.column_dimensions["H"].hidden = True; wpf.freeze_panes = "A2"
+for i in range(2, N + 1):
+    wpf.cell(row=i, column=1).number_format = DATE
+    wpf.cell(row=i, column=2, value=f'=IF(A{i}="","",DATE(YEAR(A{i}),MONTH(A{i}),1))').number_format = MON
+    wpf.cell(row=i, column=6).number_format = ZL2
 
 # =============== Витрати (вручну) ===============
 ex = wb.create_sheet("Витрати")
@@ -715,6 +757,10 @@ BB, BC, BH, BI = f"{B}$B$2:$B${N}", f"{B}$C$2:$C${N}", f"{B}$H$2:$H${N}", f"{B}$
 OB, OC, OG = f"{O_}$B$2:$B${N}", f"{O_}$C$2:$C${N}", f"{O_}$G$2:$G${N}"
 GB, GD, GE, GF, GG = [f"{GA}${c}$2:${c}${N}" for c in "BDEFG"]
 FI, FE, FH = f"{FV}$I$2:$I${N}", f"{FV}$E$2:$E${N}", f"{FV}$H$2:$H${N}"
+FC, FG, FL, FM = f"{FV}$C$2:$C${N}", f"{FV}$G$2:$G${N}", f"{FV}$L$2:$L${N}", f"{FV}$M$2:$M${N}"
+VS, VT = vr("S"), vr("T")
+DOC_A = f"{D}$B$4:$B$20"
+P8 = ["Матеріали", "Приміщення", "Обладнання", "Маркетинг", "Адміністрування", "Фінансові витрати", "Податки і ZUS", "Власник (виплата собі)"]
 OK = '"Виконано"'
 
 def rev(m, x=""): return f'SUMIFS({VI},{VB},{m},{VM},{OK}{x})'
@@ -723,25 +769,34 @@ def prep(m, x=""): return f'SUMIFS({VK},{VB},{m},{VM},{OK}{x})'
 def payout(m, x=""): return f'SUMIFS({VP},{VB},{m},{VM},{OK}{x})'
 def marg(m, x=""): return f'SUMIFS({VQ},{VB},{m},{VM},{OK}{x})'
 def hrs(m, x=""): return f'SUMIFS({VN},{VB},{m},{VM},{OK}{x})'
-def cnt(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK}{x})'
-def newp(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK},{VD},"Так"{x})'
+FIRST = '"<>dodatkowa"'
+def cnt(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK},{VT},{FIRST}{x})'
+def newp(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK},{VD},"Так",{VT},{FIRST}{x})'
 def staff_cost(m): return f'SUMIFS({PG},{PB},{m})'
 FSA, FSC, FSD = "'Felgdent статуси'!$A$2:$A$500", "'Felgdent статуси'!$C$2:$C$500", "'Felgdent статуси'!$D$2:$D$500"
 ZB, ZD = "'Записи Felgdent'!$B$2:$B$5001", "'Записи Felgdent'!$D$2:$D$5001"
 EH = f"{E}$H$2:$H${N}"
-LABF = '"Technik / laboratorium (koszt z Felgdent)"'
-def labF(m, doc=None): return f'SUMIFS({EF},{EB},{m},{EC},{LABF}' + (f',{EH},{doc})' if doc else ')')
-def labF_pct(m): return f'SUMPRODUCT(SUMIFS({EF},{EB},{m},{EC},{LABF},{EH},{DOC_N})*{DOC_P})'
+def inv_doc(m, alias): return f'IF({alias}="",0,SUMIFS({FE},{FL},{m},{FC},{alias}))'
+def payout_total(m):
+    act = f'SUMIFS({FE},{FL},{m},{FC},{DOC_A})'
+    comp = f'SUMIFS({VP},{VB},{m},{VM},{OK},{VF},{DOC_N})'
+    return f'SUMPRODUCT(({DOC_A}<>"")*({act}>0)*{act}+(({DOC_A}="")+({act}=0)>0)*{comp})'
 def noshow(m):
     fs_ = lambda st_: f'SUMIFS({FSD},{FSA},{m},{FSC},"{st_}")'
     felg = f'({fs_("Неявка")}+{fs_("Скасовано")})/({fs_("Виконано")}+{fs_("Неявка")}+{fs_("Скасовано")})'
-    vis = f'(COUNTIFS({VB},{m},{VM},"Неявка")+COUNTIFS({VB},{m},{VM},"Скасовано"))/COUNTIFS({VB},{m},{VM},"<>")'
+    vis = f'(COUNTIFS({VB},{m},{VM},"Неявка")+COUNTIFS({VB},{m},{VM},"Скасовано"))/COUNTIFS({VB},{m},{VM},"<>",{VT},{FIRST})'
     return f'IFERROR(IF(SUMIFS({FSD},{FSA},{m})>0,{felg},{vis}),0)'
-def grp(m, g): return f'(SUMIFS({EF},{EB},{m},{ED},{g})-SUMIFS({BC},{BB},{m},{BI},{g}))'
-def cat_cost(m, c): return f'(SUMIFS({EF},{EB},{m},{EC},{c})-SUMIFS({BC},{BB},{m},{BH},{c}))'
+def grp(m, g):
+    # витрати = реєстр фактур + ручні витрати; з банку лише комісії (їх немає у фактурах)
+    bank = f'-SUMIFS({BC},{BB},{m},{BH},"Opłaty bankowe")' if "Фінансові" in g else ""
+    return f'(SUMIFS({EF},{EB},{m},{ED},{g})+SUMIFS({FE},{FL},{m},{FM},{g}){bank})'
+def cat_cost(m, c): return f'(SUMIFS({EF},{EB},{m},{EC},{c})+SUMIFS({FE},{FL},{m},{FG},{c}))'
 def bank_cat(m, c): return f'SUMIFS({BC},{BB},{m},{BH},{c})'
-def unalloc(m): return f'(SUMIFS({EF},{EB},{m},{ED},"⚠ немає в довіднику")-SUMIFS({BC},{BB},{m},{BI},"⚠ без категорії",{BC},"<0"))'
-def opex_all(m): return f'(SUMPRODUCT(SUMIFS({EF},{EB},{m},{ED},{GRP_N}))-SUMPRODUCT(SUMIFS({BC},{BB},{m},{BI},{GRP_N}))+{unalloc(m)})'
+def unalloc(m): return f'(SUMIFS({EF},{EB},{m},{ED},"⚠ немає в довіднику")+SUMIFS({FE},{FL},{m},{FM},"⚠ без категорії"))'
+def opex_all(m): return "(" + "+".join(grp(m, f'"{g}"') for g in P8) + f"+{unalloc(m)})"
+def lab_total(m): return f"{lab(m)}+{grp(m, chr(34)+'Лабораторія (технік)'+chr(34))}"
+def prep_total(m): return f"{prep(m)}+{grp(m, chr(34)+'Спецпрепарати / імпланти'+chr(34))}"
+def staff_total(m): return f"{staff_cost(m)}+{grp(m, chr(34)+'Персонал погодинно'+chr(34))}"
 def cap(m): return f'({S}$B$4*{S}$B$5*(NETWORKDAYS({m},DATE(YEAR({m}),MONTH({m})+1,0))+{S}$B$6))'
 def ads_cost(m): return f'SUMIFS({GF},{GB},{m})'
 def noncash(m): return "(" + "+".join(f'SUMIFS({VI},{VB},{m},{VM},{OK},{VL},"{p}")' for p in NONCASH) + ")"
@@ -817,7 +872,7 @@ checks = [
     ("Візити з невідомим статусом", f'=COUNTIFS({VB},{M})-COUNTIFS({VB},{M},{VM},"Виконано")-COUNTIFS({VB},{M},{VM},"Неявка")-COUNTIFS({VB},{M},{VM},"Скасовано")', "Аркуш «Імпорт-налаштування»: додати статус з Felgdent"),
     ("Нові пацієнти без джерела", f'=COUNTIFS({VB},{M},{VD},"Так",{VE},"")', "Аркуш «Візити»: вказати джерело (червоні клітинки) — тоді видно окупність реклами"),
     ("Протерміновані фактури (усі)", f'=COUNTIF({FI},"Прострочено")', "Аркуш «Фактури»: оплатити або вписати дату оплати"),
-    ("Ручні витрати з категорією не з довідника", f'=COUNTIFS({EB},{M},{ED},"⚠ немає в довіднику")', "Аркуш «Витрати»: вибрати категорію зі списку"),
+    ("Витрати / фактури без категорії", f'=COUNTIFS({EB},{M},{ED},"⚠ немає в довіднику")+COUNTIFS({FL},{M},{FM},"⚠ без категорії")', "Аркуш «Фактури»: вибрати категорію (червоні) або додати правило в «Правила банку»"),
     ("Послуги без напряму (аркуш «Послуги»)", "=COUNTIFS('Послуги'!$A$2:$A$500,\"<>\",'Послуги'!$B$2:$B$500,\"\")", "Аркуш «Послуги»: вибрати напрям"),
 ]
 for i, (lbl, f, todo) in enumerate(checks):
@@ -831,11 +886,11 @@ cf_zero_good(db, f"A{C0+2}:B{C0+1+CHECKS}", f"$B{C0+2}")
 section(db, PL0 - 1, "3. ДЕ ГРОШІ: ПРИБУТКИ ТА ЗБИТКИ (P&L)")
 header(db, PL0, ["Стаття", "Цей місяць", "Минулий місяць", "Зміна, zł", "% від виручки", "Норма, %", "Оцінка"], 1, SUB)
 lines = [("Виручка (виконані послуги)", lambda m: rev(m), None, "rev"),
-         ("− Лабораторія (технік)", lambda m: f"{lab(m)}+{labF(m)}", "Лабораторія (технік)", "c"),
-         ("− Спецпрепарати / імпланти", lambda m: prep(m), None, "c"),
-         ("− Виплати лікарям і гігієністкам", lambda m: f"{payout(m)}-{labF_pct(m)}", "Лікарі і гігієністки", "c"),
+         ("− Лабораторія (технік)", lambda m: lab_total(m), "Лабораторія (технік)", "c"),
+         ("− Спецпрепарати / імпланти", lambda m: prep_total(m), None, "c"),
+         ("− Виплати лікарям і гігієністкам", lambda m: payout_total(m), "Лікарі і гігієністки", "c"),
          ("МАРЖА ПІСЛЯ ПРЯМИХ ВИТРАТ", None, None, "gm"),
-         ("− Персонал погодинно (асистентки, рецепція)", lambda m: staff_cost(m), "Персонал погодинно", "c")]
+         ("− Персонал погодинно (асистентки, рецепція)", lambda m: staff_total(m), "Персонал погодинно", "c")]
 for gname in ["Матеріали", "Приміщення", "Обладнання", "Маркетинг", "Адміністрування", "Фінансові витрати", "Податки і ZUS", "Власник (виплата собі)"]:
     lines.append((f"− {gname}", (lambda gg: (lambda m: grp(m, f'"{gg}"')))(gname), None if gname.startswith("Власник") else gname, "c"))
 lines += [("− Не розподілено (⚠ без категорії)", lambda m: unalloc(m), None, "u"), ("Усього витрат", None, None, "tc"),
@@ -893,9 +948,9 @@ rg, rm = T("rel")
 for i in range(NDOC):
     rr = DR0 + 1 + i; nm = f"$A{rr}"; x = f",{VF},{nm}"
     put(db, f"A{rr}", f'=IF({D}A{4+i}="","",{D}A{4+i})', bold=True)
-    pct = f"N(IFERROR(INDEX({DOC_P},MATCH({nm},{DOC_N},0))*1,0))"
+    act = inv_doc(M, f"{D}B{4+i}")
     fs = [cnt(M, x), newp(M, x), rev(M, x), f"IFERROR(D{rr}/B{rr},0)", hrs(M, x), f"IFERROR(D{rr}/F{rr},0)",
-          f"{payout(M, x)}-{labF(M, nm)}*{pct}", f"{marg(M, x)}-{labF(M, nm)}*(1-{pct})",
+          f"IF({act}>0,{act},{payout(M, x)})", f"D{rr}-{lab(M, x)}-{prep(M, x)}-H{rr}",
           f'IF(F{rr}=0,"",I{rr}/F{rr})', f'COUNTIFS({VB},{M},{VF},{nm},{VM},"Неявка")+COUNTIFS({VB},{M},{VF},{nm},{VM},"Скасовано")',
           f'IF(J{rr}="","",RANK(J{rr},$J${DR0+1}:$J${DR0+NDOC}))', st_hi(f"IFERROR(J{rr}/$J${DRT},\"\")", rg, rm)]
     fm = [NUM, NUM, ZL, ZL, H1, ZL, ZL, ZL, ZL, NUM, "0", None]
@@ -908,7 +963,7 @@ for col, fmt in zip("BCDEFGHIJKLM", [NUM, NUM, ZL, ZL, H1, ZL, ZL, ZL, ZL, NUM, 
     f = {"E": f"=IFERROR(D{DRT}/B{DRT},0)", "G": f"=IFERROR(D{DRT}/F{DRT},0)", "J": f"=IFERROR(I{DRT}/F{DRT},0)", "L": None, "M": None}.get(col, f"=SUM({rng})")
     put(db, f"{col}{DRT}", f, fmt, bold=True, fl=TOT)
 cf_text(db, f"A{DR0+1}:A{DR0+NDOC}", f"$M{DR0+1}"); cf_text(db, f"I{DR0+1}:J{DR0+NDOC}", f"$M{DR0+1}"); cf_text(db, f"M{DR0+1}:M{DR0+NDOC}", f"$M{DR0+1}")
-db[f"A{DRT+1}"] = "* Прибуток клініки = вартість − технік − спецпрепарати − виплата лікарю (до загальних витрат). Оцінка: порівняно із середнім по клініці."
+db[f"A{DRT+1}"] = "* Прибуток клініки = вартість − технік − спецпрепарати − виплата лікарю (фактура з реєстру, якщо є; інакше за %). Оцінка: порівняно із середнім по клініці."
 db[f"A{DRT+1}"].font = font(italic=True, size=8, color="666666")
 
 # 5. Напрями
@@ -1047,9 +1102,9 @@ for col in "BC": put(db, f"{col}{rIn+2}", f"={col}{rIn}-{col}{rIn+1}", ZL, bold=
 cf_rules(db, f"A{rIn+2}:C{rIn+2}", f"$B{rIn+2}>=0", None, f"$B{rIn+2}<0")
 # звірки
 header(db, BK0, ["Звірка", "Нараховано (візити)", "Оплачено з банку", "Розбіжність", "Оцінка"], 5, SUB)
-recon = [("Лабораторія", f"{lab(M)}+{labF(M)}", f'-{bank_cat(M, chr(34)+"Laboratorium – płatność (звірка)"+chr(34))}'),
-         ("Імпланти / препарати", prep(M), f'-{bank_cat(M, chr(34)+"Implanty / preparaty – płatność (звірка)"+chr(34))}'),
-         ("Лікарі + персонал", f"{payout(M)}+{staff_cost(M)}", f'-{bank_cat(M, chr(34)+"Wypłaty lekarzy i personelu (звірка)"+chr(34))}'),
+recon = [("Лабораторія", lab_total(M), f'-{bank_cat(M, chr(34)+"Laboratorium – płatność (звірка)"+chr(34))}'),
+         ("Імпланти / препарати", prep_total(M), f'-{bank_cat(M, chr(34)+"Implanty / preparaty – płatność (звірка)"+chr(34))}'),
+         ("Лікарі + персонал", f"{payout_total(M)}+{staff_total(M)}", f'-{bank_cat(M, chr(34)+"Wypłaty lekarzy i personelu (звірка)"+chr(34))}'),
          ("Безготівкова виручка → рахунок", noncash(M), f"B{rIn}-B{BK0+5}-B{BK0+6}")]
 rcg, rcm = T("recon")
 for i, (lbl, a, b_) in enumerate(recon):
@@ -1069,7 +1124,12 @@ for i, (lbl, s_) in enumerate(fa):
     put(db, f"E{rr}", lbl, bold=True); put(db, f"F{rr}", f'=COUNTIF({FI},"{s_}")', NUM, align="center"); put(db, f"G{rr}", f'=SUMIFS({FE},{FI},"{s_}")', ZL)
 cf_rules(db, f"E{FA0+1}:G{FA0+1}", f"$F{FA0+1}=0", None, f"$F{FA0+1}>0")
 cf_rules(db, f"E{FA0+2}:G{FA0+3}", f"$F{FA0+2}=0", f"$F{FA0+2}>0", None)
-BKE = max(rIn + 2, FA0 + 3)
+rr = FA0 + 4
+put(db, f"E{rr}", "Борги пацієнтів (неоплачені візити)", bold=True)
+put(db, f"F{rr}", f'=SUMPRODUCT(({VB}={M})*({VM}={OK})*({VS}<>"")*({VI}>{VS}))', NUM, align="center")
+put(db, f"G{rr}", f'=SUMIFS({VI},{VB},{M},{VM},{OK},{VS},"<>")-SUMIFS({VS},{VB},{M},{VM},{OK})', ZL)
+cf_rules(db, f"E{rr}:G{rr}", f"$G{rr}<=0", f"$G{rr}>0", None)
+BKE = max(rIn + 2, FA0 + 4)
 
 # 9. Підказки
 HI0 = BKE + 3
@@ -1119,8 +1179,8 @@ yr["A2"] = "Рік:"; yr["B2"] = f"=YEAR({MCUR})"; yr["B2"].font = font(bold=Tru
 header(yr, 4, ["Показник"] + [""] * 12 + ["Разом / сер."], 1, SUB)
 for k in range(12):
     c = yr[f"{L(2+k)}4"]; c.value = f"=DATE($B$2,{k+1},1)"; c.number_format = MON
-yl = [("Виручка", lambda m: rev(m), ZL, "sum"), ("Прямі витрати (технік, препарати, лікарі)", lambda m: f"{lab(m)}+{prep(m)}+{payout(m)}-{labF_pct(m)}", ZL, "sum"),
-      ("Персонал погодинно", lambda m: staff_cost(m), ZL, "sum"), ("Інші витрати (банк + ручні)", lambda m: opex_all(m), ZL, "sum"),
+yl = [("Виручка", lambda m: rev(m), ZL, "sum"), ("Прямі витрати (технік, препарати, лікарі)", lambda m: f"{lab_total(m)}+{prep_total(m)}+{payout_total(m)}", ZL, "sum"),
+      ("Персонал погодинно", lambda m: staff_total(m), ZL, "sum"), ("Інші витрати (фактури + ручні)", lambda m: opex_all(m), ZL, "sum"),
       ("Чистий прибуток", None, ZL, "sum"), ("Рентабельність", None, PCT, "avg"), ("Візитів (виконано)", lambda m: cnt(m), NUM, "sum"),
       ("Нових пацієнтів", lambda m: newp(m), NUM, "sum"), ("Середній чек", None, ZL, "avg"),
       ("Завантаження крісел", lambda m: f"IFERROR({hrs(m)}/{cap(m)},0)", PCT, "avg"), ("Маркетинг", lambda m: grp(m, '"Маркетинг"'), ZL, "sum")]
@@ -1288,9 +1348,9 @@ for name in ("Візити", "Банк", "Фактури", "Витрати", "П
 
 # ========================= ЖОВТЕ / СІРЕ + ЗАХИСТ =========================
 UNLOCK = Protection(locked=False)
-INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGH", N), "Витрати": ("ACEFGH", N), "Felgdent статуси": ("ABCD", 500), "Записи Felgdent": ("ACDEFG", 5001),
+INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGHN", N), "Wpłaty Felgdent": ("ACDEFG", N), "Витрати": ("ACEFGH", N), "Felgdent статуси": ("ABCD", 500), "Записи Felgdent": ("ACDEFG", 5001),
               "Персонал": ("ACDEF", 500), "Онлайн-записи": ("ACDEFG", N), "Google Ads": ("ACDEFG", N), "Пацієнти": ("ABC", N), "Послуги": ("ABC", 500)}
-CALC_COLS = {"Візити": ("BOPQ", "R"), "Банк": ("BHI", "FK"), "Фактури": ("IJ", "K"), "Витрати": ("BD", "I"), "Felgdent статуси": ("", "E"), "Записи Felgdent": ("B", "H"), "Персонал": ("BG", ""),
+CALC_COLS = {"Візити": ("BOPQ", "RST"), "Банк": ("BHI", "FK"), "Фактури": ("IJLM", "K"), "Wpłaty Felgdent": ("B", "H"), "Витрати": ("BD", "I"), "Felgdent статуси": ("", "E"), "Записи Felgdent": ("B", "H"), "Персонал": ("BG", ""),
              "Онлайн-записи": ("B", "H"), "Google Ads": ("B", "H"), "Пацієнти": ("", "D")}
 def protect(ws):
     pr = ws.protection
@@ -1331,7 +1391,7 @@ protect(wb["Інструкція"]); protect(wb["Instrukcja"])
 
 # порядок аркушів
 order = ["Raport", "Rok", "Instrukcja", "Інструкція", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
-         "Пацієнти", "Felgdent статуси", "Записи Felgdent", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
+         "Пацієнти", "Felgdent статуси", "Записи Felgdent", "Wpłaty Felgdent", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
     for row in ws.iter_rows():
