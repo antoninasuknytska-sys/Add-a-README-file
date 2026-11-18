@@ -1,0 +1,12 @@
+mBank S.A. Bankowoœæ Detaliczna;
+Lista operacji;
+Za okres:;01.10.2026;31.10.2026;
+;
+#Data operacji;#Opis operacji;#Rachunek;#Kategoria;#Kwota;
+2026-10-02;"CZYNSZ 10/2026  WYNAJMUJ¥CY SP. Z O.O.";mBiznes 1234;Bez kategorii;-9 000,00 PLN;
+2026-10-03;"GOOGLE IRELAND LTD Google Ads";mBiznes 1234;Bez kategorii;-6 900,00 PLN;
+2026-10-07;"ELAVON FINANCIAL SERVICES Rozliczenie transakcji kartowych";mBiznes 1234;Wp³ywy;24 120,55 PLN;
+2026-10-16;"HENRY SCHEIN POLSKA FV 2026/10/118";mBiznes 1234;Bez kategorii;-5 200,00 PLN;
+2026-10-17;"SKLEP XYZ zakupy";mBiznes 1234;Bez kategorii;-120,00 PLN;
+2026-10-17;"PACJENT JAN zap³ata za leczenie BLIK";mBiznes 1234;Wp³ywy;450,00 PLN;
+2026-10-17;"PACJENT JAN zap³ata za leczenie BLIK";mBiznes 1234;Wp³ywy;450,00 PLN;

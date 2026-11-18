@@ -1,0 +1,1155 @@
+{
+ "fields": {
+  "BANK": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data operacji",
+     "data transakcji",
+     "data ksiegowania",
+     "data",
+     "booking date",
+     "transaction date",
+     "date",
+     "дата"
+    ]
+   },
+   {
+    "name": "amount",
+    "required": "один із",
+    "aliases": [
+     "kwota",
+     "kwota operacji",
+     "kwota transakcji",
+     "amount",
+     "сума"
+    ]
+   },
+   {
+    "name": "debit",
+    "required": "один із",
+    "aliases": [
+     "obciazenia",
+     "obciazenie",
+     "wydatki",
+     "kwota obciazenia",
+     "debit",
+     "winien"
+    ]
+   },
+   {
+    "name": "credit",
+    "required": "один із",
+    "aliases": [
+     "uznania",
+     "uznanie",
+     "wplywy",
+     "kwota uznania",
+     "credit",
+     "ma"
+    ]
+   },
+   {
+    "name": "counterparty",
+    "required": "ні",
+    "aliases": [
+     "nadawca/odbiorca",
+     "nadawca / odbiorca",
+     "odbiorca/nadawca",
+     "kontrahent",
+     "dane kontrahenta",
+     "nazwa kontrahenta",
+     "odbiorca",
+     "nadawca",
+     "counterparty",
+     "beneficiary"
+    ]
+   },
+   {
+    "name": "description",
+    "required": "так",
+    "aliases": [
+     "opis operacji",
+     "opis transakcji",
+     "tytul operacji",
+     "tytul",
+     "opis",
+     "szczegoly",
+     "description",
+     "title",
+     "details"
+    ]
+   },
+   {
+    "name": "account",
+    "required": "ні",
+    "aliases": [
+     "numer rachunku",
+     "rachunek",
+     "konto",
+     "account"
+    ]
+   }
+  ],
+  "INVOICES": [
+   {
+    "name": "number",
+    "required": "так",
+    "aliases": [
+     "numer faktury",
+     "nr faktury",
+     "numer dokumentu",
+     "nr dokumentu",
+     "numer",
+     "invoice number"
+    ]
+   },
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data wystawienia",
+     "data faktury",
+     "data dokumentu",
+     "data",
+     "issue date"
+    ]
+   },
+   {
+    "name": "seller",
+    "required": "ні",
+    "aliases": [
+     "sprzedawca",
+     "nazwa sprzedawcy",
+     "dostawca",
+     "wystawca",
+     "kontrahent",
+     "nazwa kontrahenta",
+     "seller"
+    ]
+   },
+   {
+    "name": "nip",
+    "required": "ні",
+    "aliases": [
+     "nip sprzedawcy",
+     "nip",
+     "nip kontrahenta"
+    ]
+   },
+   {
+    "name": "gross",
+    "required": "так",
+    "aliases": [
+     "kwota brutto",
+     "brutto",
+     "wartosc brutto",
+     "razem brutto",
+     "do zaplaty",
+     "kwota",
+     "gross"
+    ]
+   },
+   {
+    "name": "due",
+    "required": "ні",
+    "aliases": [
+     "termin platnosci",
+     "termin zaplaty",
+     "data platnosci",
+     "termin",
+     "due date"
+    ]
+   },
+   {
+    "name": "category",
+    "required": "ні",
+    "aliases": [
+     "kategoria"
+    ]
+   }
+  ],
+  "VISITS": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data wizyty",
+     "data",
+     "dzien",
+     "termin wizyty",
+     "data zabiegu"
+    ]
+   },
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent",
+     "imie i nazwisko",
+     "nazwisko i imie",
+     "nr karty",
+     "numer karty",
+     "id pacjenta"
+    ]
+   },
+   {
+    "name": "doctor",
+    "required": "так",
+    "aliases": [
+     "lekarz",
+     "lekarz prowadzacy",
+     "wykonujacy",
+     "wykonal",
+     "personel",
+     "higienistka"
+    ]
+   },
+   {
+    "name": "service",
+    "required": "ні",
+    "aliases": [
+     "usluga",
+     "procedura",
+     "zabieg",
+     "nazwa uslugi",
+     "czynnosc",
+     "swiadczenie"
+    ]
+   },
+   {
+    "name": "amount",
+    "required": "так",
+    "aliases": [
+     "kwota",
+     "wartosc",
+     "cena",
+     "naleznosc",
+     "do zaplaty",
+     "oplata",
+     "suma",
+     "wartosc brutto"
+    ]
+   },
+   {
+    "name": "status",
+    "required": "ні",
+    "aliases": [
+     "status",
+     "status wizyty",
+     "stan"
+    ]
+   },
+   {
+    "name": "duration",
+    "required": "ні",
+    "aliases": [
+     "czas trwania",
+     "czas",
+     "dlugosc wizyty",
+     "minuty",
+     "czas wizyty"
+    ]
+   },
+   {
+    "name": "start",
+    "required": "ні",
+    "aliases": [
+     "godzina od",
+     "od",
+     "poczatek",
+     "godzina rozpoczecia",
+     "godzina"
+    ]
+   },
+   {
+    "name": "end",
+    "required": "ні",
+    "aliases": [
+     "godzina do",
+     "do",
+     "koniec",
+     "godzina zakonczenia"
+    ]
+   },
+   {
+    "name": "lab",
+    "required": "ні",
+    "aliases": [
+     "koszt laboratorium",
+     "laboratorium",
+     "technik",
+     "protetyk"
+    ]
+   },
+   {
+    "name": "prep",
+    "required": "ні",
+    "aliases": [
+     "koszt materialow",
+     "materialy",
+     "implant",
+     "preparaty"
+    ]
+   },
+   {
+    "name": "payment",
+    "required": "ні",
+    "aliases": [
+     "forma platnosci",
+     "sposob platnosci",
+     "metoda platnosci",
+     "platnosc"
+    ]
+   },
+   {
+    "name": "isNew",
+    "required": "ні",
+    "aliases": [
+     "nowy pacjent",
+     "pierwsza wizyta",
+     "nowy"
+    ]
+   },
+   {
+    "name": "source",
+    "required": "ні",
+    "aliases": [
+     "zrodlo pacjenta",
+     "zrodlo",
+     "skad pacjent",
+     "skad"
+    ]
+   },
+   {
+    "name": "direction",
+    "required": "ні",
+    "aliases": [
+     "specjalizacja",
+     "dziedzina",
+     "kategoria uslugi"
+    ]
+   }
+  ],
+  "PATIENTS": [
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent",
+     "imie i nazwisko",
+     "nazwisko i imie",
+     "nr karty",
+     "numer karty",
+     "id pacjenta"
+    ]
+   },
+   {
+    "name": "regDate",
+    "required": "так",
+    "aliases": [
+     "data rejestracji",
+     "data dodania",
+     "data utworzenia",
+     "data pierwszej wizyty",
+     "pierwsza wizyta"
+    ]
+   },
+   {
+    "name": "source",
+    "required": "ні",
+    "aliases": [
+     "zrodlo pacjenta",
+     "zrodlo",
+     "skad pacjent",
+     "skad"
+    ]
+   }
+  ],
+  "ZL": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data wizyty",
+     "termin wizyty",
+     "data i godzina",
+     "data",
+     "termin",
+     "appointment date",
+     "date"
+    ]
+   },
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent",
+     "imie i nazwisko",
+     "nazwisko i imie",
+     "patient"
+    ]
+   },
+   {
+    "name": "doctor",
+    "required": "ні",
+    "aliases": [
+     "lekarz",
+     "specjalista",
+     "personel"
+    ]
+   },
+   {
+    "name": "service",
+    "required": "ні",
+    "aliases": [
+     "usluga",
+     "nazwa uslugi",
+     "service"
+    ]
+   },
+   {
+    "name": "status",
+    "required": "ні",
+    "aliases": [
+     "status wizyty",
+     "status",
+     "stan"
+    ]
+   }
+  ],
+  "BOOKSY": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data wizyty",
+     "termin wizyty",
+     "data i godzina",
+     "data",
+     "termin",
+     "appointment date",
+     "date"
+    ]
+   },
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "klient",
+     "nazwa klienta",
+     "imie i nazwisko",
+     "pacjent",
+     "customer",
+     "client"
+    ]
+   },
+   {
+    "name": "doctor",
+    "required": "ні",
+    "aliases": [
+     "pracownik",
+     "specjalista",
+     "personel",
+     "staff",
+     "lekarz"
+    ]
+   },
+   {
+    "name": "service",
+    "required": "ні",
+    "aliases": [
+     "usluga",
+     "nazwa uslugi",
+     "service"
+    ]
+   },
+   {
+    "name": "status",
+    "required": "ні",
+    "aliases": [
+     "status wizyty",
+     "status",
+     "stan"
+    ]
+   }
+  ],
+  "ADS": [
+   {
+    "name": "date",
+    "required": "ні",
+    "aliases": [
+     "dzien",
+     "data",
+     "day",
+     "date",
+     "miesiac",
+     "month"
+    ]
+   },
+   {
+    "name": "campaign",
+    "required": "так",
+    "aliases": [
+     "kampania",
+     "campaign"
+    ]
+   },
+   {
+    "name": "impressions",
+    "required": "ні",
+    "aliases": [
+     "wyswietlenia",
+     "impr.",
+     "impressions"
+    ]
+   },
+   {
+    "name": "clicks",
+    "required": "ні",
+    "aliases": [
+     "klikniecia",
+     "clicks"
+    ]
+   },
+   {
+    "name": "cost",
+    "required": "так",
+    "aliases": [
+     "koszt",
+     "cost"
+    ]
+   },
+   {
+    "name": "conversions",
+    "required": "ні",
+    "aliases": [
+     "konwersje",
+     "conversions"
+    ]
+   }
+  ]
+ },
+ "statuses": [
+  {
+   "fragments": [
+    "nieobecn",
+    "nie przyszed",
+    "nie stawil",
+    "niestawien",
+    "no-show",
+    "no show",
+    "noshow"
+   ],
+   "status": "Неявка"
+  },
+  {
+   "fragments": [
+    "odwolan",
+    "anulowan",
+    "rezygnac",
+    "cancel"
+   ],
+   "status": "Скасовано"
+  },
+  {
+   "fragments": [
+    "zaplanowan",
+    "potwierdzon",
+    "umowion",
+    "oczekuj",
+    "planned",
+    "confirmed",
+    "booked",
+    "nowa"
+   ],
+   "status": "Пропустити"
+  },
+  {
+   "fragments": [
+    "zrealizowan",
+    "odbyta",
+    "wykonan",
+    "zakonczon",
+    "obecny",
+    "obecna",
+    "przyszedl",
+    "completed",
+    "done",
+    "finished"
+   ],
+   "status": "Виконано"
+  }
+ ],
+ "hints": [
+  {
+   "type": "BOOKSY",
+   "fragments": [
+    "booksy"
+   ]
+  },
+  {
+   "type": "ZL",
+   "fragments": [
+    "znany",
+    "docplanner"
+   ]
+  },
+  {
+   "type": "ADS",
+   "fragments": [
+    "google ads",
+    "googleads",
+    "adwords",
+    "kampani",
+    "campaign"
+   ]
+  },
+  {
+   "type": "INVOICES",
+   "fragments": [
+    "faktur",
+    "ksef",
+    "invoice"
+   ]
+  },
+  {
+   "type": "PATIENTS",
+   "fragments": [
+    "pacjenci",
+    "pacjentow",
+    "patients"
+   ]
+  },
+  {
+   "type": "VISITS",
+   "fragments": [
+    "felg",
+    "wizyty",
+    "wizyt",
+    "zabiegi"
+   ]
+  },
+  {
+   "type": "BANK",
+   "fragments": [
+    "wyciag",
+    "historia",
+    "pko",
+    "mbank",
+    "santander",
+    "ing",
+    "pekao",
+    "millennium",
+    "alior",
+    "bnp",
+    "credit agricole",
+    "bank",
+    "operacj"
+   ]
+  }
+ ],
+ "rules": [
+  {
+   "kw": "google",
+   "dir": "out",
+   "category": "Google Ads"
+  },
+  {
+   "kw": "facebk",
+   "dir": "out",
+   "category": "Meta Ads (Instagram/Facebook)"
+  },
+  {
+   "kw": "facebook",
+   "dir": "out",
+   "category": "Meta Ads (Instagram/Facebook)"
+  },
+  {
+   "kw": "meta platforms",
+   "dir": "out",
+   "category": "Meta Ads (Instagram/Facebook)"
+  },
+  {
+   "kw": "instagram",
+   "dir": "out",
+   "category": "Meta Ads (Instagram/Facebook)"
+  },
+  {
+   "kw": "znanylekarz",
+   "dir": "out",
+   "category": "ZnanyLekarz"
+  },
+  {
+   "kw": "znany lekarz",
+   "dir": "out",
+   "category": "ZnanyLekarz"
+  },
+  {
+   "kw": "docplanner",
+   "dir": "out",
+   "category": "ZnanyLekarz"
+  },
+  {
+   "kw": "booksy",
+   "dir": "out",
+   "category": "Booksy"
+  },
+  {
+   "kw": "voucher",
+   "dir": "out",
+   "category": "Vouchery i materiały promocyjne"
+  },
+  {
+   "kw": "zus",
+   "dir": "out",
+   "category": "ZUS"
+  },
+  {
+   "kw": "urzad skarbowy",
+   "dir": "out",
+   "category": "Podatki (PIT/CIT, VAT)"
+  },
+  {
+   "kw": "mikrorachunek",
+   "dir": "out",
+   "category": "Podatki (PIT/CIT, VAT)"
+  },
+  {
+   "kw": "pit-",
+   "dir": "out",
+   "category": "Podatki (PIT/CIT, VAT)"
+  },
+  {
+   "kw": "vat-7",
+   "dir": "out",
+   "category": "Podatki (PIT/CIT, VAT)"
+  },
+  {
+   "kw": "cit-8",
+   "dir": "out",
+   "category": "Podatki (PIT/CIT, VAT)"
+  },
+  {
+   "kw": "felgdent",
+   "dir": "out",
+   "category": "Oprogramowanie (Felgdent i in.)"
+  },
+  {
+   "kw": "leasing",
+   "dir": "out",
+   "category": "Leasing sprzętu"
+  },
+  {
+   "kw": "pge",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "tauron",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "enea",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "energa",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "e.on",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "pgnig",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "fortum",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "wodociagi",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "mpwik",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "veolia",
+   "dir": "out",
+   "category": "Media (prąd, woda, ogrzewanie)"
+  },
+  {
+   "kw": "orange",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "t-mobile",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "polkomtel",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "p4 sp",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "netia",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "vectra",
+   "dir": "out",
+   "category": "Telefon / internet"
+  },
+  {
+   "kw": "pzu",
+   "dir": "out",
+   "category": "Ubezpieczenie OC / mienia"
+  },
+  {
+   "kw": "warta",
+   "dir": "out",
+   "category": "Ubezpieczenie OC / mienia"
+  },
+  {
+   "kw": "allianz",
+   "dir": "out",
+   "category": "Ubezpieczenie OC / mienia"
+  },
+  {
+   "kw": "hestia",
+   "dir": "out",
+   "category": "Ubezpieczenie OC / mienia"
+  },
+  {
+   "kw": "generali",
+   "dir": "out",
+   "category": "Ubezpieczenie OC / mienia"
+  },
+  {
+   "kw": "czynsz",
+   "dir": "out",
+   "category": "Czynsz"
+  },
+  {
+   "kw": "najem",
+   "dir": "out",
+   "category": "Czynsz"
+  },
+  {
+   "kw": "sprzatanie",
+   "dir": "out",
+   "category": "Sprzątanie / pranie"
+  },
+  {
+   "kw": "pralnia",
+   "dir": "out",
+   "category": "Sprzątanie / pranie"
+  },
+  {
+   "kw": "ksiegow",
+   "dir": "out",
+   "category": "Księgowość"
+  },
+  {
+   "kw": "biuro rachunkowe",
+   "dir": "out",
+   "category": "Księgowość"
+  },
+  {
+   "kw": "remondis",
+   "dir": "out",
+   "category": "Sterylizacja / odpady medyczne"
+  },
+  {
+   "kw": "odpady",
+   "dir": "out",
+   "category": "Sterylizacja / odpady medyczne"
+  },
+  {
+   "kw": "utyliz",
+   "dir": "out",
+   "category": "Sterylizacja / odpady medyczne"
+  },
+  {
+   "kw": "steryliz",
+   "dir": "out",
+   "category": "Sterylizacja / odpady medyczne"
+  },
+  {
+   "kw": "serwis",
+   "dir": "out",
+   "category": "Serwis i naprawy sprzętu"
+  },
+  {
+   "kw": "szkolenie",
+   "dir": "out",
+   "category": "Szkolenia"
+  },
+  {
+   "kw": "kurs",
+   "dir": "out",
+   "category": "Szkolenia"
+  },
+  {
+   "kw": "henry schein",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "sigma dental",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "pro-dent",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "dental partner",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "medent",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "kol-dent",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "artdent",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "dentsply",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "ivoclar",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "hurtownia",
+   "dir": "out",
+   "category": "Materiały i narzędzia (zakupy)"
+  },
+  {
+   "kw": "straumann",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "nobel biocare",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "osstem",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "megagen",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "neoss",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "biohorizons",
+   "dir": "out",
+   "category": "Implanty / preparaty – płatność (звірка)"
+  },
+  {
+   "kw": "laboratorium",
+   "dir": "out",
+   "category": "Laboratorium – płatność (звірка)"
+  },
+  {
+   "kw": "protetyk",
+   "dir": "out",
+   "category": "Laboratorium – płatność (звірка)"
+  },
+  {
+   "kw": "pracownia protet",
+   "dir": "out",
+   "category": "Laboratorium – płatność (звірка)"
+  },
+  {
+   "kw": "wynagrodzenie",
+   "dir": "out",
+   "category": "Wypłaty lekarzy i personelu (звірка)"
+  },
+  {
+   "kw": "umowa zlecenie",
+   "dir": "out",
+   "category": "Wypłaty lekarzy i personelu (звірка)"
+  },
+  {
+   "kw": "wyplata wlasciciela",
+   "dir": "out",
+   "category": "Wypłata właściciela"
+  },
+  {
+   "kw": "przelew wlasny",
+   "dir": "any",
+   "category": "Przelew między własnymi rachunkami"
+  },
+  {
+   "kw": "przelew miedzy",
+   "dir": "any",
+   "category": "Przelew między własnymi rachunkami"
+  },
+  {
+   "kw": "rata kredytu",
+   "dir": "out",
+   "category": "Kredyty / odsetki"
+  },
+  {
+   "kw": "odsetki",
+   "dir": "out",
+   "category": "Kredyty / odsetki"
+  },
+  {
+   "kw": "prowizja",
+   "dir": "out",
+   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+  },
+  {
+   "kw": "oplata za",
+   "dir": "out",
+   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+  },
+  {
+   "kw": "payu",
+   "dir": "out",
+   "category": "Prowizje (terminal, PayU, Mediraty, bank)"
+  },
+  {
+   "kw": "payu",
+   "dir": "in",
+   "category": "Надходження: PayU raty"
+  },
+  {
+   "kw": "mediraty",
+   "dir": "in",
+   "category": "Надходження: Mediraty"
+  },
+  {
+   "kw": "medi raty",
+   "dir": "in",
+   "category": "Надходження: Mediraty"
+  },
+  {
+   "kw": "elavon",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "paytel",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "fiserv",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "polcard",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "global payments",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "eservice",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "sumup",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "terminal",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "rozliczenie kart",
+   "dir": "in",
+   "category": "Надходження: термінал"
+  },
+  {
+   "kw": "wplata wlasna",
+   "dir": "in",
+   "category": "Надходження: готівка на рахунок"
+  },
+  {
+   "kw": "wplata gotowki",
+   "dir": "in",
+   "category": "Надходження: готівка на рахунок"
+  },
+  {
+   "kw": "wplatomat",
+   "dir": "in",
+   "category": "Надходження: готівка на рахунок"
+  },
+  {
+   "kw": "blik",
+   "dir": "in",
+   "category": "Надходження: BLIK / перекази пацієнтів"
+  },
+  {
+   "kw": "leczenie",
+   "dir": "in",
+   "category": "Надходження: BLIK / перекази пацієнтів"
+  },
+  {
+   "kw": "wizyta",
+   "dir": "in",
+   "category": "Надходження: BLIK / перекази пацієнтів"
+  },
+  {
+   "kw": "zaplata za",
+   "dir": "in",
+   "category": "Надходження: BLIK / перекази пацієнтів"
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+Data;Godzina od;Godzina do;Pacjent;Lekarz;Usługa;Wartość;Status;Forma płatności
+05.10.2026;09:00;10:30;Kowalska Anna;Lekarz 1;Leczenie kanałowe pod mikroskopem;1 650,00;Zrealizowana;Karta
+05.10.2026;11:00;11:30;Nowak Piotr;Lekarz 4;Ekstrakcja zęba;400;Pacjent nie przyszedł;
+06.10.2026;12:00;12:30;Wiśniewski Jan;Lekarz 9;Nowa usługa X;300;Zaplanowana;
+07.10.2026;08:00;09:00;Zielińska Ewa;Гігієністка 1;Higienizacja;400;W trakcie;BLIK

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 14px; margin: 12px; color: #222; }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; }
+  select, input[type=month] { font-size: 14px; padding: 6px; width: 100%; box-sizing: border-box; }
+  #drop { border: 2px dashed #1F4E5A; border-radius: 8px; padding: 22px; text-align: center; background: #F3F8F9; cursor: pointer; }
+  #drop.over { background: #D9E7EA; }
+  button { margin-top: 14px; font-size: 15px; padding: 10px 18px; background: #1F4E5A; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  button:disabled { background: #999; }
+  #log div { margin-top: 8px; padding: 8px; border-radius: 6px; white-space: pre-wrap; }
+  .ok { background: #9FD8A6; color: #0B4A17; }
+  .warn { background: #FFC56E; color: #6B3A00; }
+  .err { background: #F28B82; color: #6E0B0B; }
+  .hint { color: #666; font-size: 12px; }
+</style>
+</head>
+<body>
+  <label>1. Тип файлу</label>
+  <select id="type">
+    <option value="AUTO">Визначити автоматично</option>
+    <option value="VISITS">Felgdent – візити</option>
+    <option value="PATIENTS">Felgdent – пацієнти</option>
+    <option value="BANK">Виписка з банку</option>
+    <option value="INVOICES">Фактури (реєстр)</option>
+    <option value="ZL">ZnanyLekarz – записи</option>
+    <option value="BOOKSY">Booksy – записи</option>
+    <option value="ADS">Google Ads – звіт</option>
+  </select>
+
+  <label>2. Місяць звіту (лише для Google Ads без дат по днях)</label>
+  <input type="month" id="month">
+
+  <label>3. Файли (CSV, XLSX) — можна кілька одразу</label>
+  <div id="drop">Перетягніть файли сюди або натисніть, щоб вибрати
+    <input type="file" id="files" multiple accept=".csv,.txt,.xlsx,.xls,.ods" style="display:none">
+    <div id="names" class="hint"></div>
+  </div>
+
+  <button id="go">Імпортувати</button>
+  <div id="log"></div>
+
+<script>
+  var picked = [];
+  var drop = document.getElementById('drop'), input = document.getElementById('files');
+  drop.onclick = function () { input.click(); };
+  input.onchange = function () { setFiles(input.files); };
+  drop.ondragover = function (e) { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = function () { drop.classList.remove('over'); };
+  drop.ondrop = function (e) { e.preventDefault(); drop.classList.remove('over'); setFiles(e.dataTransfer.files); };
+  function setFiles(fl) {
+    picked = Array.prototype.slice.call(fl);
+    document.getElementById('names').textContent = picked.map(function (f) { return f.name; }).join(', ');
+  }
+  function log(text, cls) {
+    var d = document.createElement('div'); d.className = cls; d.textContent = text;
+    document.getElementById('log').appendChild(d);
+  }
+  document.getElementById('go').onclick = function () {
+    if (!picked.length) { log('Спершу виберіть файли.', 'warn'); return; }
+    var btn = this; btn.disabled = true;
+    var type = document.getElementById('type').value, month = document.getElementById('month').value;
+    var queue = picked.slice();
+    (function next() {
+      if (!queue.length) { btn.disabled = false; log('Готово. Можна закрити вікно — Дашборд уже оновлено.', 'ok'); return; }
+      var f = queue.shift();
+      var r = new FileReader();
+      r.onload = function () {
+        var b64 = String(r.result).split(',')[1] || '';
+        log('⏳ ' + f.name + ' …', 'hint');
+        google.script.run
+          .withSuccessHandler(function (msg) { log(msg, msg.indexOf('⚠') >= 0 ? 'warn' : 'ok'); next(); })
+          .withFailureHandler(function (err) { log('❌ ' + (err && err.message ? err.message : err), 'err'); next(); })
+          .importujPlik({ name: f.name, mime: f.type, b64: b64, type: type, month: month });
+      };
+      r.readAsDataURL(f);
+    })();
+  };
+</script>
+</body>
+</html>
