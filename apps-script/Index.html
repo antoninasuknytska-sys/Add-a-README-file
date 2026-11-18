@@ -264,14 +264,38 @@
     else t.dueAt = now() + 3 * H;
     call('saveTask', t, 'Zapisano próbę nr ' + n + '. Przypomnę za ' + Math.round((t.dueAt - now()) / H) + ' godz.');
   }
-  function remindDoctor(task) {
+  /** Okienko wyboru lekarza z arkusza „Lekarze”. Zwraca nazwę albo null. */
+  async function chooseDoctor(task, title) {
+    const r = await dialog({
+      title: title || ('Przypisz lekarza: ' + task.patient), ok: 'Zapisz',
+      body: '<label>Lekarz</label><select name="doctor" required autofocus><option value="">— wybierz —</option>' +
+        cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select>' +
+        '<p class="hint">Brakuje kogoś? Dopisz go w arkuszu „Lekarze” (kolumna A, a w B numer WhatsApp).</p>'
+    });
+    return r && r.doctor ? r.doctor : null;
+  }
+  async function assignDoctor(task) {
+    const d = await chooseDoctor(task);
+    if (!d) return;
     const t = clone(task);
+    t.doctor = d;
+    log(t, '👨‍⚕️ Lekarz: ' + d);
+    call('saveTask', t, 'Przypisano lekarza: ' + d);
+  }
+  async function remindDoctor(task) {
+    const t = clone(task);
+    if (!t.doctor) { // najpierw wybór lekarza, potem WhatsApp
+      const d = await chooseDoctor(t, 'Któremu lekarzowi napisać? — ' + t.patient);
+      if (!d) return;
+      t.doctor = d;
+      log(t, '👨‍⚕️ Lekarz: ' + d);
+    }
     const n = countIn(t, '🔔') + 1;
     const phone = doctorPhone(t.doctor);
     const text = 'Dzień dobry! Przypominam w sprawie pacjenta ' + t.patient + ': ' + t.purpose + '. Etap: ' + stage(t).n +
       '. Proszę o informację, kiedy i na ile czasu umówić pacjenta.';
     if (phone) window.open(waLink(phone, text), '_blank');
-    else toast('Brak numeru lekarza w arkuszu „Lekarze” — przypomnij osobiście');
+    else toast('Brak numeru WhatsApp lekarza ' + t.doctor + ' w arkuszu „Lekarze” — przypomnij osobiście (zapisano)');
     log(t, '🔔 Przypomnienie dla lekarza' + (t.doctor ? ' ' + t.doctor : '') + ' (' + n + '. raz)');
     t.dueAt = now() + 3 * H;
     call('saveTask', t, 'Przypomnienie nr ' + n + ' zapisane. Kolejne za 3 godz., jeśli lekarz nie odpowie');
@@ -809,6 +833,8 @@
     if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Napisz do lekarza' : 'Przypomnij lekarzowi') + '</button>';
     b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Komentarz / termin</button>';
     b += '<button type="button" class="small" data-act="ask" data-id="' + t.id + '">❓ Pytanie</button>';
+    if (!t.doctor) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Przypisz lekarza</button>';
+    else if (inDetail) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Zmień lekarza</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="debt" data-id="' + t.id + '">💰 Potrącenie</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Dane</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Zamknij bez realizacji</button>';
     return b;
@@ -835,6 +861,7 @@
       }
       if (a === 'note') addNote(t);
       if (a === 'ask') askQuestion(t);
+      if (a === 'setdoc') assignDoctor(t);
       if (a === 'debt') debtDialog({ patient: t.patient, person: t.doctor, taskId: t.id, description: t.purpose });
       if (a === 'edit') editDialog(t);
       if (a === 'cancel') closeTask(t);

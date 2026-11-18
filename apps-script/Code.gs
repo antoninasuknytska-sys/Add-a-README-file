@@ -306,12 +306,12 @@ function saveTask(task) {
   return getData();
 }
 
-function upsertTask_(task) {
+function upsertTask_(task, replaceHistory) {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_TASKS);
   const rowIdx = findRow_(sh, task.id);
   if (rowIdx > 0) {
     const current = rowToTask_(sh.getRange(rowIdx, 1, 1, TASK_COLS.length).getValues()[0]);
-    task.history = mergeHistory_(current.history, task.history);
+    if (!replaceHistory) task.history = mergeHistory_(current.history, task.history);
     try { if (/^(tak|yes|1)$/i.test(String(getSettings_().notifyAnswers || '').trim())) notifyAnswers_(current.history, task); } catch (e) { /* e-mail nie może zablokować zapisu */ }
     sh.getRange(rowIdx, 1, 1, TASK_COLS.length).setValues([taskToRow_(task)]);
   } else {
@@ -982,11 +982,19 @@ function cleanupOldKt() {
   const s = getSettings_();
   const maxAge = (Number(s.ktMaxAgeDays) || 3) * 864e5;
   const now = Date.now();
-  let closed = 0, kept = 0;
+  let closed = 0, kept = 0, fixed = 0;
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     readTasks_().forEach(t => {
+      // poprawka opisów z wcześniejszej wersji („w systemie Portal Lekarza DIAGDENT [image…] Szanowni Państwo…”)
+      if (t.type === 'kt' && t.createdBy === BOT) {
+        const tidy = x => String(x || '').replace(/(:|—)\s*w systemie Portal Lekarza[\s\S]*?pojawiło się już badanie\s+/i, '$1 ');
+        const p0 = t.purpose, h0 = JSON.stringify(t.history);
+        t.purpose = tidy(t.purpose);
+        (t.history || []).forEach(h => { h.text = tidy(h.text); });
+        if (t.purpose !== p0 || JSON.stringify(t.history) !== h0) { upsertTask_(t, true); fixed++; }
+      }
       if (t.status !== 'open' || t.type !== 'kt' || t.createdBy !== BOT) return;
       if ((t.history || []).some(h => h.who && h.who !== BOT)) { kept++; return; }
       const m = (t.history || []).map(h => String(h.text).match(/#all\/([0-9a-zA-Z]+)/)).filter(Boolean)[0];
@@ -1000,7 +1008,7 @@ function cleanupOldKt() {
       closed++;
     });
   } finally { lock.releaseLock(); }
-  const msg = 'Zamknięto ' + closed + ' starych spraw tomografii z maili. Zostawiono ' + kept + ' (nowe albo już ruszone przez recepcję). Zamknięte są w „Archiwum” na tablicy.';
+  const msg = 'Poprawiono opisy: ' + fixed + '. Zamknięto ' + closed + ' starych spraw tomografii z maili. Zostawiono ' + kept + ' (nowe albo już ruszone przez recepcję). Zamknięte są w „Archiwum” na tablicy.';
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
   return msg;
 }
@@ -1008,7 +1016,8 @@ function cleanupOldKt() {
 /** „…badanie Tomografia szczęki i żuchwy dla pacjenta Jan Kowalski (02.10.1969).” */
 function parseStudyEmail_(text) {
   const t = String(text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ');
-  const m = t.match(/badanie\s+(.+?)\s+dla pacjent(?:a|ki)\s+(.+?)\s*\((\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})\)/i);
+  // ostatnie „badanie …” przed „dla pacjenta” (temat „Nowe badanie w systemie…” też zawiera słowo „badanie”)
+  const m = t.match(/badanie\s+((?:(?!badanie)[\s\S]){3,120}?)\s+dla pacjent(?:a|ki)\s+(.+?)\s*\((\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})\)/i);
   if (!m) return null;
   return { study: m[1].trim(), name: m[2].trim(), birth: m[3] };
 }
