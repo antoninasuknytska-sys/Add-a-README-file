@@ -14,6 +14,9 @@ const SHEET_SHIFTS = 'Zmiany';
 const SHEET_DOCTORS = 'Lekarze';
 const SHEET_SETTINGS = 'Ustawienia';
 const SHEET_INBOX = 'Skrzynka';
+const SHEET_DEBTS = 'Potrącenia';
+const DEBT_COLS = ['id', 'date', 'person', 'category', 'patient', 'description', 'amount', 'status', 'addedBy', 'addedAt', 'settledBy', 'settledAt', 'taskId'];
+const DEBT_HEADERS = ['ID', 'Data zdarzenia', 'Kogo dotyczy', 'Kategoria', 'Pacjent', 'Opis', 'Kwota (zł)', 'Status', 'Kto dodał', 'Dodano', 'Kto rozliczył', 'Rozliczono', 'ID sprawy'];
 const KT_LABEL = 'CRM-KT-done';
 const BOT = '🤖 Automat';
 
@@ -108,11 +111,12 @@ const TYPES = {
 const DEFAULT_SETTINGS = [
   ['clinicName', 'Gabinet stomatologiczny', 'Nazwa wyświetlana u góry'],
   ['admins', 'Nadia N, Nadia R, Tosia, Właściciel', 'Kto pracuje z tablicą (po przecinku)'],
-  ['ownerEmail', '', 'E-mail właściciela: codziennie rano przychodzi tu raport o zaległych sprawach'],
+  ['ownerEmail', 'dentonia.pl@gmail.com', 'E-mail właściciela (recepcja nie ma do niego dostępu): poranny raport, odpowiedzi na pytania, miesięczne podsumowanie potrąceń'],
   ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
   ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
-  ['mailboxes', 'polishdent.pl@gmail.com=PL, dentonia.pl@gmail.com=WRO', 'Skrzynki gabinetu i ich znaczki (adres=znaczek, po przecinku). Maile wysłane z nich nie trafiają do skrzynki; z adresu odbiorcy widać, skąd jest wiadomość'],
+  ['mailboxes', 'polishdent.pl@gmail.com=PL', 'Skrzynka recepcji (adres=znaczek). Maile wysłane z niej nie trafiają do „Skrzynki”. Przy kilku skrzynkach (po przecinku) na wiadomościach pojawia się znaczek'],
   ['ownerName', 'Właściciel', 'Imię właściciela z listy admins: gdy recepcja odpowie na jego pytanie, przychodzi mu e-mail'],
+  ['ownerPin', '', 'PIN właściciela do zakładki „Potrącenia” (np. 4–6 cyfr). Puste = zakładka otwarta dla wszystkich. Recepcja może dodawać wpisy bez PIN-u'],
   ['inboxIgnore', 'diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
@@ -134,10 +138,12 @@ function setup() {
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_SHIFTS, SHIFT_HEADERS);
   ensureSheet_(ss, SHEET_INBOX, INBOX_HEADERS);
-  const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Lekarz', 'WhatsApp (48XXXXXXXXX)']);
+  ensureSheet_(ss, SHEET_DEBTS, DEBT_HEADERS);
+  const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Lekarz (jak ma być widoczny na tablicy)', 'WhatsApp (48XXXXXXXXX)', 'Inne nazwy: jak jest zapisany w Booksy i ZnanyLekarz (po przecinku)']);
   if (doctors.getLastRow() < 2) {
-    doctors.getRange(2, 1, 2, 2).setValues([['Lekarz 1', ''], ['Lekarz 2', '']]);
+    doctors.getRange(2, 1, 6, 3).setValues([1, 2, 3, 4, 5, 6].map(n => ['Lekarz ' + n, '', '']));
   }
+  doctors.setColumnWidth(1, 260).setColumnWidth(3, 420);
   const settings = ensureSheet_(ss, SHEET_SETTINGS, ['Klucz', 'Wartość', 'Opis']);
   const existing = settings.getLastRow() > 1
     ? settings.getRange(2, 1, settings.getLastRow() - 1, 1).getValues().map(r => r[0]) : [];
@@ -191,6 +197,9 @@ function getData() {
       staleHours: Number(s.staleHours) || 48,
       doctors: readDoctors_(),
       ktAutomation: !!s.ktEmailQuery,
+      multiBox: mailboxes_(s).length > 1,
+      ownerName: String(s.ownerName || 'Właściciel').trim(),
+      hasPin: !!String(s.ownerPin || '').trim(),
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
     },
     tasks: tasks,
@@ -273,6 +282,72 @@ function saveShift(entry) {
   return getData();
 }
 
+/* ===================== Potrącenia (reklamacje, koszty do pokrycia) ===================== */
+
+function checkPin_(pin) {
+  const p = String(getSettings_().ownerPin || '').trim();
+  if (p && String(pin || '').trim() !== p) throw new Error('Nieprawidłowy PIN');
+}
+
+/** Lista potrąceń — tylko z PIN-em właściciela (jeśli ustawiony). */
+function getDebts(pin) {
+  checkPin_(pin);
+  return readDebts_();
+}
+
+/** Nowy wpis może dodać każdy; zmiana istniejącego (rozliczenie, edycja) wymaga PIN-u. payload = {pin, debt} */
+function saveDebt(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DEBTS);
+    const rowIdx = findRow_(sh, payload.debt.id);
+    const row = DEBT_COLS.map(c => {
+      const v = payload.debt[c];
+      if (['date', 'addedAt', 'settledAt'].indexOf(c) >= 0) return v ? new Date(v) : '';
+      if (c === 'amount') return Math.round(Number(String(v).replace(',', '.')) * 100) / 100 || 0;
+      return v === undefined || v === null ? '' : v;
+    });
+    if (rowIdx > 0) {
+      checkPin_(payload.pin);
+      sh.getRange(rowIdx, 1, 1, row.length).setValues([row]);
+    } else {
+      sh.appendRow(row);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  try { checkPin_(payload.pin); return readDebts_(); } catch (e) { return null; }
+}
+
+function readDebts_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DEBTS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, DEBT_COLS.length).getValues()
+    .filter(r => r[0])
+    .map(r => {
+      const o = {};
+      DEBT_COLS.forEach((c, i) => { o[c] = r[i] instanceof Date ? r[i].getTime() : r[i]; });
+      o.amount = Number(o.amount) || 0;
+      return o;
+    });
+}
+
+/** Podsumowanie potrąceń za poprzedni miesiąc (do raportu z 1. dnia miesiąca). */
+function debtsMonthHtml_() {
+  const d = new Date();
+  const from = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+  const to = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const list = readDebts_().filter(x => x.status !== 'cancelled' && ((x.date >= from && x.date < to) || (x.status === 'open' && x.date < from)));
+  if (!list.length) return '<h3>💰 Potrącenia za poprzedni miesiąc — brak</h3>';
+  const per = {};
+  list.forEach(x => { const p = per[x.person] = per[x.person] || { sum: 0, open: 0, n: 0 }; p.sum += x.amount; p.n++; if (x.status === 'open') p.open += x.amount; });
+  const zl = n => n.toFixed(2).replace('.', ',') + ' zł';
+  return '<h3>💰 Potrącenia: ' + Utilities.formatDate(new Date(from), Session.getScriptTimeZone(), 'MM.yyyy') + ' (+ nierozliczone wcześniejsze)</h3>' +
+    '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px"><tr><th>Kto</th><th>Pozycji</th><th>Razem</th><th>Do potrącenia</th></tr>' +
+    Object.keys(per).map(k => '<tr><td>' + esc_(k) + '</td><td>' + per[k].n + '</td><td>' + zl(per[k].sum) + '</td><td><b>' + zl(per[k].open) + '</b></td></tr>').join('') + '</table>';
+}
+
 /* ===================== Automatyzacja ===================== */
 
 /** Wyzwalacz co 5 min: najpierw tomografie (Diagdent), potem skrzynka. */
@@ -298,6 +373,7 @@ function checkInbox() {
     'in:inbox' + after + ' (booksy OR znanylekarz OR docplanner OR "Twoje imię" OR "New message from" OR "Nowa wiadomość od" OR subject:CRM)'
   ];
   const boxes = mailboxes_(s);
+  const doctors = readDoctors_();
   const ignore = list_(s.inboxIgnore);
   const seen = {};
   readInbox_().forEach(i => { seen[i.msgId] = 1; });
@@ -307,7 +383,7 @@ function checkInbox() {
     if (seen[id]) return;
     seen[id] = 1;
     if (msg.getDate().getTime() < since) return;
-    const item = classifyMail_(msg, boxes, ignore);
+    const item = classifyMail_(msg, boxes, ignore, doctors);
     if (!item) return;
     item.id = newId_();
     item.msgId = id;
@@ -329,7 +405,39 @@ function checkInbox() {
 }
 
 /** Rozpoznaj, skąd jest wiadomość, i wyciągnij pacjenta, telefon i najważniejsze informacje. null = pomiń. */
-function classifyMail_(msg, boxes, ignore) {
+function classifyMail_(msg, boxes, ignore, doctors) {
+  const it = classifyRaw_(msg, boxes, ignore);
+  if (it && doctors && doctors.length && it.source !== 'sms' && it.source !== 'call') {
+    it.doctor = resolveDoctor_(it.doctor, (msg.getSubject() || '') + ' ' + (msg.getPlainBody() || htmlToText_(msg.getBody())), doctors);
+  }
+  return it;
+}
+
+/** Normalizacja do porównań: małe litery, bez polskich znaków i interpunkcji. */
+function normText_(s) {
+  return ' ' + String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+}
+
+/**
+ * Do którego lekarza jest wizyta. Szukamy nazw z arkusza „Lekarze” (kolumna A i „Inne nazwy”):
+ * najpierw w polu znalezionym w mailu (np. „pracownik: Oliwia”), potem w całej treści maila.
+ */
+function resolveDoctor_(found, text, doctors) {
+  const names = d => [d.name].concat(d.aliases || [])
+    .map(a => normText_(a).replace(/ (dr|lek|dent|n|med|stom|hig|mgr) /g, ' ').replace(/\s+/g, ' '))
+    .filter(a => a.trim().length >= 4);
+  if (found) {
+    const f = normText_(found);
+    const d = doctors.filter(x => names(x).some(a => f === a || f.indexOf(a) >= 0 || a.indexOf(f) >= 0))[0];
+    if (d) return d.name;
+  }
+  const t = normText_(text);
+  const d = doctors.filter(x => names(x).some(a => t.indexOf(a) >= 0))[0];
+  return d ? d.name : (found || '');
+}
+
+function classifyRaw_(msg, boxes, ignore) {
   const clinic = boxes.map(b => b.email);
   const from = msg.getFrom() || '';
   const fromL = from.toLowerCase();
@@ -612,6 +720,7 @@ function dailyReport() {
     '</b>, bez ruchu ponad ' + (s.staleHours || 48) + ' godz.: <b>' + stale.length + '</b>, zamknięto w 7 dni: <b>' + closedWeek.length + '</b>.</p>' +
     table('⏰ Zaległe', overdue) + table('🧊 Zawieszone bez ruchu', stale) +
     questionsHtml_(open) +
+    (new Date().getDate() === 1 ? debtsMonthHtml_() : '') +
     '<p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>';
 
   MailApp.sendEmail({
@@ -640,9 +749,9 @@ function getSettings_() {
 function readDoctors_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DOCTORS);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues()
     .filter(r => r[0])
-    .map(r => ({ name: String(r[0]).trim(), phone: String(r[1]).replace(/\D/g, '') }));
+    .map(r => ({ name: String(r[0]).trim(), phone: String(r[1]).replace(/\D/g, ''), aliases: list_(r[2]) }));
 }
 
 function readTasks_() {

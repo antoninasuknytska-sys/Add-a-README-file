@@ -36,8 +36,6 @@ Przyciski przy każdej wiadomości:
 - **➕ Utwórz sprawę**: formularz wypełnia się danymi z wiadomości.
 - **✔ Załatwione** z krótką notatką, co zrobiono.
 
-Na każdej wiadomości widać znaczek skrzynki: 📧 **PL** (polishdent.pl@gmail.com) lub 📧 **WRO** (dentonia.pl@gmail.com). Znaczki można zmienić w „Ustawieniach” → `mailboxes`.
-
 Pomijane automatycznie: maile Diagdent (tomografie mają własną automatyzację), potwierdzenia pobrania z WeTransfer, maile wysłane z adresów gabinetu, SMS-y serwisowe (Play, kody). Listę można zmienić w arkuszu „Ustawienia” → `inboxIgnore`.
 
 Wyszukiwarka u góry przeszukuje też skrzynkę z ostatnich 14 dni.
@@ -52,15 +50,14 @@ Wszystko rób na koncie **PolishDent.pl@gmail.com**: tablica czyta pocztę tego 
 4. Kliknij **＋ → HTML**, nazwij plik `Index` (dokładnie tak) i wklej zawartość [`apps-script/Index.html`](apps-script/Index.html).
 5. Kliknij 💾 **Zapisz**. Na liście funkcji u góry wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Jeśli pojawi się „Aplikacja niezweryfikowana”, kliknij **Zaawansowane → Przejdź do projektu** (to Twój własny skrypt).
 6. Wróć do arkusza. Pojawią się arkusze:
-   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*), e-mail właściciela `ownerEmail`. Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
-   - **Lekarze**: imiona lekarzy i numery WhatsApp w formacie `48XXXXXXXXX`.
+   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). E-mail właściciela `ownerEmail` jest ustawiony na **dentonia.pl@gmail.com**: tam przychodzą poranne raporty, odpowiedzi recepcji na pytania i 1. dnia miesiąca podsumowanie potrąceń (recepcja nie ma dostępu do tej skrzynki). Ustaw też `ownerPin` (PIN do zakładki „Potrącenia”). Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
+   - **Lekarze**: wpisz wszystkich 6 lekarzy (i higienistki). Kolumna A to nazwa widoczna na tablicy (np. *dr Nowak*), kolumna B to WhatsApp w formacie `48XXXXXXXXX`, a kolumna C to **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, lek. dent. Oliwia Kowalska*). Dzięki kolumnie C tablica sama rozpoznaje, do kogo jest wizyta, i podstawia lekarza w nowej sprawie.
 7. W Apps Script: **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**.
    - *Wykonaj jako*: **Ja**
    - *Kto ma dostęp*: **Tylko ja** (najbezpieczniej: dane pacjentów widzi tylko osoba zalogowana na konto gabinetu)
    - **Wdróż** → skopiuj link.
 8. Otwórz link na komputerze w recepcji i **dodaj do zakładek**. Właściciel otwiera ten sam link w telefonie, zalogowany w przeglądarce na konto gabinetu. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja.
 
-9. **Przekierowanie z dentonia.pl → PolishDent.pl.** Skrypt widzi tylko jedną skrzynkę, więc w Gmailu **dentonia.pl@gmail.com**: ⚙️ **Ustawienia → Zobacz wszystkie ustawienia → Przekazywanie i POP/IMAP → Dodaj adres przekazywania** → `polishdent.pl@gmail.com`. Na skrzynkę PL przyjdzie kod potwierdzający: wpisz go, wybierz „Przekazuj kopię poczty przychodzącej do…” i „zachowaj kopię w Odebranych”. Na tablicy każda wiadomość ma znaczek 📧 PL lub 📧 WRO.
 
 > Po zmianach w kodzie: **Wdróż → Zarządzaj wdrożeniami → ✏️ → Wersja: nowa → Wdróż**. Link się nie zmienia.
 
@@ -68,7 +65,7 @@ Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić maile z tomogr
 
 ## SMS-y i nieodebrane połączenia z telefonu (Android, karta Play)
 
-Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. W darmowej wersji można mieć 5 makr, potrzebne są 2.
+Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. Konfiguruje się ją **raz**, potem działa **automatycznie w tle**: nikt nic nie klika. Warunki: telefon włączony, z internetem, a MacroDroid niewyłączony przez oszczędzanie baterii. W darmowej wersji można mieć 5 makr, potrzebne są 2.
 
 1. Zainstaluj **MacroDroid** na telefonie gabinetu i daj mu wymagane uprawnienia (SMS, rejestr połączeń, kontakty, powiadomienia).
 2. **Makro 1 — „SMS do tablicy”**
@@ -84,6 +81,18 @@ Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca Arl
 5. Test: wyślij SMS na numer gabinetu i zadzwoń, nie odbierając. Po maks. 5 min obie wiadomości będą w zakładce „📥 Skrzynka”.
 
 Temat musi zaczynać się dokładnie od `CRM SMS` lub `CRM NIEODEBRANE`. Po tym tablica je rozpoznaje.
+
+## 💰 Potrącenia: reklamacje i koszty do pokrycia
+
+Zakładka **💰 Potrącenia** zbiera wszystko, co na koniec miesiąca trzeba potrącić pracownikom: reklamacje lekarzy (poprawka pracy, koszt laboratorium) i pacjentów, za których lekarz pokrywa koszty (zwrot, rabat).
+
+- **Dodawanie**: przycisk „➕ Dodaj potrącenie” albo „💰 Potrącenie” w karcie sprawy (pacjent i lekarz wpiszą się same). Pola: kogo dotyczy, kwota (np. `450,50`), data, kategoria, pacjent, opis. **Recepcja może dodawać wpisy**, ale nie widzi listy ani sum.
+- **Widok właściciela** (po wpisaniu PIN-u): wybór miesiąca, **podsumowanie na osobę** (razem / już potrącono / do potrącenia), lista wpisów z datą, pacjentem i opisem oraz osobna lista nierozliczonych z wcześniejszych miesięcy.
+- Po potrąceniu z wypłaty kliknij **✅ Potrącono**. Wpis zostaje w historii, ale nie liczy się już „do potrącenia”.
+- 1. dnia miesiąca do porannego raportu na dentonia.pl dochodzi podsumowanie za poprzedni miesiąc.
+- Zmiana osoby w „Na zmianie” od razu blokuje zakładkę z powrotem.
+
+> ⚠️ PIN ukrywa potrącenia na tablicy, ale dane leżą w arkuszu „Potrącenia” na koncie PolishDent.pl, do którego recepcja ma dostęp. Kto otworzy sam arkusz w Google Drive, zobaczy wpisy. Pełne ukrycie wymagałoby przeniesienia potrąceń na konto dentonia.pl. Można to zrobić w następnym kroku.
 
 ## 💬 Komentarze i ❓ pytania właściciela
 

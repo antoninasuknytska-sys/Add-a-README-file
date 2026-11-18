@@ -480,7 +480,7 @@
       (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + (who === i.phone ? '📞 zadzwoń' : esc(i.phone)) + '</a>' : '') +
       '<span class="due ' + (i.status !== 'new' ? 'later' : late ? 'overdue' : 'today') + '">' + right + '</span></div>' +
       '<div class="chips"><span class="chip' + (i.urgent ? ' warn' : '') + '">' + (i.urgent ? '⚡ ' : '') + esc(i.kind || sc[1]) + '</span>' +
-      (i.mailbox ? '<span class="chip stage">📧 ' + esc(i.mailbox) + '</span>' : '') +
+      (i.mailbox && cfg().multiBox ? '<span class="chip stage">📧 ' + esc(i.mailbox) + '</span>' : '') +
       (i.email && i.email !== who ? '<span class="chip stage">' + esc(i.email) + '</span>' : '') +
       '<span class="chip stage">' + fmt(i.receivedAt) + '</span></div>' +
       (i.when || i.service || i.doctor ? '<div class="chips">' + (i.when ? '<span class="chip">📅 ' + esc(i.when) + '</span>' : '') +
@@ -511,7 +511,9 @@
   function doctorFromInbox(i) {
     const n = normName(i.doctor);
     if (!n.length) return '';
-    const d = cfg().doctors.find(x => normName(x.name).some(w => n.indexOf(w) >= 0));
+    const exact = cfg().doctors.find(x => x.name === i.doctor);
+    if (exact) return exact.name;
+    const d = cfg().doctors.find(x => [x.name].concat(x.aliases || []).some(a => normName(a).some(w => n.indexOf(w) >= 0)));
     return d ? d.name : '';
   }
   async function inboxAction(act, i) {
@@ -557,6 +559,106 @@
       '<p class="hint" style="margin-top:16px">Instagram i WhatsApp sprawdzaj w Meta Business Suite / na telefonie. Jeśli pacjent czegoś potrzebuje, kliknij „＋ Nowa sprawa” i wybierz kanał Instagram lub WhatsApp.</p>';
   }
 
+  /* ---------- potrącenia (reklamacje, koszty do pokrycia) ---------- */
+  const DEBT_CATS = ['Reklamacja — poprawka pracy', 'Pacjent do pokrycia (zwrot / rabat)', 'Koszt laboratorium do pokrycia', 'Szkoda / zniszczenie', 'Inne'];
+  const zl = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' zł';
+  const monthKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
+  const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+  const monthLabel = k => MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(0, 4);
+  const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().admins.filter(a => a !== cfg().ownerName));
+  S.pin = ''; S.debts = null; S.debtMonth = monthKey(Date.now());
+
+  async function loadDebts(pin) {
+    if (S.debtsLoading) return;
+    S.debtsLoading = true;
+    try { S.debts = await api('getDebts', pin); S.pin = pin; render(); }
+    catch (e) { S.debtsFailed = true; toast('⚠️ ' + (e && e.message ? e.message : e)); render(); }
+    finally { S.debtsLoading = false; }
+  }
+  async function saveDebtCall(debt, msg) {
+    try {
+      const list = await api('saveDebt', { pin: S.pin, debt: debt });
+      if (list) S.debts = list;
+      toast(msg); render();
+    } catch (e) { toast('⚠️ ' + (e && e.message ? e.message : e)); }
+  }
+  async function debtDialog(preset) {
+    preset = preset || {};
+    if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
+    const people = debtPeople();
+    const today = new Date(); const iso = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+    const r = await dialog({
+      title: preset.id ? 'Edytuj potrącenie' : '💰 Nowe potrącenie', ok: 'Zapisz',
+      body: '<div class="grid2"><div><label>Kogo dotyczy *</label><select name="person" required><option value="">— wybierz —</option>' +
+        people.map(n => '<option' + (preset.person === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
+        (preset.person && people.indexOf(preset.person) < 0 ? '<option selected>' + esc(preset.person) + '</option>' : '') + '</select></div>' +
+        '<div><label>Kwota (zł) *</label><input name="amount" type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" placeholder="np. 450,50" required value="' + esc(preset.amount || '') + '"></div>' +
+        '<div><label>Data zdarzenia</label><input name="date" type="date" value="' + (preset.date ? new Date(preset.date).toISOString().slice(0, 10) : iso) + '"></div>' +
+        '<div><label>Kategoria</label><select name="category">' + DEBT_CATS.map(c => '<option' + (preset.category === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div></div>' +
+        '<label>Pacjent</label><input name="patient" value="' + esc(preset.patient || '') + '">' +
+        '<label>Opis: co się stało, za co potrącenie *</label><textarea name="description" required>' + esc(preset.description || '') + '</textarea>' +
+        '<p class="hint">' + (cfg().hasPin ? 'Lista i sumy są widoczne tylko dla właściciela (PIN). Recepcja może dodawać wpisy.' : 'Ustaw PIN właściciela w arkuszu „Ustawienia” → ownerPin, żeby ukryć listę przed recepcją.') + '</p>'
+    });
+    if (!r) return;
+    const d = Object.assign({ id: 'D' + now().toString(36) + Math.random().toString(36).slice(2, 5), status: 'open', addedBy: me(), addedAt: now(), taskId: preset.taskId || '' }, preset.id ? preset : {}, {
+      person: r.person, amount: Number(String(r.amount).replace(',', '.')) || 0, date: r.date ? new Date(r.date + 'T12:00:00').getTime() : now(),
+      category: r.category, patient: r.patient.trim(), description: r.description.trim()
+    });
+    saveDebtCall(d, preset.id ? 'Zapisano' : 'Potrącenie zapisane' + (cfg().hasPin && !S.debts ? ' (widoczne dla właściciela)' : ''));
+  }
+  function viewDebts() {
+    let h = '<h2>💰 Potrącenia: reklamacje i koszty do pokrycia przez pracowników</h2>' +
+      '<div class="actions" style="margin-bottom:10px"><button class="primary" id="debtAdd">➕ Dodaj potrącenie</button></div>';
+    if (!S.debts) {
+      if (!cfg().hasPin && !S.debtsFailed) { setTimeout(() => loadDebts(''), 0); return h + '<div class="loading">Ładowanie…</div>'; }
+      return h + '<div class="panel"><p>Lista i podsumowania są widoczne tylko dla właściciela.</p><div style="display:flex;gap:8px;max-width:320px"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN"><button class="primary" id="pinBtn">Odblokuj</button></div>' +
+        '<p class="hint">Recepcja może dodać wpis przyciskiem wyżej albo „💰 Potrącenie” w karcie sprawy.</p></div>';
+    }
+    const all = S.debts.filter(d => d.status !== 'cancelled');
+    const months = {}; months[monthKey(Date.now())] = 1; all.forEach(d => { months[monthKey(d.date)] = 1; });
+    const mk = S.debtMonth, inMonth = all.filter(d => monthKey(d.date) === mk);
+    const older = all.filter(d => d.status === 'open' && monthKey(d.date) < mk);
+    const per = {};
+    inMonth.concat(older).forEach(d => {
+      const p = per[d.person] = per[d.person] || { n: 0, sum: 0, open: 0, done: 0 };
+      p.n++; p.sum += d.amount; if (d.status === 'open') p.open += d.amount; else p.done += d.amount;
+    });
+    const tot = Object.keys(per).reduce((s, k) => s + per[k].open, 0);
+    h += '<div class="panel"><label style="margin-top:0">Miesiąc</label><select id="debtMonth" style="max-width:260px">' +
+      Object.keys(months).sort().reverse().map(k => '<option value="' + k + '"' + (k === mk ? ' selected' : '') + '>' + monthLabel(k) + '</option>').join('') + '</select>' +
+      '<p class="hint">Podsumowanie obejmuje wpisy z wybranego miesiąca + nierozliczone z wcześniejszych miesięcy.</p></div>';
+    h += '<h2>Podsumowanie: ' + monthLabel(mk) + ' <span class="hint">do potrącenia razem: <b>' + zl(tot) + '</b></span></h2>' +
+      '<div class="tablewrap"><table><tr><th>Kto</th><th>Pozycji</th><th>Razem</th><th>Już potrącono</th><th>Do potrącenia</th></tr>' +
+      (Object.keys(per).length ? Object.keys(per).sort((a, b) => per[b].open - per[a].open).map(k =>
+        '<tr><td><b>' + esc(k) + '</b></td><td>' + per[k].n + '</td><td>' + zl(per[k].sum) + '</td><td>' + zl(per[k].done) + '</td><td><b style="color:var(--red)">' + zl(per[k].open) + '</b></td></tr>').join('')
+        : '<tr><td colspan="5" class="hint">Brak potrąceń w tym miesiącu</td></tr>') + '</table></div>';
+    const row = d => '<tr><td>' + fmt(d.date).replace(/ \d\d:\d\d$/, '') + '</td><td><b>' + esc(d.person) + '</b></td><td>' + esc(d.category) + '</td><td>' + esc(d.patient) + '</td><td>' + esc(d.description) +
+      '<div class="hint">dodał(a): ' + esc(d.addedBy) + (d.status === 'settled' ? ' · ✅ potrącono ' + fmt(d.settledAt) + ' (' + esc(d.settledBy) + ')' : '') + '</div></td><td style="white-space:nowrap"><b>' + zl(d.amount) + '</b></td><td style="white-space:nowrap">' +
+      (d.status === 'open' ? '<button class="small primary" data-dact="settle" data-id="' + d.id + '">✅ Potrącono</button> ' : '<button class="small" data-dact="unsettle" data-id="' + d.id + '">↩️</button> ') +
+      '<button class="small" data-dact="edit" data-id="' + d.id + '">✏️</button> <button class="small danger" data-dact="cancel" data-id="' + d.id + '">✖</button></td></tr>';
+    const table = list => '<div class="tablewrap"><table><tr><th>Data</th><th>Kto</th><th>Kategoria</th><th>Pacjent</th><th>Opis</th><th>Kwota</th><th></th></tr>' + list.map(row).join('') + '</table></div>';
+    h += '<h2>Wpisy: ' + monthLabel(mk) + ' <span class="count">' + inMonth.length + '</span></h2>' + (inMonth.length ? table(inMonth.sort((a, b) => a.date - b.date)) : '<div class="empty">Brak</div>');
+    if (older.length) h += '<h2>⏳ Nierozliczone z wcześniejszych miesięcy <span class="count red">' + older.length + '</span></h2>' + table(older.sort((a, b) => a.date - b.date));
+    return h;
+  }
+  function bindDebts() {
+    const add = $('#debtAdd'); if (add) add.onclick = () => debtDialog({});
+    const pb = $('#pinBtn'); if (pb) { pb.onclick = () => loadDebts($('#pinIn').value); $('#pinIn').onkeydown = e => { if (e.key === 'Enter') loadDebts($('#pinIn').value); }; }
+    const ms = $('#debtMonth'); if (ms) ms.onchange = () => { S.debtMonth = ms.value; render(); };
+    $('#app').querySelectorAll('[data-dact]').forEach(b => b.onclick = async () => {
+      const d = (S.debts || []).find(x => x.id === b.dataset.id); if (!d) return;
+      if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
+      const a = b.dataset.dact;
+      if (a === 'settle') saveDebtCall(Object.assign({}, d, { status: 'settled', settledBy: me(), settledAt: now() }), 'Oznaczono jako potrącone');
+      if (a === 'unsettle') saveDebtCall(Object.assign({}, d, { status: 'open', settledBy: '', settledAt: '' }), 'Przywrócono');
+      if (a === 'edit') debtDialog(d);
+      if (a === 'cancel') {
+        const r = await dialog({ title: 'Usunąć potrącenie?', ok: 'Usuń', okCls: 'danger', body: '<p>' + esc(d.person) + ' — ' + zl(d.amount) + ': ' + esc(d.description) + '</p>' });
+        if (r) saveDebtCall(Object.assign({}, d, { status: 'cancelled' }), 'Usunięto');
+      }
+    });
+  }
+
   /* ---------- karty ---------- */
   function actionButtons(t, inDetail) {
     if (t.status !== 'open') return '<button type="button" class="small" data-act="reopen" data-id="' + t.id + '">♻️ Przywróć do pracy</button>';
@@ -567,6 +669,7 @@
     if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Napisz do lekarza' : 'Przypomnij lekarzowi') + '</button>';
     b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Komentarz / termin</button>';
     b += '<button type="button" class="small" data-act="ask" data-id="' + t.id + '">❓ Pytanie</button>';
+    if (inDetail) b += '<button type="button" class="small" data-act="debt" data-id="' + t.id + '">💰 Potrącenie</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Dane</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Zamknij bez realizacji</button>';
     return b;
   }
@@ -592,6 +695,7 @@
       }
       if (a === 'note') addNote(t);
       if (a === 'ask') askQuestion(t);
+      if (a === 'debt') debtDialog({ patient: t.patient, person: t.doctor, taskId: t.id, description: t.purpose });
       if (a === 'edit') editDialog(t);
       if (a === 'cancel') closeTask(t);
       if (a === 'reopen') reopen(t);
@@ -776,6 +880,7 @@
       ['all', '📋 Wszystkie otwarte', open.length],
       ['shift', '🔄 Przekazanie zmiany', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
       ['stats', '📊 Statystyki'],
+      ['debts', '💰 Potrącenia'],
       ['archive', '🗄 Archiwum']
     ];
     $('#tabs').innerHTML = tabs.map(t => '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] && !S.q ? 'on' : '') + '">' + t[1] +
@@ -792,10 +897,11 @@
       h += '<div class="banner">📥 <span>W skrzynce czeka <b>' + newInbox().length + '</b> nowych wiadomości' + (newInbox().some(isLate) ? ', w tym <b>' + newInbox().filter(isLate).length + '</b> dłużej niż ' + c.inboxAlertMinutes + ' min' : '') + '.</span><button class="small primary" data-goto="inbox">Otwórz skrzynkę</button></div>';
     if (!c.ktAutomation && S.tab === 'now')
       h += '<p class="hint" style="margin-top:12px">🤖 Automatyczne tworzenie spraw z maili o tomografii jest wyłączone: uzupełnij „ktEmailQuery” w arkuszu „Ustawienia”.</p>';
-    h += S.q ? viewSearch() : ({ now: viewNow, inbox: viewInbox, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
+    h += S.q ? viewSearch() : ({ now: viewNow, inbox: viewInbox, debts: viewDebts, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
     $('#app').innerHTML = h;
 
     bindActions($('#app'));
+    bindDebts();
     $('#app').querySelectorAll('[data-iact]').forEach(b => b.onclick = () => {
       const i = inbox().find(x => x.id === b.dataset.id); if (i) inboxAction(b.dataset.iact, i);
     });
@@ -826,7 +932,11 @@
     S.tab = b.dataset.tab; S.q = ''; $('#q').value = ''; render();
   });
   $('#q').addEventListener('input', e => { S.q = e.target.value.trim(); render(); });
-  $('#me').addEventListener('change', e => { store.set('me', e.target.value); render(); });
+  $('#me').addEventListener('change', e => {
+    store.set('me', e.target.value);
+    if (cfg().hasPin) { S.debts = null; S.pin = ''; } // zmiana osoby = zakładka potrąceń znów zablokowana
+    render();
+  });
   $('#addBtn').onclick = () => { if (!S.data) return; if (!me()) return toast('Najpierw wybierz, kto jest na zmianie'); newTaskDialog(); };
 
   api('getData').then(d => { S.data = d; render(); }).catch(e => { $('#app').innerHTML = '<div class="empty">Nie udało się załadować: ' + esc(e && e.message || e) + '</div>'; });

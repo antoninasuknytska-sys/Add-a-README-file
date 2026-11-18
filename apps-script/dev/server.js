@@ -25,6 +25,7 @@ const ctx = {
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
   MailApp: { sendEmail: m => sentMail.push(m) },
+  Utilities: { formatDate: d => (d.getMonth() + 1) + '.' + d.getFullYear() },
   GmailApp: null,
   HtmlService: {}
 };
@@ -33,7 +34,8 @@ vm.runInContext(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), ctx);
 ctx.setup();
 // ustawienia demo
 sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerEmail') r[1] = 'owner@example.com'; });
-sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233'], ['dr Wiśniewska', '48601234567'], ['Oliwia (higienistka)', '']];
+sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233', 'lek. dent. Anna Nowak, Anna Nowak'], ['dr Wiśniewska', '48601234567', 'Karolina Wiśniewska'], ['Oliwia (higienistka)', '', 'Oliwia']];
+sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerPin') r[1] = '1234'; });
 
 // imitacja Gmaila do testu checkKtEmails
 const inbox = [];
@@ -51,7 +53,7 @@ ctx.GmailApp = {
 };
 const props = {};
 ctx.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) };
-ctx.Session = { getEffectiveUser: () => ({ getEmail: () => 'polishdent.pl@gmail.com' }) };
+ctx.Session = { getEffectiveUser: () => ({ getEmail: () => 'polishdent.pl@gmail.com' }), getScriptTimeZone: () => 'Europe/Warsaw' };
 ctx.__inbox = inbox; ctx.__sentMail = sentMail; ctx.__sheets = sheets;
 module.exports = ctx;
 
@@ -59,7 +61,7 @@ if (require.main === module) {
   require('./seed')(ctx);
   require('./sample-mails')(ctx);
   ctx.checkMail();
-  const shim = `<script>window.google={script:{run:(function mk(ok,fail){return new Proxy({},{get(_,k){if(k==='withSuccessHandler')return f=>mk(f,fail);if(k==='withFailureHandler')return f=>mk(ok,f);return a=>fetch('/api/'+k,{method:'POST',body:JSON.stringify(a===undefined?null:a)}).then(r=>r.json()).then(j=>j.error?fail&&fail(new Error(j.error)):ok&&ok(j))}})})()}};</script>`;
+  const shim = `<script>window.google={script:{run:(function mk(ok,fail){return new Proxy({},{get(_,k){if(k==='withSuccessHandler')return f=>mk(f,fail);if(k==='withFailureHandler')return f=>mk(ok,f);return a=>fetch('/api/'+k,{method:'POST',body:JSON.stringify(a===undefined?null:a)}).then(r=>r.json()).then(j=>j&&j.error?fail&&fail(new Error(j.error)):ok&&ok(j))}})})()}};</script>`;
   http.createServer((req, res) => {
     if (req.url.startsWith('/api/')) {
       let b = ''; req.on('data', d => b += d); req.on('end', () => {
