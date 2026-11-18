@@ -561,6 +561,14 @@
   const CONTACT_SRC = ['call', 'call_in', 'call_out', 'sms', 'www_form', 'www_msg', 'email'];
   const PHONE_SRC = ['call', 'call_in', 'call_out', 'sms'];
   const isTalk = i => i.source === 'call_in' || i.source === 'call_out';
+  const last9 = i => digits(i.phone).slice(-9);
+  const hhmm = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  /** Rozmowa, która zamknęła nieodebrane (oddzwonienie albo ponowne dodzwonienie pacjenta). */
+  function callbackOf(m) {
+    if (m.source !== 'call' || m.status === 'new' || !/oddzwoniono|dodzwoni/i.test(m.note || '') || last9(m).length !== 9) return null;
+    return inbox().find(x => isTalk(x) && last9(x) === last9(m) && x.receivedAt === m.handledAt) || null;
+  }
+  function missedOf(c) { return isTalk(c) ? inbox().find(m => m.source === 'call' && callbackOf(m) === c) || null : null; }
   const undescribed = () => inbox().filter(i => isTalk(i) && !i.tags).sort((a, b) => a.receivedAt - b.receivedAt);
   const tagChips = i => i.tags ? String(i.tags).split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="chip tag">' + esc(t) + '</span>').join(' ') : '';
   const REMIND_TAGS = /oddzwoni|zastanowi/i;
@@ -616,9 +624,24 @@
     const fresh = newInbox().sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.receivedAt - b.receivedAt);
     const done = inbox().filter(i => i.status === 'done').sort((a, b) => b.handledAt - a.handledAt);
     const since = new Date(); since.setDate(since.getDate() - 1); since.setHours(0, 0, 0, 0);
-    const logs = inbox().filter(i => PHONE_SRC.indexOf(i.source) >= 0 && i.receivedAt >= since.getTime()).sort((a, b) => b.receivedAt - a.receivedAt);
+    // oddzwonienie pokazujemy w jednym wierszu z nieodebranym, więc osobny wiersz rozmowy ukrywamy
+    const logs = inbox().filter(i => PHONE_SRC.indexOf(i.source) >= 0 && i.receivedAt >= since.getTime() && !missedOf(i)).sort((a, b) => b.receivedAt - a.receivedAt);
     const todo = undescribed();
+    const mergedRow = (m, c) => {
+      const t = c.taskId ? S.data.tasks.find(x => x.id === c.taskId) : null;
+      return '<tr><td style="white-space:nowrap">' + fmt(m.receivedAt) + '</td><td>📞 Nieodebrane<div class="hint">→ ' +
+        (c.source === 'call_out' ? '📤 oddzwoniono ' : '📲 pacjent dodzwonił się ') + hhmm(c.receivedAt) + '</div></td><td>' +
+        (m.phone ? '<a class="phone" href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a> ' : '') + esc(c.name || m.name || '') + '</td><td>' +
+        (c.tags ? tagChips(c) + (c.note ? '<div class="hint">' + esc(c.note) + '</div>' : '') + '<div class="hint">' + esc(c.handledBy || '') + '</div>'
+          : '<span class="hint" style="color:var(--red)">bez opisu</span>') + '</td><td>' +
+        (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
+        '<button class="small' + (c.tags ? '' : ' primary') + '" data-iact="describe" data-id="' + c.id + '">' + (c.tags ? '✏️' : '🏷 Opisz') + '</button> ' +
+        (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬</button>' : '') + '</td></tr>';
+    };
     const logRow = i => {
+      const cb = i.source === 'call' ? callbackOf(i) : null, ms = cb ? null : missedOf(i);
+      if (cb) return mergedRow(i, cb);
+      if (ms) return mergedRow(ms, i);
       const t = i.taskId ? S.data.tasks.find(x => x.id === i.taskId) : null;
       const state = i.source === 'call' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na oddzwonienie</span> ' : '<span class="chip tag">✔ ' + esc(i.note || 'obsłużone') + '</span> ')
         : i.source === 'sms' && i.status === 'new' ? '<span class="chip warn">⚡ czeka na odpowiedź</span> ' : '';
