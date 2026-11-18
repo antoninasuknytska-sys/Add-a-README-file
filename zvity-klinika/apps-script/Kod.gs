@@ -274,7 +274,7 @@ function zapisz_(type, recs, cfg) {
 function lekarze_() {
   return SpreadsheetApp.getActive().getSheetByName('Довідники').getRange('A4:A20').getValues().map(function (r) { return r[0]; });
 }
-/** «Krzysztof Dragun» ↔ «ENDODONTA Krzysztof Dragun»: точний збіг, або одна назва містить іншу. */
+/** «Jan Kowalski» ↔ «ENDODONTA Jan Kowalski»: точний збіг, або одна назва містить іншу. */
 function znajdzLekarza_(name, docs) {
   var n = norm(name);
   if (!n) return '';
