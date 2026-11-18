@@ -28,8 +28,8 @@ const TASK_HEADERS = [
   'Źródło', 'Historia (JSON)'
 ];
 const SHIFT_COLS = ['id', 'at', 'from', 'note', 'openCount', 'overdueCount', 'acceptedBy', 'acceptedAt'];
-const INBOX_COLS = ['id', 'msgId', 'receivedAt', 'source', 'kind', 'name', 'phone', 'email', 'subject', 'text', 'link', 'mailbox', 'urgent', 'status', 'handledBy', 'handledAt', 'note', 'taskId'];
-const INBOX_HEADERS = ['ID', 'ID maila', 'Otrzymano', 'Źródło', 'Rodzaj', 'Imię i nazwisko', 'Telefon', 'E-mail', 'Temat', 'Treść', 'Link', 'Skrzynka', 'Pilne', 'Status', 'Kto obsłużył', 'Kiedy obsłużono', 'Notatka', 'ID sprawy'];
+const INBOX_COLS = ['id', 'msgId', 'receivedAt', 'source', 'kind', 'name', 'phone', 'email', 'subject', 'text', 'link', 'mailbox', 'urgent', 'status', 'handledBy', 'handledAt', 'note', 'taskId', 'when', 'service', 'doctor'];
+const INBOX_HEADERS = ['ID', 'ID maila', 'Otrzymano', 'Źródło', 'Rodzaj', 'Imię i nazwisko', 'Telefon', 'E-mail', 'Temat', 'Treść', 'Link', 'Skrzynka', 'Pilne', 'Status', 'Kto obsłużył', 'Kiedy obsłużono', 'Notatka', 'ID sprawy', 'Termin wizyty', 'Usługa', 'Do kogo'];
 const SHIFT_HEADERS = ['ID', 'Przekazano', 'Kto przekazał', 'Notatka', 'Otwartych spraw', 'Zaległych', 'Kto przejął', 'Przejęto'];
 
 /**
@@ -111,8 +111,9 @@ const DEFAULT_SETTINGS = [
   ['ownerEmail', '', 'E-mail właściciela: codziennie rano przychodzi tu raport o zaległych sprawach'],
   ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
   ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
-  ['clinicEmails', 'polishdent.pl@gmail.com, polishdent.wro@gmail.com', 'Adresy gabinetu (po przecinku): maile wysłane z nich nie trafiają do skrzynki, a z adresu odbiorcy widać, czy to PL czy WRO'],
-  ['inboxIgnore', 'wetransfer, diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
+  ['mailboxes', 'polishdent.pl@gmail.com=PL, dentonia.pl@gmail.com=WRO', 'Skrzynki gabinetu i ich znaczki (adres=znaczek, po przecinku). Maile wysłane z nich nie trafiają do skrzynki; z adresu odbiorcy widać, skąd jest wiadomość'],
+  ['ownerName', 'Właściciel', 'Imię właściciela z listy admins: gdy recepcja odpowie na jego pytanie, przychodzi mu e-mail'],
+  ['inboxIgnore', 'diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
 ];
@@ -212,6 +213,7 @@ function upsertTask_(task) {
   if (rowIdx > 0) {
     const current = rowToTask_(sh.getRange(rowIdx, 1, 1, TASK_COLS.length).getValues()[0]);
     task.history = mergeHistory_(current.history, task.history);
+    try { notifyAnswers_(current.history, task); } catch (e) { /* e-mail nie może zablokować zapisu */ }
     sh.getRange(rowIdx, 1, 1, TASK_COLS.length).setValues([taskToRow_(task)]);
   } else {
     sh.appendRow(taskToRow_(task));
@@ -295,7 +297,7 @@ function checkInbox() {
     'in:inbox category:primary' + after,
     'in:inbox' + after + ' (booksy OR znanylekarz OR docplanner OR "Twoje imię" OR "New message from" OR "Nowa wiadomość od" OR subject:CRM)'
   ];
-  const clinic = list_(s.clinicEmails);
+  const boxes = mailboxes_(s);
   const ignore = list_(s.inboxIgnore);
   const seen = {};
   readInbox_().forEach(i => { seen[i.msgId] = 1; });
@@ -305,7 +307,7 @@ function checkInbox() {
     if (seen[id]) return;
     seen[id] = 1;
     if (msg.getDate().getTime() < since) return;
-    const item = classifyMail_(msg, clinic, ignore);
+    const item = classifyMail_(msg, boxes, ignore);
     if (!item) return;
     item.id = newId_();
     item.msgId = id;
@@ -327,7 +329,8 @@ function checkInbox() {
 }
 
 /** Rozpoznaj, skąd jest wiadomość, i wyciągnij pacjenta, telefon i najważniejsze informacje. null = pomiń. */
-function classifyMail_(msg, clinic, ignore) {
+function classifyMail_(msg, boxes, ignore) {
+  const clinic = boxes.map(b => b.email);
   const from = msg.getFrom() || '';
   const fromL = from.toLowerCase();
   const subject = msg.getSubject() || '';
@@ -335,10 +338,10 @@ function classifyMail_(msg, clinic, ignore) {
   const raw = String(msg.getPlainBody() || htmlToText_(msg.getBody()) || '').replace(/\r/g, '');
   const flat = raw.replace(/\s+/g, ' ').trim();
   const to = ((msg.getTo() || '') + ' ' + (msg.getCc() || '')).toLowerCase();
-  const box = clinic.filter(e => to.indexOf(e) >= 0)[0];
+  const box = boxes.filter(b => to.indexOf(b.email) >= 0)[0];
   const it = {
     source: 'email', kind: '', name: '', phone: '', email: '', subject: subject, text: '', urgent: '',
-    mailbox: box ? box.split('@')[0].split('.').pop().toUpperCase() : ''
+    mailbox: box ? box.label : '', when: '', service: '', doctor: ''
   };
 
   // SMS i połączenia z telefonu (MacroDroid)
@@ -374,10 +377,12 @@ function classifyMail_(msg, clinic, ignore) {
     if (pending) it.urgent = '1';
     it.phone = findPhone_(flat);
     it.email = findEmail_(flat, ['booksy']);
-    const service = flat.match(/([A-ZĄĆĘŁŃÓŚŹŻ][^.!?]{3,90}?)\s+\d+,\d{2}\s*zł/);
-    const worker = flat.match(/pracownik:\s*([^\s,]+)/i);
-    it.text = [when || (subject.match(/\d{1,2}\s+\S+\s+\d{4}\s+\d{1,2}:\d{2}/) || [''])[0],
-      service ? service[1].trim() : '', worker ? 'pracownik: ' + worker[1] : ''].filter(Boolean).join(' · ');
+    const service = flat.match(/([A-ZĄĆĘŁŃÓŚŹŻ][^.!?]{3,90}?)\s+(\d+,\d{2}\s*zł)/);
+    const worker = raw.match(/pracownik:\s*([^\n,]+)/i);
+    const range = flat.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/);
+    it.when = (when || (subject.match(/\d{1,2}\s+\S+\s+\d{4}\s+\d{1,2}:\d{2}/) || [''])[0]) + (range ? ' (' + range[0].replace(/\s/g, '') + ')' : '');
+    it.service = service ? service[1].trim() + ', ' + service[2] : '';
+    it.doctor = worker ? worker[1].trim() : '';
     return it;
   }
 
@@ -393,9 +398,12 @@ function classifyMail_(msg, clinic, ignore) {
     else it.kind = 'ZnanyLekarz: ' + subject.replace(/^[^A-Za-zĄĆĘŁŃÓŚŹŻ]+/, '');
     it.phone = findPhone_(flat);
     it.email = findEmail_(flat, ['znanylekarz', 'docplanner']);
-    const when = subject.match(/\d{1,2}\.\d{1,2}\.\d{4}\s+o\s+\d{1,2}:\d{2}/);
+    const when = subject.match(/\d{1,2}\.\d{1,2}\.\d{4}\s+o\s+\d{1,2}:\d{2}/) || flat.match(/\d{1,2}\s+\S+\s+\d{4}\s+o\s+\d{1,2}:\d{2}/);
     const service = raw.match(/([A-ZĄĆĘŁŃÓŚŹŻ][^()\n]{3,90}?\(\d+\s*min\))/);
-    it.text = [when ? when[0] : '', service ? service[1].trim() : ''].filter(Boolean).join(' · ') || flat.slice(0, 500);
+    it.when = when ? when[0] : '';
+    it.service = service ? service[1].trim() : '';
+    it.doctor = findDoctor_(flat);
+    if (/wiadomoś|pytani/i.test(it.kind)) it.text = flat.slice(0, 1000);
     return it;
   }
 
@@ -404,6 +412,7 @@ function classifyMail_(msg, clinic, ignore) {
   if (m) {
     it.source = 'www_form'; it.kind = 'Formularz na stronie — oddzwonić'; it.urgent = '1';
     it.name = m[1].trim(); it.phone = m[2].trim();
+    formFields_(it, raw);
     it.text = flat.replace(m[0], '').trim().slice(0, 500);
     return it;
   }
@@ -415,7 +424,25 @@ function classifyMail_(msg, clinic, ignore) {
     it.name = n ? n[1].trim() : displayName_(from);
     it.phone = findPhone_(flat);
     it.email = findEmail_(flat, clinic);
+    formFields_(it, raw);
     it.text = flat.slice(0, 1000);
+    return it;
+  }
+
+  // WeTransfer: pacjent przesyła zdjęcia RTG / tomografię (link wygasa po kilku dniach!)
+  if (/wetransfer/i.test(fromL) || /we\.tl\//i.test(flat)) {
+    if (/pobran|downloaded|został[oa]? pobrane|wygas(a|ł) (jutro|dziś)|expire[sd]? (soon|today)/i.test(subjL)) return null; // potwierdzenia pobrania
+    it.source = 'wetransfer'; it.urgent = '1';
+    it.kind = 'WeTransfer: pacjent przesłał pliki (RTG / tomografia) — pobrać';
+    const title = subject.replace(/\s+(sent successfully to|sent you|przesłał\(a\)|przesłał|przesłała|wysłał|wysłała).*$/i, '').replace(/^\W+/, '').trim();
+    it.name = title.replace(/\s+(rtg|kt|ct|cbct|tomografi\S*|zdj[eę]ci\S*|pantomogram\S*|pliki?)$/i, '').trim() || displayName_(from);
+    it.email = findEmail_(subject + ' ' + flat, ['wetransfer'].concat(clinic));
+    const link = flat.match(/https?:\/\/we\.tl\/\S+/i);
+    const exp = flat.match(/(Wygasa|Expires(?: on)?|Link wygaśnie)\s*:?\s*([^.·]{4,40}\d{4})/i);
+    const size = flat.match(/\d+\s*(element|plik|item|file)\S*,?\s*(łącznie\s*)?[\d,.]+\s*[MGK]B/i);
+    it.when = exp ? 'link ważny do: ' + exp[2].trim() : '';
+    it.service = size ? size[0] : '';
+    it.text = link ? 'Link: ' + link[0] : flat.slice(0, 300);
     return it;
   }
 
@@ -426,6 +453,28 @@ function classifyMail_(msg, clinic, ignore) {
   it.phone = findPhone_(flat);
   it.text = raw.split(/\n\s*(On .{5,120}wrote:|W dniu .{5,160}pisze:|Dnia .{5,160}napisał)/)[0].replace(/\s+/g, ' ').trim().slice(0, 1000);
   return it;
+}
+
+/** Pola z formularza strony, jeśli formularz je ma (termin, usługa, lekarz). */
+function formFields_(it, raw) {
+  const f = re => { const m = String(raw).match(re); return m ? m[1].trim() : ''; };
+  it.service = it.service || f(/(?:Usługa|Zabieg|Rodzaj wizyty|Temat)\s*:\s*(.+)/i);
+  it.when = it.when || f(/(?:Termin|Data wizyty|Preferowany termin|Data)\s*:\s*(.+)/i);
+  it.doctor = it.doctor || f(/(?:Lekarz|Specjalista|Do kogo)\s*:\s*(.+)/i);
+}
+
+/** „lek. dent. Anna Nowak”, „dr n. med. Jan Kowalski”, „Lekarz: …” */
+function findDoctor_(text) {
+  const m = String(text).match(/(?:lek\.\s*dent\.|lek\.|dr\.?\s*(?:n\.\s*med\.)?|lekarz:|specjalista:)\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:[\s-]+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?)/);
+  return m ? m[1].trim() : '';
+}
+
+/** „polishdent.pl@gmail.com=PL, dentonia.pl@gmail.com=WRO” → [{email, label}] */
+function mailboxes_(s) {
+  return list_(s.mailboxes || s.clinicEmails).map(x => {
+    const p = x.split('=');
+    return { email: p[0].trim(), label: (p[1] || p[0].split('@')[0]).trim().toUpperCase() };
+  });
 }
 
 function displayName_(from) {
@@ -562,6 +611,7 @@ function dailyReport() {
     '<p>Otwartych spraw: <b>' + open.length + '</b>, zaległych: <b style="color:#c62828">' + overdue.length +
     '</b>, bez ruchu ponad ' + (s.staleHours || 48) + ' godz.: <b>' + stale.length + '</b>, zamknięto w 7 dni: <b>' + closedWeek.length + '</b>.</p>' +
     table('⏰ Zaległe', overdue) + table('🧊 Zawieszone bez ruchu', stale) +
+    questionsHtml_(open) +
     '<p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>';
 
   MailApp.sendEmail({
@@ -572,6 +622,12 @@ function dailyReport() {
 }
 
 /* ===================== Pomocnicze ===================== */
+
+function questionsHtml_(open) {
+  const qs = [];
+  open.forEach(t => (t.history || []).forEach(h => { if (h.q && !h.a) qs.push('<li><b>' + esc_(t.patient) + '</b>: ' + esc_(h.text.replace(/^❓\s*/, '')) + ' <i>(' + esc_(h.who) + (h.to ? ' → ' + esc_(h.to) : '') + ')</i></li>'); }));
+  return '<h3>❓ Pytania bez odpowiedzi — ' + qs.length + '</h3>' + (qs.length ? '<ul>' + qs.join('') + '</ul>' : '');
+}
 
 function getSettings_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SETTINGS);
@@ -660,14 +716,37 @@ function findRow_(sh, id) {
   return -1;
 }
 
+/** Scal historię z arkusza (a) i z przeglądarki (b). Ten sam wpis: wygrywa nowsza wersja, ale odpowiedź na pytanie nigdy nie ginie. */
 function mergeHistory_(a, b) {
-  const seen = {};
-  const out = [];
+  const map = {};
+  const order = [];
   (a || []).concat(b || []).forEach(h => {
     const k = h.t + '|' + h.who + '|' + h.text;
-    if (!seen[k]) { seen[k] = 1; out.push(h); }
+    if (!map[k]) { order.push(k); map[k] = h; return; }
+    if (map[k].a && !h.a) return;
+    map[k] = h;
   });
-  return out.sort((x, y) => x.t - y.t);
+  return order.map(k => map[k]).sort((x, y) => x.t - y.t);
+}
+
+/** Nowe odpowiedzi na pytania właściciela → e-mail do właściciela. */
+function notifyAnswers_(before, after) {
+  const s = getSettings_();
+  if (!s.ownerEmail) return;
+  const owner = String(s.ownerName || 'Właściciel').trim();
+  const old = {};
+  (before || []).forEach(h => { if (h.q) old[h.t + '|' + h.who] = h; });
+  (after.history || []).forEach(h => {
+    if (!h.q || !h.a || h.who !== owner) return;
+    const o = old[h.t + '|' + h.who];
+    if (o && o.a) return;
+    MailApp.sendEmail({
+      to: s.ownerEmail,
+      subject: '✅ Odpowiedź: ' + after.patient + ' — ' + h.a.who,
+      htmlBody: '<div style="font-family:Arial,sans-serif"><p><b>Pytanie:</b> ' + esc_(h.text.replace(/^❓\s*/, '')) + '</p><p><b>' + esc_(h.a.who) + ':</b> ' + esc_(h.a.text) +
+        '</p><p style="color:#666">Sprawa: ' + esc_(after.patient) + ' — ' + esc_(after.purpose) + '</p><p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>'
+    });
+  });
 }
 
 function stageName_(t) {

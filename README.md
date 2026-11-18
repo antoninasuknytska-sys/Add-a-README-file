@@ -22,10 +22,11 @@ Szybkie szablony w oknie „Nowa sprawa”: *„Ekstrakcja / implant dziś → t
 
 | Źródło | Co tablica odczytuje | Co robi recepcja |
 |---|---|---|
-| 📅 **Booksy** | pacjent, telefon, e-mail, termin, usługa, pracownik | „⚡ nowa rezerwacja — POTWIERDŹ” → potwierdź w Booksy → ✔ Załatwione |
-| 🩺 **ZnanyLekarz** | pacjent, telefon, e-mail, termin, usługa; rozpoznaje odwołania, nowe wizyty, zmiany i wiadomości | Odwołanie → „➕ Utwórz sprawę” (gotowa sprawa „zaproponować nowy termin”) |
-| 🌐 **Formularz na stronie** („Twoje imię / Twój numer telefonu”) | imię, telefon | Oddzwonić |
+| 📅 **Booksy** | pacjent, telefon, e-mail, **termin, usługa (z ceną), do kogo** (pracownik) | „⚡ nowa rezerwacja — POTWIERDŹ” → potwierdź w Booksy → ✔ Załatwione |
+| 🩺 **ZnanyLekarz** | pacjent, telefon, e-mail, **termin, usługa, do kogo** (jeśli w mailu jest „lek. dent. …”); rozpoznaje odwołania, nowe wizyty, zmiany i wiadomości | Odwołanie → „➕ Utwórz sprawę” (gotowa sprawa „zaproponować nowy termin”) |
+| 🌐 **Formularz na stronie** („Twoje imię / Twój numer telefonu”) | imię, telefon (+ termin, usługa i lekarz, jeśli dodacie takie pola do formularza: „Usługa:”, „Termin:”, „Lekarz:”) | Oddzwonić |
 | 💬 **Wiadomość ze strony** („New message from …”) | imię, telefon, treść | Oddzwonić |
+| 📦 **WeTransfer** (pacjent przesyła RTG / tomografię) | nazwa przesyłki, e-mail pacjenta, link, **do kiedy link jest ważny**, rozmiar | „➕ Utwórz sprawę” → sprawa *Tomografia gotowa — pokazać lekarzowi*. Pobierz pliki, zanim link wygaśnie |
 | ✉️ **Maile od pacjentów** (np. „Zapytanie o …”) | nadawca, telefon z treści, treść bez cytowanej historii | Odpisać / utworzyć sprawę. Newsletter? → „🚫 Ignoruj nadawcę” |
 | 📱 **SMS-y** z telefonu gabinetu | numer, nazwa z kontaktów, treść | Odpisać / oddzwonić |
 | 📞 **Nieodebrane połączenia** | numer, nazwa z kontaktów | Oddzwonić |
@@ -35,7 +36,9 @@ Przyciski przy każdej wiadomości:
 - **➕ Utwórz sprawę**: formularz wypełnia się danymi z wiadomości.
 - **✔ Załatwione** z krótką notatką, co zrobiono.
 
-Pomijane automatycznie: maile WeTransfer i Diagdent (tomografie mają własną automatyzację), maile wysłane z adresów gabinetu, SMS-y serwisowe (Play, kody). Listę można zmienić w arkuszu „Ustawienia” → `inboxIgnore`.
+Na każdej wiadomości widać znaczek skrzynki: 📧 **PL** (polishdent.pl@gmail.com) lub 📧 **WRO** (dentonia.pl@gmail.com). Znaczki można zmienić w „Ustawieniach” → `mailboxes`.
+
+Pomijane automatycznie: maile Diagdent (tomografie mają własną automatyzację), potwierdzenia pobrania z WeTransfer, maile wysłane z adresów gabinetu, SMS-y serwisowe (Play, kody). Listę można zmienić w arkuszu „Ustawienia” → `inboxIgnore`.
 
 Wyszukiwarka u góry przeszukuje też skrzynkę z ostatnich 14 dni.
 
@@ -57,7 +60,7 @@ Wszystko rób na koncie **PolishDent.pl@gmail.com**: tablica czyta pocztę tego 
    - **Wdróż** → skopiuj link.
 8. Otwórz link na komputerze w recepcji i **dodaj do zakładek**. Właściciel otwiera ten sam link w telefonie, zalogowany w przeglądarce na konto gabinetu. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja.
 
-9. **Przekierowanie z PolishDent.wro → PolishDent.pl.** Skrypt widzi tylko jedną skrzynkę, więc w Gmailu **PolishDent.wro@gmail.com**: ⚙️ **Ustawienia → Zobacz wszystkie ustawienia → Przekazywanie i POP/IMAP → Dodaj adres przekazywania** → `polishdent.pl@gmail.com`. Na skrzynkę PL przyjdzie kod potwierdzający: wpisz go, wybierz „Przekazuj kopię poczty przychodzącej do…” i „zachowaj kopię w Odebranych”. Na tablicy każda wiadomość ma znaczek 📧 PL lub 📧 WRO.
+9. **Przekierowanie z dentonia.pl → PolishDent.pl.** Skrypt widzi tylko jedną skrzynkę, więc w Gmailu **dentonia.pl@gmail.com**: ⚙️ **Ustawienia → Zobacz wszystkie ustawienia → Przekazywanie i POP/IMAP → Dodaj adres przekazywania** → `polishdent.pl@gmail.com`. Na skrzynkę PL przyjdzie kod potwierdzający: wpisz go, wybierz „Przekazuj kopię poczty przychodzącej do…” i „zachowaj kopię w Odebranych”. Na tablicy każda wiadomość ma znaczek 📧 PL lub 📧 WRO.
 
 > Po zmianach w kodzie: **Wdróż → Zarządzaj wdrożeniami → ✏️ → Wersja: nowa → Wdróż**. Link się nie zmienia.
 
@@ -65,7 +68,7 @@ Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić maile z tomogr
 
 ## SMS-y i nieodebrane połączenia z telefonu (Android, karta Play)
 
-Darmowa aplikacja **MacroDroid** (Google Play) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. W darmowej wersji można mieć 5 makr, potrzebne są 2.
+Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. W darmowej wersji można mieć 5 makr, potrzebne są 2.
 
 1. Zainstaluj **MacroDroid** na telefonie gabinetu i daj mu wymagane uprawnienia (SMS, rejestr połączeń, kontakty, powiadomienia).
 2. **Makro 1 — „SMS do tablicy”**
@@ -81,6 +84,15 @@ Darmowa aplikacja **MacroDroid** (Google Play) przesyła SMS-y i nieodebrane po�
 5. Test: wyślij SMS na numer gabinetu i zadzwoń, nie odbierając. Po maks. 5 min obie wiadomości będą w zakładce „📥 Skrzynka”.
 
 Temat musi zaczynać się dokładnie od `CRM SMS` lub `CRM NIEODEBRANE`. Po tym tablica je rozpoznaje.
+
+## 💬 Komentarze i ❓ pytania właściciela
+
+- **💬 Komentarz / termin**: każda recepcjonistka może dopisać do sprawy komentarz (i zmienić termin). Wszystko widać w historii karty z imieniem i godziną.
+- **❓ Pytanie**: właściciel (lub ktokolwiek) wybiera na karcie „❓ Pytanie”, pisze np. *„Dlaczego p. Kowalska jeszcze nieumówiona?”* i wybiera adresata: cała recepcja albo konkretna osoba.
+  - U recepcji pytanie pojawia się na samej górze zakładki „⏰ Teraz” (żółty blok z przyciskiem **✍️ Odpowiedz**), a na innych zakładkach jako baner.
+  - Przed przekazaniem zmiany tablica przypomina o pytaniach bez odpowiedzi.
+  - Gdy recepcja odpowie, odpowiedź jest pod pytaniem w historii karty i w „📊 Statystyki → Pytania i odpowiedzi” (z czasem odpowiedzi), a **właściciel dostaje e-mail**. Właściciel musi wybrać w „Na zmianie” imię z ustawienia `ownerName` (domyślnie „Właściciel”).
+  - Pytania bez odpowiedzi trafiają też do porannego raportu.
 
 ## WhatsApp i Instagram
 

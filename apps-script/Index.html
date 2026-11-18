@@ -99,6 +99,9 @@
   details { margin-top: 18px; }
   details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   .src { font-size: 18px; }
+  .question { background: var(--amber-bg); color: #5c3c00; padding: 8px 10px; border-radius: 8px; margin-top: 8px; font-size: 14px; }
+  .question button { margin-left: 6px; }
+  .answer { background: var(--green-bg); color: #0d5c26; padding: 6px 10px; border-radius: 8px; margin-top: 4px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -171,6 +174,7 @@
     const h = Math.round(m / 60);
     return h < 48 ? h + ' godz.' : Math.round(h / 24) + ' dni';
   }
+  function dur(ms) { const m = Math.max(1, Math.round(ms / 6e4)); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' godz.' : Math.round(m / 1440) + ' dni'; }
   const endOfToday = () => new Date().setHours(23, 59, 59, 999);
   function urgency(t) {
     if (t.status !== 'open') return 'closed';
@@ -181,7 +185,7 @@
   }
   // „Zawieszona” = termin minął i nikt jej nie ruszał dłużej niż staleHours (czekanie na laboratorium przed terminem się nie liczy)
   const isStale = t => t.status === 'open' && (!t.dueAt || t.dueAt < now()) && now() - (t.updatedAt || t.createdAt) > cfg().staleHours * H;
-  const lastEntry = t => (t.history || [])[t.history.length - 1];
+  const lastEntry = t => (t.history || []).filter(h => !h.q).pop();
   const countIn = (t, mark) => (t.history || []).filter(h => h.text.indexOf(mark) === 0).length;
   function toDatetimeLocal(ts) {
     const d = new Date(ts);
@@ -326,7 +330,7 @@
       '<div class="grid2"><div><label>Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
       '<div><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
       '<div><label>Jak kontaktuje się pacjent</label><select name="channel">' + CHANNELS.map(c => '<option' + (preset.channel === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
-      '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+      '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (preset.doctor === d.name ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
       '<label>O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
       '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)">' + esc(preset.purpose || '') + '</textarea>' +
       '<label>Etap</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
@@ -340,6 +344,7 @@
     };
     form.querySelectorAll('input[name=type]').forEach(r => r.onchange = fillStages);
     fillStages();
+    if (preset.stage != null) stageSel.value = String(preset.stage);
     const setType = k => { form.querySelector('input[name=type][value=' + k + ']').checked = true; fillStages(); };
     form.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => {
       const tpl = b.dataset.tpl, purpose = form.querySelector('[name=purpose]'), due = form.querySelector('[name=due]');
@@ -380,8 +385,7 @@
 
   function detailDialog(task) {
     const t = task, ty = type(t), u = urgency(t);
-    const hist = (t.history || []).slice().reverse().map(h =>
-      '<li>' + linkify(h.text) + '<div class="meta">' + fmt(h.t) + ' · ' + esc(h.who || '') + '</div></li>').join('');
+    const hist = (t.history || []).slice().reverse().map(historyItem).join('');
     const stagesHtml = ty.stages.map((s, i) => '<button type="button" class="small' + (i === t.stage && t.status === 'open' ? ' cur' : '') + '" data-stage="' + i + '">' + (s.done ? '✅ ' : '') + esc(s.n) + '</button>').join('');
     const body =
       '<div class="chips"><span class="chip">' + ty.icon + ' ' + esc(ty.label) + '</span>' +
@@ -389,7 +393,7 @@
       (t.channel ? '<span class="chip">' + esc(t.channel) + '</span>' : '') +
       (t.status === 'open' && t.dueAt ? '<span class="chip ' + (u === 'overdue' ? 'warn' : 'stage') + '">⏰ ' + fmt(t.dueAt) + '</span>' : '') + '</div>' +
       (t.phone ? '<p>📞 <a class="phone" href="tel:' + esc(t.phone) + '">' + esc(t.phone) + '</a> · <a class="phone" target="_blank" href="' + waLink(t.phone, '') + '">WhatsApp</a></p>' : '') +
-      '<p class="purpose"><b>O co chodzi:</b> ' + esc(t.purpose) + '</p>' +
+      qBlock(t) + '<p class="purpose"><b>O co chodzi:</b> ' + esc(t.purpose) + '</p>' +
       '<label>Przenieś na etap</label><div class="stages">' + stagesHtml + '</div>' +
       '<div class="actions">' + actionButtons(t, true) + '</div>' +
       '<label>Historia</label><ul class="timeline">' + hist + '</ul>' +
@@ -403,11 +407,54 @@
     return esc(s).replace(/(https?:\/\/[^\s]+)/g, '<a target="_blank" href="$1">mail ↗</a>');
   }
 
+  /* ---------- pytania właściciela do recepcji ---------- */
+  const openQs = t => (t.history || []).filter(h => h.q && !h.a);
+  const qsForMe = () => openTasks().filter(t => openQs(t).some(h => h.who !== me() && (!h.to || h.to === me())));
+  function qBlock(t) {
+    return openQs(t).map(h => '<div class="question">❓ <b>' + esc(h.who) + '</b>' + (h.to ? ' → ' + esc(h.to) : ' → recepcja') +
+      ' <span class="hint">' + fmt(h.t) + '</span><br>' + esc(h.text.replace(/^❓\s*/, '')) +
+      (h.who !== me() ? '<button type="button" class="small primary" data-qa="' + t.id + '" data-qt="' + h.t + '">✍️ Odpowiedz</button>'
+        : ' <span class="hint">(czeka na odpowiedź)</span>') + '</div>').join('');
+  }
+  async function askQuestion(task) {
+    const others = cfg().admins.filter(a => a !== me());
+    const r = await dialog({
+      title: 'Pytanie: ' + task.patient, ok: 'Wyślij pytanie',
+      body: '<label>Do kogo</label><select name="to"><option value="">Cała recepcja</option>' + others.map(a => '<option>' + esc(a) + '</option>').join('') + '</select>' +
+        '<label>Pytanie</label><textarea name="q" required autofocus placeholder="Np.: Czy pacjentka dostała już wycenę? Dlaczego nie umówiona?"></textarea>' +
+        '<p class="hint">Pytanie pojawi się na karcie i w zakładce „Teraz” u recepcji. Gdy ktoś odpowie, zobaczysz to w karcie i w „Statystykach”' + (me() === 'Właściciel' ? ', a na e-mail przyjdzie powiadomienie' : '') + '.</p>'
+    });
+    if (!r) return;
+    const t = clone(task);
+    t.history.push({ t: now(), who: me(), text: '❓ ' + r.q.trim(), q: 1, to: r.to || '' });
+    call('saveTask', t, 'Pytanie wysłane');
+  }
+  async function answerQuestion(task, qt) {
+    const t = clone(task);
+    const h = t.history.find(x => x.q && String(x.t) === String(qt));
+    if (!h || h.a) return;
+    const r = await dialog({
+      title: 'Odpowiedź: ' + task.patient, ok: 'Odpowiedz',
+      body: '<div class="question">❓ <b>' + esc(h.who) + '</b>: ' + esc(h.text.replace(/^❓\s*/, '')) + '</div><label>Twoja odpowiedź</label><textarea name="a" required autofocus></textarea>'
+    });
+    if (!r) return;
+    h.a = { t: now(), who: me(), text: r.a.trim() };
+    t.updatedAt = now(); t.updatedBy = me();
+    call('saveTask', t, 'Odpowiedź zapisana');
+  }
+  function historyItem(h) {
+    if (h.q) return '<li><div class="question" style="margin:0">❓ <b>' + esc(h.who) + '</b>' + (h.to ? ' → ' + esc(h.to) : ' → recepcja') + ': ' + esc(h.text.replace(/^❓\s*/, '')) + '</div>' +
+      (h.a ? '<div class="answer">✅ <b>' + esc(h.a.who) + '</b> (' + fmt(h.a.t) + '): ' + esc(h.a.text) + '</div>' : '') +
+      '<div class="meta">' + fmt(h.t) + '</div></li>';
+    return '<li>' + linkify(h.text) + '<div class="meta">' + fmt(h.t) + ' · ' + esc(h.who || '') + '</div></li>';
+  }
+
   /* ---------- skrzynka ---------- */
   const CHANNELS = ['Telefon', 'WhatsApp', 'SMS', 'E-mail', 'Booksy', 'ZnanyLekarz', 'Instagram', 'Osobiście'];
   const SRC = {
     booksy: ['📅', 'Booksy', 'Booksy'], znanylekarz: ['🩺', 'ZnanyLekarz', 'ZnanyLekarz'],
     www_form: ['🌐', 'Formularz na stronie', 'Telefon'], www_msg: ['💬', 'Wiadomość ze strony', 'Telefon'],
+    wetransfer: ['📦', 'WeTransfer (RTG / tomografia)', 'E-mail'],
     email: ['✉️', 'E-mail', 'E-mail'], sms: ['📱', 'SMS', 'SMS'], call: ['📞', 'Nieodebrane połączenie', 'Telefon']
   };
   const src = i => SRC[i.source] || ['•', i.source, 'Telefon'];
@@ -436,6 +483,8 @@
       (i.mailbox ? '<span class="chip stage">📧 ' + esc(i.mailbox) + '</span>' : '') +
       (i.email && i.email !== who ? '<span class="chip stage">' + esc(i.email) + '</span>' : '') +
       '<span class="chip stage">' + fmt(i.receivedAt) + '</span></div>' +
+      (i.when || i.service || i.doctor ? '<div class="chips">' + (i.when ? '<span class="chip">📅 ' + esc(i.when) + '</span>' : '') +
+        (i.service ? '<span class="chip">🦷 ' + esc(i.service) + '</span>' : '') + (i.doctor ? '<span class="chip">👨‍⚕️ ' + esc(i.doctor) + '</span>' : '') + '</div>' : '') +
       (i.text ? '<div class="purpose clamp">' + esc(i.text) + '</div>' : '') +
       (m ? '<div class="match">🔗 Ten pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + ', ' + esc(stage(m).n) + '. <i>' + esc(m.purpose) + '</i></div>' : '') +
       (i.status !== 'new' && i.note ? '<div class="last">Notatka: ' + esc(i.note) + '</div>' : '') +
@@ -454,8 +503,16 @@
   function handled(i, note, taskId) {
     return Object.assign({}, i, { status: 'done', handledBy: me(), handledAt: now(), note: note || '', taskId: taskId || i.taskId || '' });
   }
+  const inboxFacts = i => [i.when, i.service, i.doctor ? 'do: ' + i.doctor : ''].filter(Boolean).join(' · ');
   function inboxLine(i) {
-    return '📥 ' + (i.kind || src(i)[1]) + (i.text ? ' — ' + i.text.slice(0, 200) : '');
+    const f = inboxFacts(i);
+    return '📥 ' + (i.kind || src(i)[1]) + (f ? ' — ' + f : '') + (i.text ? ' — ' + i.text.slice(0, 200) : '');
+  }
+  function doctorFromInbox(i) {
+    const n = normName(i.doctor);
+    if (!n.length) return '';
+    const d = cfg().doctors.find(x => normName(x.name).some(w => n.indexOf(w) >= 0));
+    return d ? d.name : '';
   }
   async function inboxAction(act, i) {
     if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
@@ -472,10 +529,13 @@
       call('saveInbox', { item: handled(i, 'Dodano do sprawy', t.id), task: t }, 'Dodano do sprawy — jest w zakładce „Teraz”');
     }
     if (act === 'create') {
-      const cancel = /odwoła/i.test(i.kind || '');
+      const cancel = /odwoła/i.test(i.kind || ''), wt = i.source === 'wetransfer', f = inboxFacts(i);
       newTaskDialog({
-        type: cancel ? 'revisit' : 'lead', patient: i.name || '', phone: i.phone || '', channel: src(i)[2],
-        purpose: (cancel ? 'Odwołał(a) wizytę — zaproponować nowy termin. ' : '') + (i.kind || '') + (i.text ? ': ' + i.text.slice(0, 400) : '') + (i.email ? ' (' + i.email + ')' : '')
+        type: wt ? 'kt' : cancel ? 'revisit' : 'lead', stage: wt ? 1 : null,
+        patient: i.name || '', phone: i.phone || '', channel: src(i)[2], doctor: doctorFromInbox(i),
+        purpose: (wt ? 'Pacjent przesłał RTG/tomografię przez WeTransfer — pobrać przed wygaśnięciem linku, zapisać w karcie, pokazać lekarzowi. ' : '') +
+          (cancel ? 'Odwołał(a) wizytę — zaproponować nowy termin. ' : '') + (wt ? '' : (i.kind || '')) + (f ? ' — ' + f : '') +
+          (i.text ? ': ' + i.text.slice(0, 400) : '') + (i.email ? ' (' + i.email + ')' : '')
       }, t => {
         t.history.push({ t: now() + 1, who: me(), text: inboxLine(i) });
         call('saveInbox', { item: handled(i, 'Utworzono sprawę', t.id), task: t }, 'Sprawa utworzona');
@@ -506,10 +566,18 @@
     if (ty.stages.some(s => s.retry) && !st.nag) b += '<button type="button" class="small" data-act="noanswer" data-id="' + t.id + '">📵 Nie odebrał</button>';
     if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Napisz do lekarza' : 'Przypomnij lekarzowi') + '</button>';
     b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Komentarz / termin</button>';
+    b += '<button type="button" class="small" data-act="ask" data-id="' + t.id + '">❓ Pytanie</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Dane</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Zamknij bez realizacji</button>';
     return b;
   }
   function bindActions(root, before) {
+    root.querySelectorAll('[data-qa]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const t = S.data.tasks.find(x => x.id === b.dataset.qa); if (!t) return;
+      if (!me()) { toast('Najpierw wybierz, kto jest na zmianie'); return; }
+      if (before) before();
+      answerQuestion(t, b.dataset.qt);
+    });
     root.querySelectorAll('[data-act]').forEach(b => b.onclick = e => {
       e.stopPropagation();
       const t = S.data.tasks.find(x => x.id === b.dataset.id); if (!t) return;
@@ -523,6 +591,7 @@
         else remindDoctor(t);
       }
       if (a === 'note') addNote(t);
+      if (a === 'ask') askQuestion(t);
       if (a === 'edit') editDialog(t);
       if (a === 'cancel') closeTask(t);
       if (a === 'reopen') reopen(t);
@@ -543,7 +612,7 @@
       (nags ? '<span class="chip warn">🔔 przypomniano ' + nags + '×</span>' : '') +
       (isStale(t) ? '<span class="chip stale">🧊 bez ruchu ' + ago(t.updatedAt || t.createdAt) + '</span>' : '') +
       (t.source === 'email' ? '<span class="chip">🤖 z maila</span>' : '') + '</div>' +
-      '<div class="purpose">' + esc(t.purpose) + '</div>' +
+      '<div class="purpose">' + esc(t.purpose) + '</div>' + qBlock(t) +
       (le ? '<div class="last">Ostatnio: ' + esc(le.text.replace(/https?:\/\/\S+/g, '')) + ' — ' + esc(le.who || '') + ', ' + fmt(le.t) + '</div>' : '') +
       '<div class="actions">' + actionButtons(t, false) + '</div></div>';
   }
@@ -561,9 +630,11 @@
 
   function viewNow() {
     const open = openTasks();
-    const due = open.filter(t => urgency(t) === 'overdue' || urgency(t) === 'today').sort(byDue);
-    const staleOnly = open.filter(t => isStale(t) && due.indexOf(t) < 0);
-    let h = '<h2>Do zrobienia dziś <span class="hint">zaległe na górze</span></h2>' + cards(due, 'Wszystko zrobione 🎉 Na dziś brak spraw.');
+    const qs = qsForMe();
+    const due = open.filter(t => (urgency(t) === 'overdue' || urgency(t) === 'today') && qs.indexOf(t) < 0).sort(byDue);
+    const staleOnly = open.filter(t => isStale(t) && due.indexOf(t) < 0 && qs.indexOf(t) < 0);
+    let h = qs.length ? '<h2>❓ Pytania do recepcji <span class="count red">' + qs.length + '</span></h2>' + cards(qs, '') : '';
+    h += '<h2>Do zrobienia dziś <span class="hint">zaległe na górze</span></h2>' + cards(due, 'Wszystko zrobione 🎉 Na dziś brak spraw.');
     if (staleOnly.length) h += '<h2>🧊 Długo bez ruchu <span class="hint">po terminie, nikt nie ruszał ponad ' + cfg().staleHours + ' godz.</span></h2>' + cards(staleOnly, '');
     return h;
   }
@@ -591,7 +662,7 @@
       cards(list, 'Nic nie znaleziono. Szukamy wśród otwartych spraw i zamkniętych w ostatnich 30 dniach.') +
       (function () {
         const il = inbox().filter(i => (i.name || '').toLowerCase().includes(q) || (i.email || '').toLowerCase().includes(q) ||
-          (i.text || '').toLowerCase().includes(q) || (qd.length >= 3 && digits(i.phone).includes(qd))).sort((a, b) => b.receivedAt - a.receivedAt);
+          (i.text || '').toLowerCase().includes(q) || (i.service || '').toLowerCase().includes(q) || (i.doctor || '').toLowerCase().includes(q) || (qd.length >= 3 && digits(i.phone).includes(qd))).sort((a, b) => b.receivedAt - a.receivedAt);
         return il.length ? '<h2>📥 W skrzynce (14 dni) <span class="count">' + il.length + '</span></h2>' + inboxCards(il, '') : '';
       })();
   }
@@ -614,6 +685,7 @@
     }
     h += '<h2>📤 Przekaż zmianę</h2><div class="panel">' +
       '<p>Otwartych: <b>' + open.length + '</b> · zaległych: <b style="color:var(--red)">' + overdue.length + '</b> · spraw, które prowadziłaś na tej zmianie: <b>' + mine.length + '</b> · nowych w skrzynce: <b' + (newInbox().length ? ' style="color:var(--red)"' : '') + '>' + newInbox().length + '</b></p>' +
+      (qsForMe().length ? '<p style="color:var(--red)">❓ Są pytania bez odpowiedzi (zakładka „Teraz”). Odpowiedz przed przekazaniem zmiany.</p>' : '') +
       (newInbox().length ? '<p style="color:var(--red)">📥 W skrzynce są nieobsłużone wiadomości — obsłuż je albo zrób z nich sprawy przed przekazaniem zmiany.</p>' : '') +
       (overdue.length ? '<p style="color:var(--red)">⚠️ Przed przekazaniem dodaj komentarz albo zmień termin w każdej zaległej sprawie, żeby koleżanka wiedziała, co robić.</p>' : '') +
       '<label>Co ważne dla koleżanki (opcjonalnie, reszta jest już w kartach)</label><textarea id="shiftNote" placeholder="Np.: dr Nowak obiecał odpowiedzieć w sprawie tomografii p. Kowalskiej po 16:00"></textarea>' +
@@ -638,6 +710,14 @@
       tile(open.length, 'otwartych spraw') + tile(overdue.length, 'zaległych', overdue.length ? 'red' : 'green') +
       tile(stale.length, 'bez ruchu > ' + cfg().staleHours + ' godz.', stale.length ? 'red' : 'green') +
       tile(closedWeek.length, 'zamknięto w 7 dni', 'green') + tile(avgDays(closed), 'dni średnio do realizacji') + '</div>';
+    const allQs = [];
+    all.forEach(t => (t.history || []).forEach(x => { if (x.q) allQs.push({ t: t, h: x }); }));
+    const qOpen = allQs.filter(x => !x.h.a), qDone = allQs.filter(x => x.h.a && x.h.a.t > weekAgo).sort((a, b) => b.h.a.t - a.h.a.t);
+    const qRow = x => '<tr><td><b>' + esc(x.t.patient) + '</b><div class="hint">' + esc(type(x.t).label) + '</div></td><td>' + esc(x.h.who) + (x.h.to ? ' → ' + esc(x.h.to) : '') + '<div class="hint">' + fmt(x.h.t) + '</div></td><td>' + esc(x.h.text.replace(/^❓\s*/, '')) + '</td><td>' +
+      (x.h.a ? '✅ <b>' + esc(x.h.a.who) + '</b>: ' + esc(x.h.a.text) + '<div class="hint">' + fmt(x.h.a.t) + ' · po ' + dur(x.h.a.t - x.h.t) + '</div>' : '<span style="color:var(--red)">czeka ' + ago(x.h.t) + '</span>') + '</td></tr>';
+    h += '<h2>❓ Pytania i odpowiedzi</h2>' + (qOpen.length + qDone.length
+      ? '<div class="tablewrap"><table><tr><th>Sprawa</th><th>Kto pyta</th><th>Pytanie</th><th>Odpowiedź</th></tr>' + qOpen.concat(qDone).map(qRow).join('') + '</table></div>'
+      : '<div class="empty">Brak pytań. Pytanie zadasz przyciskiem „❓ Pytanie” na dowolnej karcie.</div>');
     const wk = inbox().filter(i => i.receivedAt > weekAgo);
     const react = list => { const d = list.filter(i => i.status !== 'new' && i.handledAt); return d.length ? Math.round(d.reduce((s, i) => s + (i.handledAt - i.receivedAt), 0) / d.length / 6e4) + ' min' : '—'; };
     h += '<h2>📥 Skrzynka (7 dni)</h2><div class="tiles">' + tile(wk.length, 'wiadomości') +
@@ -691,7 +771,7 @@
     const overdueCount = open.filter(t => urgency(t) === 'overdue').length;
     const pend = pendingShift();
     const tabs = [
-      ['now', '⏰ Teraz', nowCount, overdueCount > 0],
+      ['now', '⏰ Teraz', nowCount + qsForMe().length, overdueCount > 0 || qsForMe().length > 0],
       ['inbox', '📥 Skrzynka', newInbox().length, newInbox().some(isLate)],
       ['all', '📋 Wszystkie otwarte', open.length],
       ['shift', '🔄 Przekazanie zmiany', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
@@ -706,6 +786,8 @@
     if (pend && me() && pend.from !== me() && S.tab !== 'shift')
       h += '<div class="banner">🔄 <span><b>' + esc(pend.from) + '</b> przekazała zmianę ' + fmt(pend.at) + (pend.note ? ': „' + esc(pend.note) + '”' : '') +
         '. Zmiana jeszcze nie przejęta.</span><button class="small primary" data-goto="shift">Przejrzyj i przejmij</button></div>';
+    if (me() && qsForMe().length && S.tab !== 'now')
+      h += '<div class="banner">❓ <span>Czeka <b>' + qsForMe().length + '</b> ' + (qsForMe().length === 1 ? 'pytanie' : 'pytań') + ' do recepcji.</span><button class="small primary" data-goto="now">Odpowiedz</button></div>';
     if (newInbox().length && S.tab === 'now' && !S.q)
       h += '<div class="banner">📥 <span>W skrzynce czeka <b>' + newInbox().length + '</b> nowych wiadomości' + (newInbox().some(isLate) ? ', w tym <b>' + newInbox().filter(isLate).length + '</b> dłużej niż ' + c.inboxAlertMinutes + ' min' : '') + '.</span><button class="small primary" data-goto="inbox">Otwórz skrzynkę</button></div>';
     if (!c.ktAutomation && S.tab === 'now')

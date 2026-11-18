@@ -33,7 +33,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), ctx);
 ctx.setup();
 // ustawienia demo
 sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerEmail') r[1] = 'owner@example.com'; });
-sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233'], ['dr Wiśniewska', '48601234567']];
+sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233'], ['dr Wiśniewska', '48601234567'], ['Oliwia (higienistka)', '']];
 
 // imitacja Gmaila do testu checkKtEmails
 const inbox = [];
