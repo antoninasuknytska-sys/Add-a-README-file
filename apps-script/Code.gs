@@ -13,6 +13,7 @@ const SHEET_TASKS = 'Sprawy';
 const SHEET_SHIFTS = 'Zmiany';
 const SHEET_DOCTORS = 'Lekarze';
 const SHEET_SETTINGS = 'Ustawienia';
+const SHEET_INBOX = 'Skrzynka';
 const KT_LABEL = 'CRM-KT-done';
 const BOT = '🤖 Automat';
 
@@ -27,6 +28,8 @@ const TASK_HEADERS = [
   'Źródło', 'Historia (JSON)'
 ];
 const SHIFT_COLS = ['id', 'at', 'from', 'note', 'openCount', 'overdueCount', 'acceptedBy', 'acceptedAt'];
+const INBOX_COLS = ['id', 'msgId', 'receivedAt', 'source', 'kind', 'name', 'phone', 'email', 'subject', 'text', 'link', 'mailbox', 'urgent', 'status', 'handledBy', 'handledAt', 'note', 'taskId'];
+const INBOX_HEADERS = ['ID', 'ID maila', 'Otrzymano', 'Źródło', 'Rodzaj', 'Imię i nazwisko', 'Telefon', 'E-mail', 'Temat', 'Treść', 'Link', 'Skrzynka', 'Pilne', 'Status', 'Kto obsłużył', 'Kiedy obsłużono', 'Notatka', 'ID sprawy'];
 const SHIFT_HEADERS = ['ID', 'Przekazano', 'Kto przekazał', 'Notatka', 'Otwartych spraw', 'Zaległych', 'Kto przejął', 'Przejęto'];
 
 /**
@@ -39,6 +42,15 @@ const SHIFT_HEADERS = ['ID', 'Przekazano', 'Kto przekazał', 'Notatka', 'Otwarty
  *   done  — etap końcowy, sprawa się zamyka.
  */
 const TYPES = {
+  lead: {
+    label: 'Nowe zapytanie (strona, mail, SMS, Instagram)', icon: '🙋',
+    stages: [
+      { n: 'Oddzwonić / odpisać', due: 1 },
+      { n: 'Nie odebrał — ponowić', due: 3, retry: true },
+      { n: 'Pacjent się zastanawia', due: 72 },
+      { n: 'Umówiony', done: true }
+    ]
+  },
   kt: {
     label: 'Tomografia / plan leczenia', icon: '🦷',
     stages: [
@@ -99,6 +111,9 @@ const DEFAULT_SETTINGS = [
   ['ownerEmail', '', 'E-mail właściciela: codziennie rano przychodzi tu raport o zaległych sprawach'],
   ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
   ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
+  ['clinicEmails', 'polishdent.pl@gmail.com, polishdent.wro@gmail.com', 'Adresy gabinetu (po przecinku): maile wysłane z nich nie trafiają do skrzynki, a z adresu odbiorcy widać, czy to PL czy WRO'],
+  ['inboxIgnore', 'wetransfer, diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
+  ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
 ];
 
@@ -107,7 +122,7 @@ const DEFAULT_SETTINGS = [
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('🦷 Tablica spraw')
     .addItem('1. Konfiguracja początkowa', 'setup')
-    .addItem('Sprawdź teraz maile z tomografią', 'checkKtEmails')
+    .addItem('Sprawdź teraz pocztę (skrzynka + tomografie)', 'checkMail')
     .addItem('Wyślij teraz raport właścicielowi', 'dailyReport')
     .addToUi();
 }
@@ -117,6 +132,7 @@ function setup() {
   const ss = SpreadsheetApp.getActive();
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_SHIFTS, SHIFT_HEADERS);
+  ensureSheet_(ss, SHEET_INBOX, INBOX_HEADERS);
   const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Lekarz', 'WhatsApp (48XXXXXXXXX)']);
   if (doctors.getLastRow() < 2) {
     doctors.getRange(2, 1, 2, 2).setValues([['Lekarz 1', ''], ['Lekarz 2', '']]);
@@ -128,9 +144,9 @@ function setup() {
   settings.setColumnWidth(2, 320).setColumnWidth(3, 520);
 
   ScriptApp.getProjectTriggers().forEach(t => {
-    if (['checkKtEmails', 'dailyReport'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
+    if (['checkKtEmails', 'checkMail', 'dailyReport'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('checkKtEmails').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('checkMail').timeBased().everyMinutes(5).create();
   const hour = Math.min(23, Math.max(0, parseInt(getSettings_().reportHour, 10) || 8));
   ScriptApp.newTrigger('dailyReport').timeBased().everyDays(1).atHour(hour).create();
 
@@ -163,6 +179,8 @@ function getData() {
   const s = getSettings_();
   const monthAgo = Date.now() - 30 * 864e5;
   const tasks = readTasks_().filter(t => t.status === 'open' || (t.closedAt || 0) > monthAgo);
+  const twoWeeks = Date.now() - 14 * 864e5;
+  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > twoWeeks);
   return {
     now: Date.now(),
     config: {
@@ -171,9 +189,11 @@ function getData() {
       admins: String(s.admins || '').split(',').map(x => x.trim()).filter(Boolean),
       staleHours: Number(s.staleHours) || 48,
       doctors: readDoctors_(),
-      ktAutomation: !!s.ktEmailQuery
+      ktAutomation: !!s.ktEmailQuery,
+      inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
     },
     tasks: tasks,
+    inbox: inbox,
     shifts: readShifts_().slice(-15)
   };
 }
@@ -182,20 +202,53 @@ function getData() {
 function saveTask(task) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  try { upsertTask_(task); } finally { lock.releaseLock(); }
+  return getData();
+}
+
+function upsertTask_(task) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_TASKS);
+  const rowIdx = findRow_(sh, task.id);
+  if (rowIdx > 0) {
+    const current = rowToTask_(sh.getRange(rowIdx, 1, 1, TASK_COLS.length).getValues()[0]);
+    task.history = mergeHistory_(current.history, task.history);
+    sh.getRange(rowIdx, 1, 1, TASK_COLS.length).setValues([taskToRow_(task)]);
+  } else {
+    sh.appendRow(taskToRow_(task));
+  }
+}
+
+/** Zapisz element skrzynki; opcjonalnie razem ze sprawą (utworzoną z niego lub uzupełnioną). payload = {item, task?} */
+function saveInbox(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
   try {
-    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_TASKS);
-    const rowIdx = findRow_(sh, task.id);
-    if (rowIdx > 0) {
-      const current = rowToTask_(sh.getRange(rowIdx, 1, 1, TASK_COLS.length).getValues()[0]);
-      task.history = mergeHistory_(current.history, task.history);
-      sh.getRange(rowIdx, 1, 1, TASK_COLS.length).setValues([taskToRow_(task)]);
-    } else {
-      sh.appendRow(taskToRow_(task));
-    }
+    if (payload.task) upsertTask_(payload.task);
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
+    const row = inboxToRow_(payload.item);
+    const rowIdx = findRow_(sh, payload.item.id);
+    if (rowIdx > 0) sh.getRange(rowIdx, 1, 1, row.length).setValues([row]);
+    else sh.appendRow(row);
   } finally {
     lock.releaseLock();
   }
   return getData();
+}
+
+/** Dodaj nadawcę do listy ignorowanych (inboxIgnore) i zamknij element. payload = {email, item} */
+function ignoreSender(payload) {
+  const email = String(payload.email || '').toLowerCase().trim();
+  if (email) {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SETTINGS);
+    const vals = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (vals[i][0] === 'inboxIgnore') {
+        const cur = String(vals[i][1] || '');
+        if (cur.toLowerCase().indexOf(email) < 0) sh.getRange(i + 2, 2).setValue(cur ? cur + ', ' + email : email);
+      }
+    }
+  }
+  return saveInbox({ item: payload.item });
 }
 
 /** Przekazanie zmiany (wpis bez acceptedBy) lub przejęcie (wpis z id i acceptedBy). */
@@ -220,6 +273,186 @@ function saveShift(entry) {
 
 /* ===================== Automatyzacja ===================== */
 
+/** Wyzwalacz co 5 min: najpierw tomografie (Diagdent), potem skrzynka. */
+function checkMail() {
+  checkKtEmails();
+  checkInbox();
+}
+
+/**
+ * Skrzynka: zbiera nowe wiadomości od pacjentów i systemów rezerwacji do zakładki „📥 Skrzynka”.
+ * Źródła: Booksy, ZnanyLekarz, formularz i wiadomości ze strony, maile pacjentów,
+ * SMS-y i nieodebrane połączenia z telefonu (MacroDroid wysyła je mailem z tematem „CRM SMS …” / „CRM NIEODEBRANE …”).
+ */
+function checkInbox() {
+  const s = getSettings_();
+  const props = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  const last = Number(props.getProperty('inboxLastCheck')) || (now - 24 * 36e5);
+  const since = last - 15 * 6e4; // zapas na opóźnienia Gmaila
+  const after = ' after:' + Math.floor(since / 1000);
+  const queries = [
+    'in:inbox category:primary' + after,
+    'in:inbox' + after + ' (booksy OR znanylekarz OR docplanner OR "Twoje imię" OR "New message from" OR "Nowa wiadomość od" OR subject:CRM)'
+  ];
+  const clinic = list_(s.clinicEmails);
+  const ignore = list_(s.inboxIgnore);
+  const seen = {};
+  readInbox_().forEach(i => { seen[i.msgId] = 1; });
+  const fresh = [];
+  queries.forEach(q => GmailApp.search(q, 0, 50).forEach(th => th.getMessages().forEach(msg => {
+    const id = msg.getId();
+    if (seen[id]) return;
+    seen[id] = 1;
+    if (msg.getDate().getTime() < since) return;
+    const item = classifyMail_(msg, clinic, ignore);
+    if (!item) return;
+    item.id = newId_();
+    item.msgId = id;
+    item.receivedAt = msg.getDate().getTime();
+    item.link = mailLink_(th.getId());
+    item.status = 'new';
+    fresh.push(item);
+  })));
+
+  if (fresh.length) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
+      fresh.sort((a, b) => a.receivedAt - b.receivedAt).forEach(i => sh.appendRow(inboxToRow_(i)));
+    } finally { lock.releaseLock(); }
+  }
+  props.setProperty('inboxLastCheck', String(now));
+}
+
+/** Rozpoznaj, skąd jest wiadomość, i wyciągnij pacjenta, telefon i najważniejsze informacje. null = pomiń. */
+function classifyMail_(msg, clinic, ignore) {
+  const from = msg.getFrom() || '';
+  const fromL = from.toLowerCase();
+  const subject = msg.getSubject() || '';
+  const subjL = subject.toLowerCase();
+  const raw = String(msg.getPlainBody() || htmlToText_(msg.getBody()) || '').replace(/\r/g, '');
+  const flat = raw.replace(/\s+/g, ' ').trim();
+  const to = ((msg.getTo() || '') + ' ' + (msg.getCc() || '')).toLowerCase();
+  const box = clinic.filter(e => to.indexOf(e) >= 0)[0];
+  const it = {
+    source: 'email', kind: '', name: '', phone: '', email: '', subject: subject, text: '', urgent: '',
+    mailbox: box ? box.split('@')[0].split('.').pop().toUpperCase() : ''
+  };
+
+  // SMS i połączenia z telefonu (MacroDroid)
+  let m = subject.match(/^CRM\s+(SMS|NIEODEBRANE)\s*(.*)$/i);
+  if (m) {
+    const rest = m[2].trim();
+    const ph = rest.match(/\+?[\d\s-]{6,}/);
+    it.phone = ph ? ph[0].trim() : '';
+    it.name = (ph ? rest.replace(ph[0], '') : rest).replace(/[\[\]()]/g, '').trim();
+    if (m[1].toUpperCase() === 'SMS') {
+      if (digits_(it.phone).length < 9) return null; // SMS-y serwisowe (Play, kody, reklamy)
+      it.source = 'sms'; it.kind = 'SMS od pacjenta'; it.text = flat.slice(0, 1000);
+    } else {
+      it.source = 'call'; it.kind = 'Nieodebrane połączenie — oddzwonić'; it.urgent = '1';
+      if (!digits_(it.phone)) it.name = it.name || 'Numer zastrzeżony';
+    }
+    return it;
+  }
+
+  if (clinic.some(e => fromL.indexOf(e) >= 0)) return null; // nasze własne wysłane maile
+  if (ignore.some(w => fromL.indexOf(w) >= 0 || subjL.indexOf(w) >= 0)) return null;
+
+  // Booksy: „Anna Kowalska: nowa rezerwacja piątek, 27 listopada 2026 16:15”
+  if (fromL.indexOf('booksy') >= 0 || /booksy/i.test(flat)) {
+    it.source = 'booksy';
+    it.name = subject.indexOf(':') > 0 ? subject.split(':')[0].trim() : displayName_(from);
+    const when = subject.split(':').slice(1).join(':').replace(/^\s*(nowa\s+)?\S*\s*/i, '').trim();
+    const pending = /oczekuje na potwierdzenie/i.test(flat);
+    if (/odwoła|anulowa/i.test(subjL)) it.kind = 'Booksy: odwołanie wizyty';
+    else if (/zmian|przełoż|przesun/i.test(subjL)) it.kind = 'Booksy: zmiana terminu';
+    else if (/rezerwacj/i.test(subjL)) it.kind = pending ? 'Booksy: nowa rezerwacja — POTWIERDŹ' : 'Booksy: nowa rezerwacja';
+    else it.kind = 'Booksy: ' + subject;
+    if (pending) it.urgent = '1';
+    it.phone = findPhone_(flat);
+    it.email = findEmail_(flat, ['booksy']);
+    const service = flat.match(/([A-ZĄĆĘŁŃÓŚŹŻ][^.!?]{3,90}?)\s+\d+,\d{2}\s*zł/);
+    const worker = flat.match(/pracownik:\s*([^\s,]+)/i);
+    it.text = [when || (subject.match(/\d{1,2}\s+\S+\s+\d{4}\s+\d{1,2}:\d{2}/) || [''])[0],
+      service ? service[1].trim() : '', worker ? 'pracownik: ' + worker[1] : ''].filter(Boolean).join(' · ');
+    return it;
+  }
+
+  // ZnanyLekarz: „❌ Julia Kowalczyk odwołał(a) wizytę umówioną na sobota 14.11.2026 o 10:00”
+  if (/znanylekarz|docplanner/i.test(fromL) || /znanylekarz/i.test(flat)) {
+    it.source = 'znanylekarz';
+    const clean = subject.replace(/^[^A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+/, '');
+    it.name = clean.split(/\s+(odwołał|umówił|zmienił|przełożył|przesunął|wysłał|napisał|zostawił|dodał|ma pytanie|zadał)/i)[0].trim();
+    if (/odwoła/i.test(subjL)) it.kind = 'ZnanyLekarz: odwołanie wizyty';
+    else if (/umówił|nowa wizyta|zarezerwowa/i.test(subjL)) it.kind = 'ZnanyLekarz: nowa wizyta';
+    else if (/zmienił|przełożył|przesun/i.test(subjL)) it.kind = 'ZnanyLekarz: zmiana terminu';
+    else if (/wiadomoś|pytani/i.test(subjL)) { it.kind = 'ZnanyLekarz: wiadomość od pacjenta'; it.urgent = '1'; }
+    else it.kind = 'ZnanyLekarz: ' + subject.replace(/^[^A-Za-zĄĆĘŁŃÓŚŹŻ]+/, '');
+    it.phone = findPhone_(flat);
+    it.email = findEmail_(flat, ['znanylekarz', 'docplanner']);
+    const when = subject.match(/\d{1,2}\.\d{1,2}\.\d{4}\s+o\s+\d{1,2}:\d{2}/);
+    const service = raw.match(/([A-ZĄĆĘŁŃÓŚŹŻ][^()\n]{3,90}?\(\d+\s*min\))/);
+    it.text = [when ? when[0] : '', service ? service[1].trim() : ''].filter(Boolean).join(' · ') || flat.slice(0, 500);
+    return it;
+  }
+
+  // Formularz na stronie: „Twoje imię: Anna / Twój numer telefonu: 888…”
+  m = flat.match(/Twoje imię:\s*(.+?)\s+Twój numer telefonu:\s*([+\d][\d\s-]{6,})/i);
+  if (m) {
+    it.source = 'www_form'; it.kind = 'Formularz na stronie — oddzwonić'; it.urgent = '1';
+    it.name = m[1].trim(); it.phone = m[2].trim();
+    it.text = flat.replace(m[0], '').trim().slice(0, 500);
+    return it;
+  }
+
+  // Wiadomość ze strony: „New message from Anna (Nowa wiadomość od Anny)” / „-Anna ( 888… )”
+  if (/new message from|nowa wiadomość od/i.test(subject)) {
+    it.source = 'www_msg'; it.kind = 'Wiadomość ze strony — oddzwonić'; it.urgent = '1';
+    const n = subject.match(/new message from\s+(.+?)(\s*\(|$)/i);
+    it.name = n ? n[1].trim() : displayName_(from);
+    it.phone = findPhone_(flat);
+    it.email = findEmail_(flat, clinic);
+    it.text = flat.slice(0, 1000);
+    return it;
+  }
+
+  // Zwykły mail (pacjent pisze bezpośrednio)
+  it.kind = 'E-mail: ' + (subject || '(bez tematu)');
+  it.name = displayName_(from);
+  it.email = (from.match(/[^\s<>"]+@[^\s<>"]+/) || [''])[0].toLowerCase();
+  it.phone = findPhone_(flat);
+  it.text = raw.split(/\n\s*(On .{5,120}wrote:|W dniu .{5,160}pisze:|Dnia .{5,160}napisał)/)[0].replace(/\s+/g, ' ').trim().slice(0, 1000);
+  return it;
+}
+
+function displayName_(from) {
+  const m = String(from).match(/^\s*"?([^"<]+?)"?\s*</);
+  return m ? m[1].trim() : String(from).replace(/[<>]/g, '').trim();
+}
+
+function findPhone_(text) {
+  const m = String(text).match(/(\+48[\s-]?)?\b\d{3}[\s-]?\d{3}[\s-]?\d{3}\b/);
+  return m ? m[0].trim() : '';
+}
+
+function findEmail_(text, skip) {
+  const all = String(text).match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
+  return (all.filter(e => !(skip || []).some(w => e.toLowerCase().indexOf(w) >= 0))[0] || '').toLowerCase();
+}
+
+function digits_(s) { return String(s || '').replace(/\D/g, ''); }
+
+function list_(s) { return String(s || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean); }
+
+function mailLink_(threadId) {
+  let user = '';
+  try { user = Session.getEffectiveUser().getEmail(); } catch (e) { /* brak */ }
+  return 'https://mail.google.com/mail/' + (user ? '?authuser=' + encodeURIComponent(user) : 'u/0/') + '#all/' + threadId;
+}
+
 /**
  * Co 15 min: szuka nowych maili Diagdent „Nowe badanie w systemie Portal Lekarza”.
  * Z treści „…pojawiło się już badanie <BADANIE> dla pacjenta <IMIĘ NAZWISKO> (<DATA UR.>).”
@@ -237,7 +470,7 @@ function checkKtEmails() {
       const subject = msg.getSubject() || '';
       const body = msg.getPlainBody() || '';
       const info = parseStudyEmail_(body) || parseStudyEmail_(htmlToText_(msg.getBody()));
-      const link = 'https://mail.google.com/mail/u/0/#all/' + th.getId();
+      const link = mailLink_(th.getId());
       const now = Date.now();
       const stageIdx = 1; // „Tomografia gotowa — pokazać lekarzowi”
       const openKt = readTasks_().filter(t => t.status === 'open' && t.type === 'kt');
@@ -375,6 +608,28 @@ function readShifts_() {
     });
 }
 
+function readInbox_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, INBOX_COLS.length).getValues()
+    .filter(r => r[0])
+    .map(r => {
+      const o = {};
+      INBOX_COLS.forEach((c, i) => { o[c] = r[i] instanceof Date ? r[i].getTime() : r[i]; });
+      o.msgId = String(o.msgId).replace(/^'/, ''); o.phone = String(o.phone).replace(/^'/, '');
+      return o;
+    });
+}
+
+function inboxToRow_(i) {
+  return INBOX_COLS.map(c => {
+    const v = i[c];
+    if ((c === 'receivedAt' || c === 'handledAt') && v) return new Date(v);
+    if (c === 'phone' || c === 'msgId') return v ? "'" + String(v).replace(/^'/, '') : '';
+    return v === undefined || v === null ? '' : v;
+  });
+}
+
 function rowToTask_(r) {
   const t = {};
   TASK_COLS.forEach((c, i) => {
@@ -383,6 +638,7 @@ function rowToTask_(r) {
     t[c] = v;
   });
   t.stage = Number(t.stage) || 0;
+  t.phone = String(t.phone || '').replace(/^'/, '');
   try { t.history = t.history ? JSON.parse(t.history) : []; } catch (e) { t.history = []; }
   return t;
 }
@@ -391,6 +647,7 @@ function taskToRow_(t) {
   return TASK_COLS.map(c => {
     const v = t[c];
     if (c === 'history') return JSON.stringify(v || []);
+    if (c === 'phone') return v ? "'" + String(v).replace(/^'/, '') : ''; // „+48…” jako tekst, nie liczba
     if (['createdAt', 'dueAt', 'updatedAt', 'closedAt'].indexOf(c) >= 0) return v ? new Date(v) : '';
     return v === undefined || v === null ? '' : v;
   });

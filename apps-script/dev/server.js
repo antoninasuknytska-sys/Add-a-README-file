@@ -39,13 +39,26 @@ sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233']
 const inbox = [];
 ctx.GmailApp = {
   getUserLabelByName: () => ({}), createLabel: () => ({}),
-  search: () => inbox.filter(t => !t.done).map(t => ({ getId: () => t.id, getMessageCount: () => 1, getMessages: () => [{ getSubject: () => t.subject, getPlainBody: () => t.body, getBody: () => t.body }], addLabel() { t.done = true; } }))
+  // t = {id, subject, body, from, to, date, kt}; zapytania z "Portal Lekarza" zwracają tylko maile Diagdent
+  search: q => inbox.filter(t => (/Portal Lekarza/.test(q) ? t.kt && !t.done : !t.kt)).map(t => ({
+    getId: () => t.id, getMessageCount: () => 1,
+    getMessages: () => [{
+      getId: () => 'm' + t.id, getSubject: () => t.subject, getPlainBody: () => t.body, getBody: () => t.body,
+      getFrom: () => t.from || '', getTo: () => t.to || 'polishdent.pl@gmail.com', getCc: () => '', getDate: () => new Date(t.date || Date.now())
+    }],
+    addLabel() { t.done = true; }
+  }))
 };
+const props = {};
+ctx.PropertiesService = { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) };
+ctx.Session = { getEffectiveUser: () => ({ getEmail: () => 'polishdent.pl@gmail.com' }) };
 ctx.__inbox = inbox; ctx.__sentMail = sentMail; ctx.__sheets = sheets;
 module.exports = ctx;
 
 if (require.main === module) {
   require('./seed')(ctx);
+  require('./sample-mails')(ctx);
+  ctx.checkMail();
   const shim = `<script>window.google={script:{run:(function mk(ok,fail){return new Proxy({},{get(_,k){if(k==='withSuccessHandler')return f=>mk(f,fail);if(k==='withFailureHandler')return f=>mk(ok,f);return a=>fetch('/api/'+k,{method:'POST',body:JSON.stringify(a===undefined?null:a)}).then(r=>r.json()).then(j=>j.error?fail&&fail(new Error(j.error)):ok&&ok(j))}})})()}};</script>`;
   http.createServer((req, res) => {
     if (req.url.startsWith('/api/')) {

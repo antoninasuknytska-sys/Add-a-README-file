@@ -94,6 +94,11 @@
   .quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #202124; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 30; font-size: 14px; }
   .loading { padding: 60px; text-align: center; color: var(--muted); }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+  .match { background: var(--blue-bg); color: #174ea6; padding: 7px 10px; border-radius: 8px; font-size: 14px; margin-top: 8px; }
+  details { margin-top: 18px; }
+  details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  .src { font-size: 18px; }
 </style>
 </head>
 <body>
@@ -307,7 +312,7 @@
     const inp = b.closest('form').querySelector('input[name=due]'); inp.value = b.dataset.due;
   });
 
-  async function newTaskDialog(preset) {
+  async function newTaskDialog(preset, onCreate) {
     preset = preset || {};
     const types = cfg().types;
     const typeKeys = Object.keys(types);
@@ -320,10 +325,10 @@
         '<label><input type="radio" name="type" value="' + k + '"' + ((preset.type || 'call_after') === k ? ' checked' : '') + '>' + types[k].icon + ' ' + esc(types[k].label) + '</label>').join('') + '</div>' +
       '<div class="grid2"><div><label>Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
       '<div><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
-      '<div><label>Jak kontaktuje się pacjent</label><select name="channel">' + ['Telefon', 'WhatsApp', 'E-mail', 'Booksy', 'Osobiście'].map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
+      '<div><label>Jak kontaktuje się pacjent</label><select name="channel">' + CHANNELS.map(c => '<option' + (preset.channel === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
       '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
       '<label>O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
-      '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)"></textarea>' +
+      '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)">' + esc(preset.purpose || '') + '</textarea>' +
       '<label>Etap</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
       '<p class="hint">Jeśli nie podasz terminu — ustawi się automatycznie według etapu.</p>';
     const p = dialog({ title: 'Nowa sprawa', body, ok: 'Utwórz', wide: true });
@@ -353,7 +358,7 @@
     applyStage(t, Number(r.stage) || 0, '', r.due ? new Date(r.due).getTime() : 0);
     t.history.splice(1, 1); // „Etap” dubluje „Utworzono”
     t.history[0].text = '🆕 Utworzono na etapie „' + stage(t).n + '”';
-    call('saveTask', t, 'Sprawa utworzona');
+    if (onCreate) onCreate(t); else call('saveTask', t, 'Sprawa utworzona');
   }
 
   async function editDialog(task) {
@@ -396,6 +401,100 @@
   }
   function linkify(s) {
     return esc(s).replace(/(https?:\/\/[^\s]+)/g, '<a target="_blank" href="$1">mail ↗</a>');
+  }
+
+  /* ---------- skrzynka ---------- */
+  const CHANNELS = ['Telefon', 'WhatsApp', 'SMS', 'E-mail', 'Booksy', 'ZnanyLekarz', 'Instagram', 'Osobiście'];
+  const SRC = {
+    booksy: ['📅', 'Booksy', 'Booksy'], znanylekarz: ['🩺', 'ZnanyLekarz', 'ZnanyLekarz'],
+    www_form: ['🌐', 'Formularz na stronie', 'Telefon'], www_msg: ['💬', 'Wiadomość ze strony', 'Telefon'],
+    email: ['✉️', 'E-mail', 'E-mail'], sms: ['📱', 'SMS', 'SMS'], call: ['📞', 'Nieodebrane połączenie', 'Telefon']
+  };
+  const src = i => SRC[i.source] || ['•', i.source, 'Telefon'];
+  const inbox = () => S.data.inbox || [];
+  const newInbox = () => inbox().filter(i => i.status === 'new');
+  const isLate = i => i.status === 'new' && now() - i.receivedAt > cfg().inboxAlertMinutes * 6e4;
+  const normName = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  /** Otwarta sprawa tego samego pacjenta: po ostatnich 9 cyfrach telefonu albo po imieniu i nazwisku. */
+  function matchTask(i) {
+    const open = openTasks(), p9 = digits(i.phone).slice(-9);
+    if (p9.length === 9) { const t = open.find(x => digits(x.phone).slice(-9) === p9); if (t) return t; }
+    const n = normName(i.name);
+    if (n.length < 2) return null;
+    return open.find(x => { const pt = normName(x.patient); return pt.length >= 2 && pt.every(w => n.indexOf(w) >= 0); }) || null;
+  }
+  function inboxCard(i) {
+    const sc = src(i), late = isLate(i), m = i.status === 'new' ? matchTask(i) : null;
+    const who = i.name || i.email || i.phone || '—';
+    const right = i.status === 'new' ? (late ? '⏰ czeka ' : '🕒 ') + ago(i.receivedAt)
+      : '✔ ' + esc(i.handledBy || '') + ', ' + fmt(i.handledAt);
+    return '<div class="card ' + (i.status !== 'new' ? 'closed' : late ? 'overdue' : 'today') + '">' +
+      '<div class="row1"><span class="src">' + sc[0] + '</span><span class="patient">' + esc(who) + '</span>' +
+      (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + (who === i.phone ? '📞 zadzwoń' : esc(i.phone)) + '</a>' : '') +
+      '<span class="due ' + (i.status !== 'new' ? 'later' : late ? 'overdue' : 'today') + '">' + right + '</span></div>' +
+      '<div class="chips"><span class="chip' + (i.urgent ? ' warn' : '') + '">' + (i.urgent ? '⚡ ' : '') + esc(i.kind || sc[1]) + '</span>' +
+      (i.mailbox ? '<span class="chip stage">📧 ' + esc(i.mailbox) + '</span>' : '') +
+      (i.email && i.email !== who ? '<span class="chip stage">' + esc(i.email) + '</span>' : '') +
+      '<span class="chip stage">' + fmt(i.receivedAt) + '</span></div>' +
+      (i.text ? '<div class="purpose clamp">' + esc(i.text) + '</div>' : '') +
+      (m ? '<div class="match">🔗 Ten pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + ', ' + esc(stage(m).n) + '. <i>' + esc(m.purpose) + '</i></div>' : '') +
+      (i.status !== 'new' && i.note ? '<div class="last">Notatka: ' + esc(i.note) + '</div>' : '') +
+      '<div class="actions">' + (i.status === 'new'
+        ? (m ? '<button class="small primary" data-iact="attach" data-id="' + i.id + '">🔗 Dodaj do sprawy</button>' : '') +
+          '<button class="small' + (m ? '' : ' primary') + '" data-iact="create" data-id="' + i.id + '">➕ Utwórz sprawę</button>' +
+          '<button class="small" data-iact="done" data-id="' + i.id + '">✔ Załatwione</button>' +
+          (i.source === 'email' && i.email ? '<button class="small" data-iact="ignore" data-id="' + i.id + '">🚫 Ignoruj nadawcę</button>' : '')
+        : '<button class="small" data-iact="reopen" data-id="' + i.id + '">↩️ Przywróć</button>') +
+        (i.link && i.source !== 'sms' && i.source !== 'call' ? '<a class="small" style="align-self:center;margin-left:6px" target="_blank" href="' + esc(i.link) + '">Otwórz mail ↗</a>' : '') +
+      '</div></div>';
+  }
+  function inboxCards(list, emptyMsg) {
+    return list.length ? '<div class="list">' + list.map(inboxCard).join('') + '</div>' : '<div class="empty">' + emptyMsg + '</div>';
+  }
+  function handled(i, note, taskId) {
+    return Object.assign({}, i, { status: 'done', handledBy: me(), handledAt: now(), note: note || '', taskId: taskId || i.taskId || '' });
+  }
+  function inboxLine(i) {
+    return '📥 ' + (i.kind || src(i)[1]) + (i.text ? ' — ' + i.text.slice(0, 200) : '');
+  }
+  async function inboxAction(act, i) {
+    if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
+    if (act === 'done') {
+      const r = await dialog({ title: 'Załatwione', ok: 'Zapisz', body: '<label>Co zrobiono? (opcjonalnie)</label><textarea name="note" autofocus placeholder="Np.: potwierdzono w Booksy / oddzwoniono, umówiono na 25.11 10:00"></textarea>' });
+      if (!r) return;
+      call('saveInbox', { item: handled(i, r.note.trim()) }, '✔ Obsłużone');
+    }
+    if (act === 'attach') {
+      const m = matchTask(i); if (!m) return;
+      const t = clone(m);
+      log(t, inboxLine(i));
+      t.dueAt = Math.min(t.dueAt || 9e15, now() + 30 * 6e4);
+      call('saveInbox', { item: handled(i, 'Dodano do sprawy', t.id), task: t }, 'Dodano do sprawy — jest w zakładce „Teraz”');
+    }
+    if (act === 'create') {
+      const cancel = /odwoła/i.test(i.kind || '');
+      newTaskDialog({
+        type: cancel ? 'revisit' : 'lead', patient: i.name || '', phone: i.phone || '', channel: src(i)[2],
+        purpose: (cancel ? 'Odwołał(a) wizytę — zaproponować nowy termin. ' : '') + (i.kind || '') + (i.text ? ': ' + i.text.slice(0, 400) : '') + (i.email ? ' (' + i.email + ')' : '')
+      }, t => {
+        t.history.push({ t: now() + 1, who: me(), text: inboxLine(i) });
+        call('saveInbox', { item: handled(i, 'Utworzono sprawę', t.id), task: t }, 'Sprawa utworzona');
+      });
+    }
+    if (act === 'ignore') {
+      const r = await dialog({ title: 'Ignorować nadawcę?', ok: 'Ignoruj', okCls: 'danger', body: '<p>Maile od <b>' + esc(i.email) + '</b> nie będą już trafiać do skrzynki (np. newslettery, faktury). Można to cofnąć w arkuszu „Ustawienia” → inboxIgnore.</p>' });
+      if (!r) return;
+      call('ignoreSender', { email: i.email, item: handled(i, 'Zignorowano nadawcę') }, 'Nadawca ignorowany');
+    }
+    if (act === 'reopen') call('saveInbox', { item: Object.assign({}, i, { status: 'new', handledBy: '', handledAt: '', note: '' }) }, 'Przywrócono');
+  }
+  function viewInbox() {
+    const fresh = newInbox().sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.receivedAt - b.receivedAt);
+    const done = inbox().filter(i => i.status !== 'new').sort((a, b) => b.handledAt - a.handledAt);
+    return '<h2>Nowe wiadomości <span class="count' + (fresh.some(isLate) ? ' red' : '') + '">' + fresh.length + '</span> <span class="hint">pilne (⚡) i najstarsze na górze · czerwone czekają dłużej niż ' + cfg().inboxAlertMinutes + ' min</span></h2>' +
+      inboxCards(fresh, 'Skrzynka pusta 🎉 Wszystkie wiadomości obsłużone.') +
+      '<details><summary>Obsłużone w ostatnich 14 dniach (' + done.length + ')</summary>' + inboxCards(done, 'Brak') + '</details>' +
+      '<p class="hint" style="margin-top:16px">Instagram i WhatsApp sprawdzaj w Meta Business Suite / na telefonie. Jeśli pacjent czegoś potrzebuje, kliknij „＋ Nowa sprawa” i wybierz kanał Instagram lub WhatsApp.</p>';
   }
 
   /* ---------- karty ---------- */
@@ -489,7 +588,12 @@
     ).sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || b.updatedAt - a.updatedAt);
     return '<h2>Wyniki wyszukiwania „' + esc(S.q) + '” <span class="count">' + list.length + '</span></h2>' +
       '<p class="hint">Pacjent oddzwania i pyta „dzwoniliście do mnie?” — otwórz kartę, tam jest cała historia.</p>' +
-      cards(list, 'Nic nie znaleziono. Szukamy wśród otwartych spraw i zamkniętych w ostatnich 30 dniach.');
+      cards(list, 'Nic nie znaleziono. Szukamy wśród otwartych spraw i zamkniętych w ostatnich 30 dniach.') +
+      (function () {
+        const il = inbox().filter(i => (i.name || '').toLowerCase().includes(q) || (i.email || '').toLowerCase().includes(q) ||
+          (i.text || '').toLowerCase().includes(q) || (qd.length >= 3 && digits(i.phone).includes(qd))).sort((a, b) => b.receivedAt - a.receivedAt);
+        return il.length ? '<h2>📥 W skrzynce (14 dni) <span class="count">' + il.length + '</span></h2>' + inboxCards(il, '') : '';
+      })();
   }
 
   function viewShift() {
@@ -509,7 +613,8 @@
         '<h2>Sprawy, które prowadziła ' + esc(pend.from) + ' na swojej zmianie <span class="count">' + theirs.length + '</span></h2>' + cards(theirs, 'Brak');
     }
     h += '<h2>📤 Przekaż zmianę</h2><div class="panel">' +
-      '<p>Otwartych: <b>' + open.length + '</b> · zaległych: <b style="color:var(--red)">' + overdue.length + '</b> · spraw, które prowadziłaś na tej zmianie: <b>' + mine.length + '</b></p>' +
+      '<p>Otwartych: <b>' + open.length + '</b> · zaległych: <b style="color:var(--red)">' + overdue.length + '</b> · spraw, które prowadziłaś na tej zmianie: <b>' + mine.length + '</b> · nowych w skrzynce: <b' + (newInbox().length ? ' style="color:var(--red)"' : '') + '>' + newInbox().length + '</b></p>' +
+      (newInbox().length ? '<p style="color:var(--red)">📥 W skrzynce są nieobsłużone wiadomości — obsłuż je albo zrób z nich sprawy przed przekazaniem zmiany.</p>' : '') +
       (overdue.length ? '<p style="color:var(--red)">⚠️ Przed przekazaniem dodaj komentarz albo zmień termin w każdej zaległej sprawie, żeby koleżanka wiedziała, co robić.</p>' : '') +
       '<label>Co ważne dla koleżanki (opcjonalnie, reszta jest już w kartach)</label><textarea id="shiftNote" placeholder="Np.: dr Nowak obiecał odpowiedzieć w sprawie tomografii p. Kowalskiej po 16:00"></textarea>' +
       '<div class="actions"><button class="primary" id="handBtn">📤 Przekazuję zmianę</button></div></div>';
@@ -533,6 +638,13 @@
       tile(open.length, 'otwartych spraw') + tile(overdue.length, 'zaległych', overdue.length ? 'red' : 'green') +
       tile(stale.length, 'bez ruchu > ' + cfg().staleHours + ' godz.', stale.length ? 'red' : 'green') +
       tile(closedWeek.length, 'zamknięto w 7 dni', 'green') + tile(avgDays(closed), 'dni średnio do realizacji') + '</div>';
+    const wk = inbox().filter(i => i.receivedAt > weekAgo);
+    const react = list => { const d = list.filter(i => i.status !== 'new' && i.handledAt); return d.length ? Math.round(d.reduce((s, i) => s + (i.handledAt - i.receivedAt), 0) / d.length / 6e4) + ' min' : '—'; };
+    h += '<h2>📥 Skrzynka (7 dni)</h2><div class="tiles">' + tile(wk.length, 'wiadomości') +
+      tile(newInbox().length, 'czeka na obsługę', newInbox().some(isLate) ? 'red' : 'green') + tile(react(wk), 'średni czas reakcji') + '</div>' +
+      '<div class="tablewrap" style="margin-top:10px"><table><tr><th>Źródło</th><th>Wiadomości</th><th>Obsłużone</th><th>Zrobiono sprawę</th><th>Śr. reakcja</th></tr>' +
+      Object.keys(SRC).map(k => { const l = wk.filter(i => i.source === k); return l.length ? '<tr><td>' + SRC[k][0] + ' ' + SRC[k][1] + '</td><td>' + l.length + '</td><td>' + l.filter(i => i.status !== 'new').length + '</td><td>' + l.filter(i => i.taskId).length + '</td><td>' + react(l) + '</td></tr>' : ''; }).join('') +
+      '</table></div>';
     h += '<h2>Według typów</h2><div class="tablewrap"><table><tr><th>Typ</th><th>Otwarte</th><th>Zaległe</th><th>Zrobione (30 dni)</th><th>Zamknięte bez realizacji</th><th>Śr. dni</th></tr>' +
       Object.keys(cfg().types).map(k => {
         const a = all.filter(t => t.type === k);
@@ -580,6 +692,7 @@
     const pend = pendingShift();
     const tabs = [
       ['now', '⏰ Teraz', nowCount, overdueCount > 0],
+      ['inbox', '📥 Skrzynka', newInbox().length, newInbox().some(isLate)],
       ['all', '📋 Wszystkie otwarte', open.length],
       ['shift', '🔄 Przekazanie zmiany', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
       ['stats', '📊 Statystyki'],
@@ -591,14 +704,19 @@
     let h = '';
     if (!me()) h += '<div class="banner">👋 Wybierz u góry, kto jest teraz na zmianie: wszystkie działania zapisują się pod tym imieniem.</div>';
     if (pend && me() && pend.from !== me() && S.tab !== 'shift')
-      h += '<div class="banner">📥 <span><b>' + esc(pend.from) + '</b> przekazała zmianę ' + fmt(pend.at) + (pend.note ? ': „' + esc(pend.note) + '”' : '') +
+      h += '<div class="banner">🔄 <span><b>' + esc(pend.from) + '</b> przekazała zmianę ' + fmt(pend.at) + (pend.note ? ': „' + esc(pend.note) + '”' : '') +
         '. Zmiana jeszcze nie przejęta.</span><button class="small primary" data-goto="shift">Przejrzyj i przejmij</button></div>';
+    if (newInbox().length && S.tab === 'now' && !S.q)
+      h += '<div class="banner">📥 <span>W skrzynce czeka <b>' + newInbox().length + '</b> nowych wiadomości' + (newInbox().some(isLate) ? ', w tym <b>' + newInbox().filter(isLate).length + '</b> dłużej niż ' + c.inboxAlertMinutes + ' min' : '') + '.</span><button class="small primary" data-goto="inbox">Otwórz skrzynkę</button></div>';
     if (!c.ktAutomation && S.tab === 'now')
       h += '<p class="hint" style="margin-top:12px">🤖 Automatyczne tworzenie spraw z maili o tomografii jest wyłączone: uzupełnij „ktEmailQuery” w arkuszu „Ustawienia”.</p>';
-    h += S.q ? viewSearch() : ({ now: viewNow, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
+    h += S.q ? viewSearch() : ({ now: viewNow, inbox: viewInbox, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
     $('#app').innerHTML = h;
 
     bindActions($('#app'));
+    $('#app').querySelectorAll('[data-iact]').forEach(b => b.onclick = () => {
+      const i = inbox().find(x => x.id === b.dataset.id); if (i) inboxAction(b.dataset.iact, i);
+    });
     $('#app').querySelectorAll('[data-open]').forEach(el => el.onclick = e => {
       if (e.target.closest('a,button')) return;
       const t = S.data.tasks.find(x => x.id === el.dataset.open); if (t) detailDialog(t);
