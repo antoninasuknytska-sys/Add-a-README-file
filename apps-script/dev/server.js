@@ -1,4 +1,4 @@
-// Локальний стенд для перевірки: запускає Code.gs у Node з імітацією Google Таблиці.
+// Lokalne środowisko testowe: uruchamia Code.gs w Node z imitacją Arkusza Google.
 // node dev/server.js  →  http://localhost:8787
 const fs = require('fs'), path = require('path'), http = require('http'), vm = require('vm');
 const root = path.join(__dirname, '..');
@@ -31,16 +31,15 @@ const ctx = {
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), ctx);
 ctx.setup();
-// демо-налаштування
-const set = sheets['Налаштування'];
-set.rows.forEach(r => { if (r[0] === 'ownerEmail') r[1] = 'owner@example.com'; if (r[0] === 'admins') r[1] = 'Оля, Марта, Власник'; });
-sheets['Лікарі'].rows = [sheets['Лікарі'].rows[0], ['Петренко', '380501112233'], ['Коваль', '380671234567']];
+// ustawienia demo
+sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerEmail') r[1] = 'owner@example.com'; });
+sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233'], ['dr Wiśniewska', '48601234567']];
 
-// Gmail-імітація для перевірки checkKtEmails
+// imitacja Gmaila do testu checkKtEmails
 const inbox = [];
 ctx.GmailApp = {
   getUserLabelByName: () => ({}), createLabel: () => ({}),
-  search: () => inbox.filter(t => !t.done).map(t => ({ getId: () => t.id, getMessageCount: () => 1, getMessages: () => [{ getSubject: () => t.subject, getPlainBody: () => t.body }], addLabel() { t.done = true; } }))
+  search: () => inbox.filter(t => !t.done).map(t => ({ getId: () => t.id, getMessageCount: () => 1, getMessages: () => [{ getSubject: () => t.subject, getPlainBody: () => t.body, getBody: () => t.body }], addLabel() { t.done = true; } }))
 };
 ctx.__inbox = inbox; ctx.__sentMail = sentMail; ctx.__sheets = sheets;
 module.exports = ctx;

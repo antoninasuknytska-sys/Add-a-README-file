@@ -1,19 +1,20 @@
 /**
- * «Передача зміни» — єдина дошка справ адміністраторів стоматології.
- * Google Apps Script, прив'язаний до Google Таблиці.
+ * „Tablica spraw recepcji” — przekazywanie zmiany bez gubienia pacjentów.
+ * Google Apps Script podpięty do Arkusza Google.
  *
- * Аркуші, які створює setup():
- *   Справи        — усі справи (одна справа = один рядок)
- *   Зміни         — журнал передачі змін
- *   Лікарі        — імена лікарів і їхні номери WhatsApp
- *   Налаштування  — адміністратори, пошта власника, фільтр листів про КТ тощо
+ * Arkusze tworzone przez setup():
+ *   Sprawy      — wszystkie sprawy (jedna sprawa = jeden wiersz)
+ *   Zmiany      — dziennik przekazania zmian
+ *   Lekarze     — lekarze i ich numery WhatsApp
+ *   Ustawienia  — recepcjonistki, e-mail właściciela, filtr maili z tomografią itd.
  */
 
-const SHEET_TASKS = 'Справи';
-const SHEET_SHIFTS = 'Зміни';
-const SHEET_DOCTORS = 'Лікарі';
-const SHEET_SETTINGS = 'Налаштування';
+const SHEET_TASKS = 'Sprawy';
+const SHEET_SHIFTS = 'Zmiany';
+const SHEET_DOCTORS = 'Lekarze';
+const SHEET_SETTINGS = 'Ustawienia';
 const KT_LABEL = 'CRM-KT-done';
+const BOT = '🤖 Automat';
 
 const TASK_COLS = [
   'id', 'createdAt', 'createdBy', 'type', 'patient', 'phone', 'channel', 'doctor',
@@ -21,106 +22,106 @@ const TASK_COLS = [
   'source', 'history'
 ];
 const TASK_HEADERS = [
-  'ID', 'Створено', 'Хто створив', 'Тип', 'Пацієнт', 'Телефон', 'Канал', 'Лікар',
-  'Суть / навіщо', 'Етап', 'Термін', 'Статус', 'Оновлено', 'Хто оновив', 'Закрито',
-  'Джерело', 'Історія (JSON)'
+  'ID', 'Utworzono', 'Kto utworzył', 'Typ', 'Pacjent', 'Telefon', 'Kanał', 'Lekarz',
+  'O co chodzi', 'Etap', 'Termin', 'Status', 'Zaktualizowano', 'Kto zaktualizował', 'Zamknięto',
+  'Źródło', 'Historia (JSON)'
 ];
 const SHIFT_COLS = ['id', 'at', 'from', 'note', 'openCount', 'overdueCount', 'acceptedBy', 'acceptedAt'];
-const SHIFT_HEADERS = ['ID', 'Коли здано', 'Хто здав', 'Нотатка', 'Відкритих справ', 'Прострочених', 'Хто прийняв', 'Коли прийнято'];
+const SHIFT_HEADERS = ['ID', 'Przekazano', 'Kto przekazał', 'Notatka', 'Otwartych spraw', 'Zaległych', 'Kto przejął', 'Przejęto'];
 
 /**
- * Типи справ і їхні етапи.
- *   due   — через скільки годин після переходу на етап справа стає простроченою;
- *   next  — «природний» наступний етап (за замовчуванням наступний за списком);
- *   retry — етап «не відповів», на який переводить кнопка 📵;
- *   nag   — етап очікування відповіді лікаря (кнопка 🔔 «Нагадати лікарю»);
- *   ask   — питання, на яке треба відповісти при переході на етап;
- *   done  — фінальний етап, справа закривається.
+ * Typy spraw i ich etapy.
+ *   due   — po ilu godzinach od przejścia na etap sprawa staje się zaległa;
+ *   next  — „naturalny” następny etap (domyślnie kolejny na liście);
+ *   retry — etap „nie odebrał”, na który przenosi przycisk 📵;
+ *   nag   — etap czekania na odpowiedź lekarza (przycisk 🔔 „Przypomnij lekarzowi”);
+ *   ask   — pytanie, na które trzeba odpowiedzieć przy przejściu na etap;
+ *   done  — etap końcowy, sprawa się zamyka.
  */
 const TYPES = {
   kt: {
-    label: 'КТ / план лікування', icon: '🦷', doctorRequired: true,
+    label: 'Tomografia / plan leczenia', icon: '🦷',
     stages: [
-      { n: 'Направлення на КТ надіслано', due: 72 },
-      { n: 'КТ готова — показати лікарю', due: 2 },
-      { n: 'Чекаємо відповідь лікаря', due: 4, nag: true },
-      { n: 'Лікар відповів — записати пацієнта', due: 4, ask: 'Що сказав лікар: коли і на скільки часу записати?' },
-      { n: 'Пацієнта записано', done: true }
+      { n: 'Skierowanie na tomografię wysłane', due: 72 },
+      { n: 'Tomografia gotowa — pokazać lekarzowi', due: 2 },
+      { n: 'Czekamy na odpowiedź lekarza', due: 4, nag: true },
+      { n: 'Lekarz odpowiedział — umówić pacjenta', due: 4, ask: 'Co powiedział lekarz: kiedy i na ile czasu umówić?' },
+      { n: 'Pacjent umówiony', done: true }
     ]
   },
   call_after: {
-    label: 'Дзвінок після процедури', icon: '📞',
+    label: 'Telefon po zabiegu', icon: '📞',
     stages: [
-      { n: 'Зателефонувати', due: 24, next: 3 },
-      { n: 'Не відповів — передзвонити', due: 3, retry: true, next: 3 },
-      { n: 'Є скарги — передано лікарю', due: 4, nag: true, next: 3, ask: 'Які скарги? Що передали лікарю?' },
-      { n: 'Поговорили — все добре', done: true }
+      { n: 'Zadzwonić', due: 24, next: 3 },
+      { n: 'Nie odebrał — oddzwonić', due: 3, retry: true, next: 3 },
+      { n: 'Są dolegliwości — przekazano lekarzowi', due: 4, nag: true, next: 3, ask: 'Jakie dolegliwości? Co przekazano lekarzowi?' },
+      { n: 'Rozmowa — wszystko dobrze', done: true }
     ]
   },
   lab: {
-    label: 'Лабораторія (коронки, вініри)', icon: '🧪',
+    label: 'Laboratorium (korony, licówki)', icon: '🧪',
     stages: [
-      { n: 'Відправлено в лабораторію', due: 120 },
-      { n: 'Робота готова — записати на фіксацію', due: 24, next: 3 },
-      { n: 'Не відповів — передзвонити', due: 3, retry: true, next: 3 },
-      { n: 'Записано на фіксацію', done: true }
+      { n: 'Wysłano do laboratorium', due: 120 },
+      { n: 'Praca gotowa — umówić na osadzenie', due: 24, next: 3 },
+      { n: 'Nie odebrał — oddzwonić', due: 3, retry: true, next: 3 },
+      { n: 'Umówiony na osadzenie', done: true }
     ]
   },
   confirm: {
-    label: 'Підтвердження запису', icon: '✅',
+    label: 'Potwierdzenie wizyty', icon: '✅',
     stages: [
-      { n: 'Підтвердити запис', due: 24, next: 2 },
-      { n: 'Не відповів — повторити', due: 3, retry: true, next: 2 },
-      { n: 'Підтверджено', done: true }
+      { n: 'Potwierdzić wizytę', due: 24, next: 2 },
+      { n: 'Nie odebrał — ponowić', due: 3, retry: true, next: 2 },
+      { n: 'Potwierdzone', done: true }
     ]
   },
   revisit: {
-    label: 'Повторний візит', icon: '🔁',
+    label: 'Wizyta kontrolna', icon: '🔁',
     stages: [
-      { n: 'Запросити на візит', due: 24, next: 2 },
-      { n: 'Не відповів — повторити', due: 24, retry: true, next: 2 },
-      { n: 'Записано', done: true }
+      { n: 'Zaprosić na wizytę', due: 24, next: 2 },
+      { n: 'Nie odebrał — ponowić', due: 24, retry: true, next: 2 },
+      { n: 'Umówiony', done: true }
     ]
   },
   other: {
-    label: 'Інше', icon: '📌',
+    label: 'Inne', icon: '📌',
     stages: [
-      { n: 'Зробити', due: 8 },
-      { n: 'В процесі', due: 8 },
-      { n: 'Виконано', done: true }
+      { n: 'Do zrobienia', due: 8 },
+      { n: 'W trakcie', due: 8 },
+      { n: 'Zrobione', done: true }
     ]
   }
 };
 
 const DEFAULT_SETTINGS = [
-  ['clinicName', 'Стоматологія', 'Назва, що показується вгорі'],
-  ['admins', 'Адміністратор 1, Адміністратор 2, Власник', 'Хто працює з дошкою (через кому)'],
-  ['ownerEmail', '', 'Пошта власника: сюди щоранку приходить звіт про прострочені справи'],
-  ['reportHour', '8', 'О котрій годині надсилати ранковий звіт (0–23)'],
-  ['staleHours', '48', 'Після скількох годин без руху справа вважається «завислою»'],
-  ['ktEmailQuery', '', 'Пошуковий запит Gmail для листів «томографія готова», напр.: from:(info@ct-center.ua) newer_than:7d. Порожньо = автоматизацію вимкнено']
+  ['clinicName', 'Gabinet stomatologiczny', 'Nazwa wyświetlana u góry'],
+  ['admins', 'Nadia N, Nadia R, Tosia, Właściciel', 'Kto pracuje z tablicą (po przecinku)'],
+  ['ownerEmail', '', 'E-mail właściciela: codziennie rano przychodzi tu raport o zaległych sprawach'],
+  ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
+  ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
+  ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
 ];
 
-/* ===================== Встановлення ===================== */
+/* ===================== Instalacja ===================== */
 
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('🦷 Дошка справ')
-    .addItem('1. Початкове налаштування', 'setup')
-    .addItem('Перевірити пошту КТ зараз', 'checkKtEmails')
-    .addItem('Надіслати звіт власнику зараз', 'dailyReport')
+  SpreadsheetApp.getUi().createMenu('🦷 Tablica spraw')
+    .addItem('1. Konfiguracja początkowa', 'setup')
+    .addItem('Sprawdź teraz maile z tomografią', 'checkKtEmails')
+    .addItem('Wyślij teraz raport właścicielowi', 'dailyReport')
     .addToUi();
 }
 
-/** Запустіть один раз: створює аркуші й автоматичні тригери. */
+/** Uruchom raz: tworzy arkusze i automatyczne wyzwalacze. */
 function setup() {
   const ss = SpreadsheetApp.getActive();
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_SHIFTS, SHIFT_HEADERS);
-  const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Лікар', 'WhatsApp (380XXXXXXXXX)']);
+  const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Lekarz', 'WhatsApp (48XXXXXXXXX)']);
   if (doctors.getLastRow() < 2) {
-    doctors.getRange(2, 1, 2, 2).setValues([['Лікар 1', ''], ['Лікар 2', '']]);
+    doctors.getRange(2, 1, 2, 2).setValues([['Lekarz 1', ''], ['Lekarz 2', '']]);
   }
-  const settings = ensureSheet_(ss, SHEET_SETTINGS, ['Ключ', 'Значення', 'Опис']);
+  const settings = ensureSheet_(ss, SHEET_SETTINGS, ['Klucz', 'Wartość', 'Opis']);
   const existing = settings.getLastRow() > 1
     ? settings.getRange(2, 1, settings.getLastRow() - 1, 1).getValues().map(r => r[0]) : [];
   DEFAULT_SETTINGS.forEach(row => { if (existing.indexOf(row[0]) < 0) settings.appendRow(row); });
@@ -134,8 +135,8 @@ function setup() {
   ScriptApp.newTrigger('dailyReport').timeBased().everyDays(1).atHour(hour).create();
 
   try {
-    SpreadsheetApp.getUi().alert('Готово! Заповніть аркуші «Налаштування» і «Лікарі», потім опублікуйте веб-застосунок (див. інструкцію).');
-  } catch (e) { /* запуск не з таблиці */ }
+    SpreadsheetApp.getUi().alert('Gotowe! Uzupełnij arkusze „Ustawienia” i „Lekarze”, a potem opublikuj aplikację internetową (patrz instrukcja).');
+  } catch (e) { /* uruchomione nie z arkusza */ }
 }
 
 function ensureSheet_(ss, name, headers) {
@@ -148,16 +149,16 @@ function ensureSheet_(ss, name, headers) {
   return sh;
 }
 
-/* ===================== Веб-застосунок ===================== */
+/* ===================== Aplikacja internetowa ===================== */
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Дошка справ адміністраторів')
+    .setTitle('Tablica spraw recepcji')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-/** Усе, що потрібно інтерфейсу: налаштування, відкриті справи, закриті за 30 днів, журнал змін. */
+/** Wszystko, czego potrzebuje interfejs: ustawienia, otwarte sprawy, zamknięte z 30 dni, dziennik zmian. */
 function getData() {
   const s = getSettings_();
   const monthAgo = Date.now() - 30 * 864e5;
@@ -166,7 +167,7 @@ function getData() {
     now: Date.now(),
     config: {
       types: TYPES,
-      clinicName: s.clinicName || 'Стоматологія',
+      clinicName: s.clinicName || 'Gabinet stomatologiczny',
       admins: String(s.admins || '').split(',').map(x => x.trim()).filter(Boolean),
       staleHours: Number(s.staleHours) || 48,
       doctors: readDoctors_(),
@@ -177,7 +178,7 @@ function getData() {
   };
 }
 
-/** Створити або оновити справу. Історію зливаємо, щоб дві адміністраторки не затерли записи одна одної. */
+/** Utwórz lub zaktualizuj sprawę. Historię scalamy, żeby dwie osoby nie nadpisały sobie wpisów. */
 function saveTask(task) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -197,7 +198,7 @@ function saveTask(task) {
   return getData();
 }
 
-/** Здати зміну (entry без acceptedBy) або прийняти (entry з id і acceptedBy). */
+/** Przekazanie zmiany (wpis bez acceptedBy) lub przejęcie (wpis z id i acceptedBy). */
 function saveShift(entry) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -217,85 +218,127 @@ function saveShift(entry) {
   return getData();
 }
 
-/* ===================== Автоматизація ===================== */
+/* ===================== Automatyzacja ===================== */
 
 /**
- * Кожні 15 хв: шукає нові листи «томографія готова».
- * Якщо в листі є прізвище пацієнта з відкритої справи КТ — переводить її на етап «КТ готова — показати лікарю».
- * Якщо не знайшли — створює нову справу, щоб адміністратор розібрався.
+ * Co 15 min: szuka nowych maili Diagdent „Nowe badanie w systemie Portal Lekarza”.
+ * Z treści „…pojawiło się już badanie <BADANIE> dla pacjenta <IMIĘ NAZWISKO> (<DATA UR.>).”
+ * wyciąga pacjenta. Jeśli jest otwarta sprawa tomografii tego pacjenta — przenosi ją na etap
+ * „Tomografia gotowa — pokazać lekarzowi”. Jeśli nie — tworzy nową sprawę z imieniem z maila.
  */
 function checkKtEmails() {
   const s = getSettings_();
   if (!s.ktEmailQuery) return;
   const label = GmailApp.getUserLabelByName(KT_LABEL) || GmailApp.createLabel(KT_LABEL);
   const threads = GmailApp.search('(' + s.ktEmailQuery + ') -label:' + KT_LABEL, 0, 30);
-  if (!threads.length) return;
 
   threads.forEach(th => {
-    const msg = th.getMessages()[th.getMessageCount() - 1];
-    const subject = msg.getSubject() || '';
-    const text = norm_(subject + ' ' + msg.getPlainBody());
-    const openKt = readTasks_().filter(t => t.status === 'open' && t.type === 'kt');
-    const match = openKt.find(t => nameInText_(t.patient, text));
-    const now = Date.now();
-    const link = 'https://mail.google.com/mail/u/0/#all/' + th.getId();
-    const stageIdx = 1; // «КТ готова — показати лікарю»
+    th.getMessages().forEach(msg => {
+      const subject = msg.getSubject() || '';
+      const body = msg.getPlainBody() || '';
+      const info = parseStudyEmail_(body) || parseStudyEmail_(htmlToText_(msg.getBody()));
+      const link = 'https://mail.google.com/mail/u/0/#all/' + th.getId();
+      const now = Date.now();
+      const stageIdx = 1; // „Tomografia gotowa — pokazać lekarzowi”
+      const openKt = readTasks_().filter(t => t.status === 'open' && t.type === 'kt');
+      const match = info ? matchPatient_(openKt, info.name) : matchPatientInText_(openKt, subject + ' ' + body);
+      const what = info ? info.study + (info.birth ? ' (ur. ' + info.birth + ')' : '') : '„' + subject + '”';
 
-    if (match) {
-      match.stage = stageIdx;
-      match.dueAt = now + TYPES.kt.stages[stageIdx].due * 36e5;
-      match.updatedAt = now;
-      match.updatedBy = '🤖 Автомат';
-      match.history.push({ t: now, who: '🤖 Автомат', text: 'Прийшов лист: КТ готова («' + subject + '»). Покажіть лікарю. ' + link });
-      saveTask(match);
-    } else {
-      saveTask({
-        id: newId_(), createdAt: now, createdBy: '🤖 Автомат', type: 'kt',
-        patient: '❓ Уточнити пацієнта', phone: '', channel: 'email', doctor: '',
-        purpose: 'Прийшов лист про готову томографію: «' + subject + '». Знайдіть пацієнта, впишіть ім\'я та лікаря.',
-        stage: stageIdx, dueAt: now + 2 * 36e5, status: 'open', updatedAt: now, updatedBy: '🤖 Автомат',
-        closedAt: '', source: 'email',
-        history: [{ t: now, who: '🤖 Автомат', text: 'Створено з листа «' + subject + '» ' + link }]
-      });
-    }
+      if (match) {
+        match.stage = stageIdx;
+        match.dueAt = now + TYPES.kt.stages[stageIdx].due * 36e5;
+        match.updatedAt = now;
+        match.updatedBy = BOT;
+        match.history.push({ t: now, who: BOT, text: '📩 Przyszedł mail: badanie gotowe — ' + what + '. Pokaż lekarzowi. ' + link });
+        saveTask(match);
+      } else {
+        saveTask({
+          id: newId_(), createdAt: now, createdBy: BOT, type: 'kt',
+          patient: info ? info.name : '❓ Ustalić pacjenta', phone: '', channel: 'E-mail', doctor: '',
+          purpose: 'Gotowe badanie w Portalu Lekarza: ' + what + '. Pokazać lekarzowi i uzyskać odpowiedź: kiedy i na ile czasu umówić pacjenta.' +
+            (info ? ' Uzupełnij telefon i lekarza.' : ' Nie udało się odczytać pacjenta z maila — sprawdź mail.'),
+          stage: stageIdx, dueAt: now + 2 * 36e5, status: 'open', updatedAt: now, updatedBy: BOT,
+          closedAt: '', source: 'email',
+          history: [{ t: now, who: BOT, text: '📩 Utworzono z maila: ' + what + ' ' + link }]
+        });
+      }
+    });
     th.addLabel(label);
   });
 }
 
-/** Щоранку: звіт власнику про прострочені й «завислі» справи. */
+/** „…badanie Tomografia szczęki i żuchwy dla pacjenta Jan Kowalski (02.10.1969).” */
+function parseStudyEmail_(text) {
+  const t = String(text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ');
+  const m = t.match(/badanie\s+(.+?)\s+dla pacjent(?:a|ki)\s+(.+?)\s*\((\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})\)/i);
+  if (!m) return null;
+  return { study: m[1].trim(), name: m[2].trim(), birth: m[3] };
+}
+
+function htmlToText_(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+}
+
+/** Normalizacja: małe litery, bez polskich znaków (Łukasz = lukasz). */
+function tokens_(s) {
+  return String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-zа-яіїєґ0-9]+/i).filter(w => w.length >= 3);
+}
+
+/** Dopasuj sprawę po imieniu i nazwisku z maila (kolejność słów dowolna). Tylko jednoznaczne trafienie. */
+function matchPatient_(tasks, name) {
+  const nt = tokens_(name);
+  let c = tasks.filter(t => { const pt = tokens_(t.patient); return pt.length && pt.every(p => nt.indexOf(p) >= 0); });
+  if (c.length === 1) return c[0];
+  if (!c.length) {
+    c = tasks.filter(t => tokens_(t.patient).some(p => nt.indexOf(p) >= 0));
+    if (c.length === 1) return c[0];
+  }
+  return null;
+}
+
+/** Zapasowe dopasowanie, gdy format maila się zmieni: wszystkie słowa nazwiska pacjenta są w treści. */
+function matchPatientInText_(tasks, text) {
+  const tt = tokens_(text);
+  const c = tasks.filter(t => { const pt = tokens_(t.patient); return pt.length && pt.every(p => tt.indexOf(p) >= 0); });
+  return c.length === 1 ? c[0] : null;
+}
+
+/** Codziennie rano: raport dla właściciela o zaległych i „zawieszonych” sprawach. */
 function dailyReport() {
   const s = getSettings_();
   if (!s.ownerEmail) return;
   const now = Date.now();
   const staleMs = (Number(s.staleHours) || 48) * 36e5;
-  const open = readTasks_().filter(t => t.status === 'open');
+  const all = readTasks_();
+  const open = all.filter(t => t.status === 'open');
   const overdue = open.filter(t => t.dueAt && t.dueAt < now);
   const stale = open.filter(t => (!t.dueAt || t.dueAt < now) && now - (t.updatedAt || t.createdAt) > staleMs);
   const weekAgo = now - 7 * 864e5;
-  const closedWeek = readTasks_().filter(t => t.status !== 'open' && (t.closedAt || 0) > weekAgo);
+  const closedWeek = all.filter(t => t.status !== 'open' && (t.closedAt || 0) > weekAgo);
 
   const row = t => '<tr><td>' + esc_(TYPES[t.type] ? TYPES[t.type].icon + ' ' + TYPES[t.type].label : t.type) +
     '</td><td><b>' + esc_(t.patient) + '</b></td><td>' + esc_(stageName_(t)) + '</td><td>' + esc_(t.purpose) +
-    '</td><td>' + Math.floor((now - (t.updatedAt || t.createdAt)) / 36e5) + ' год тому (' + esc_(t.updatedBy || t.createdBy) + ')</td></tr>';
+    '</td><td>' + Math.floor((now - (t.updatedAt || t.createdAt)) / 36e5) + ' godz. temu (' + esc_(t.updatedBy || t.createdBy) + ')</td></tr>';
   const table = (title, list) => list.length
     ? '<h3>' + title + ' — ' + list.length + '</h3><table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px">' +
-      '<tr><th>Тип</th><th>Пацієнт</th><th>Етап</th><th>Суть</th><th>Останній рух</th></tr>' + list.map(row).join('') + '</table>'
-    : '<h3>' + title + ' — немає 👍</h3>';
+      '<tr><th>Typ</th><th>Pacjent</th><th>Etap</th><th>O co chodzi</th><th>Ostatni ruch</th></tr>' + list.map(row).join('') + '</table>'
+    : '<h3>' + title + ' — brak 👍</h3>';
 
   const html = '<div style="font-family:Arial,sans-serif">' +
-    '<p>Відкритих справ: <b>' + open.length + '</b>, прострочених: <b style="color:#c62828">' + overdue.length +
-    '</b>, без руху понад ' + (s.staleHours || 48) + ' год: <b>' + stale.length + '</b>, закрито за 7 днів: <b>' + closedWeek.length + '</b>.</p>' +
-    table('⏰ Прострочені', overdue) + table('🧊 Зависли без руху', stale) +
-    '<p><a href="' + ScriptApp.getService().getUrl() + '">Відкрити дошку</a></p></div>';
+    '<p>Otwartych spraw: <b>' + open.length + '</b>, zaległych: <b style="color:#c62828">' + overdue.length +
+    '</b>, bez ruchu ponad ' + (s.staleHours || 48) + ' godz.: <b>' + stale.length + '</b>, zamknięto w 7 dni: <b>' + closedWeek.length + '</b>.</p>' +
+    table('⏰ Zaległe', overdue) + table('🧊 Zawieszone bez ruchu', stale) +
+    '<p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>';
 
   MailApp.sendEmail({
     to: s.ownerEmail,
-    subject: (s.clinicName || 'Стоматологія') + ': ' + overdue.length + ' прострочених, ' + stale.length + ' завислих справ',
+    subject: (s.clinicName || 'Gabinet') + ': ' + overdue.length + ' zaległych, ' + stale.length + ' zawieszonych spraw',
     htmlBody: html
   });
 }
 
-/* ===================== Допоміжні ===================== */
+/* ===================== Pomocnicze ===================== */
 
 function getSettings_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SETTINGS);
@@ -373,17 +416,6 @@ function mergeHistory_(a, b) {
 function stageName_(t) {
   const type = TYPES[t.type];
   return type && type.stages[t.stage] ? type.stages[t.stage].n : '';
-}
-
-function norm_(s) {
-  return String(s || '').toLowerCase().replace(/[ʼ'’`]/g, '').replace(/\s+/g, ' ');
-}
-
-/** Пацієнт «знайдений» у листі, якщо там є його прізвище (перше слово) або всі слова імені. */
-function nameInText_(patient, text) {
-  const parts = norm_(patient).split(' ').filter(p => p.length >= 3);
-  if (!parts.length) return false;
-  return parts.every(p => text.indexOf(p) >= 0) || text.indexOf(parts[0]) >= 0;
 }
 
 function newId_() {

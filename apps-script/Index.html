@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="pl">
 <head>
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Дошка справ</title>
+<title>Tablica spraw</title>
 <style>
   :root {
     --bg: #f4f6f9; --card: #fff; --ink: #1d2433; --muted: #6b7385; --line: #e2e6ee;
@@ -99,14 +99,14 @@
 <body>
 <header>
   <div class="top">
-    <h1 id="title">🦷 Дошка справ</h1>
-    <input class="search" id="q" type="search" placeholder="🔎 Пошук: прізвище, телефон, суть…">
-    <div class="me">На зміні: <select id="me"></select></div>
-    <button class="primary" id="addBtn">＋ Нова справа</button>
+    <h1 id="title">🦷 Tablica spraw</h1>
+    <input class="search" id="q" type="search" placeholder="🔎 Szukaj: nazwisko, telefon, opis…">
+    <div class="me">Na zmianie: <select id="me"></select></div>
+    <button class="primary" id="addBtn">＋ Nowa sprawa</button>
   </div>
   <nav id="tabs"></nav>
 </header>
-<div class="wrap" id="app"><div class="loading">Завантаження…</div></div>
+<div class="wrap" id="app"><div class="loading">Ładowanie…</div></div>
 <div id="modalRoot"></div>
 
 <script>
@@ -120,7 +120,7 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
 
-  /* ---------- зв'язок із сервером ---------- */
+  /* ---------- komunikacja z serwerem ---------- */
   function api(fn, arg) {
     return new Promise((resolve, reject) => {
       google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](arg);
@@ -133,15 +133,15 @@
       if (okMsg) toast(okMsg);
       render();
     } catch (e) {
-      toast('⚠️ Помилка: ' + (e && e.message ? e.message : e));
+      toast('⚠️ Błąd: ' + (e && e.message ? e.message : e));
     } finally { S.busy = false; }
   }
   async function refresh() {
     if (S.busy || S.modalOpen) return;
-    try { S.data = await api('getData'); render(); } catch (e) { /* тихо, спробуємо пізніше */ }
+    try { S.data = await api('getData'); render(); } catch (e) { /* po cichu, spróbujemy później */ }
   }
 
-  /* ---------- дрібниці ---------- */
+  /* ---------- drobiazgi ---------- */
   const cfg = () => S.data.config;
   const me = () => $('#me').value || '';
   const type = t => cfg().types[t.type] || { label: t.type, icon: '•', stages: [{ n: '?' }] };
@@ -150,21 +150,21 @@
   const newId = () => 'T' + now().toString(36) + Math.random().toString(36).slice(2, 6);
   const digits = s => String(s || '').replace(/\D/g, '');
   const pad = n => String(n).padStart(2, '0');
-  const days = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const days = ['nd', 'pn', 'wt', 'śr', 'czw', 'pt', 'sob'];
   function fmt(ts) {
     const d = new Date(ts), today = new Date();
     const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
     const dayDiff = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date(today).setHours(0, 0, 0, 0)) / 864e5);
-    if (dayDiff === 0) return 'сьогодні ' + hm;
-    if (dayDiff === 1) return 'завтра ' + hm;
-    if (dayDiff === -1) return 'вчора ' + hm;
+    if (dayDiff === 0) return 'dziś ' + hm;
+    if (dayDiff === 1) return 'jutro ' + hm;
+    if (dayDiff === -1) return 'wczoraj ' + hm;
     return days[d.getDay()] + ' ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' ' + hm;
   }
   function ago(ts) {
     const m = Math.round((now() - ts) / 6e4);
-    if (m < 60) return m + ' хв';
+    if (m < 60) return m + ' min';
     const h = Math.round(m / 60);
-    return h < 48 ? h + ' год' : Math.round(h / 24) + ' дн';
+    return h < 48 ? h + ' godz.' : Math.round(h / 24) + ' dni';
   }
   const endOfToday = () => new Date().setHours(23, 59, 59, 999);
   function urgency(t) {
@@ -174,7 +174,7 @@
     if (t.dueAt <= endOfToday()) return 'today';
     return 'later';
   }
-  // «Зависла» = термін минув і ніхто не торкався довше за staleHours (очікування лабораторії до терміну не рахується)
+  // „Zawieszona” = termin minął i nikt jej nie ruszał dłużej niż staleHours (czekanie na laboratorium przed terminem się nie liczy)
   const isStale = t => t.status === 'open' && (!t.dueAt || t.dueAt < now()) && now() - (t.updatedAt || t.createdAt) > cfg().staleHours * H;
   const lastEntry = t => (t.history || [])[t.history.length - 1];
   const countIn = (t, mark) => (t.history || []).filter(h => h.text.indexOf(mark) === 0).length;
@@ -192,7 +192,7 @@
   function doctorPhone(name) { const d = cfg().doctors.find(x => x.name === name); return d ? d.phone : ''; }
   function waLink(phone, text) { return 'https://wa.me/' + digits(phone) + '?text=' + encodeURIComponent(text); }
 
-  /* ---------- зміни в справі (вся логіка тут, сервер лише зберігає) ---------- */
+  /* ---------- zmiany w sprawie (cała logika tutaj, serwer tylko zapisuje) ---------- */
   function log(t, text) {
     t.history = t.history || [];
     t.history.push({ t: now(), who: me(), text: text });
@@ -201,7 +201,7 @@
   function applyStage(t, idx, note, due) {
     const st = type(t).stages[idx];
     t.stage = idx;
-    log(t, '➡️ Етап: «' + st.n + '»' + (note ? ' — ' + note : ''));
+    log(t, '➡️ Etap: „' + st.n + '”' + (note ? ' — ' + note : ''));
     if (st.done) { t.status = 'done'; t.closedAt = now(); t.dueAt = ''; }
     else { t.status = 'open'; t.closedAt = ''; t.dueAt = due || now() + st.due * H; }
   }
@@ -215,67 +215,67 @@
     const t = clone(task), st = type(t).stages[idx];
     let note = '';
     if (st.ask) {
-      const r = await dialog({ title: st.n, body: '<label>' + esc(st.ask) + '</label><textarea name="note" required autofocus></textarea>', ok: 'Зберегти' });
+      const r = await dialog({ title: st.n, body: '<label>' + esc(st.ask) + '</label><textarea name="note" required autofocus></textarea>', ok: 'Zapisz' });
       if (!r) return; note = r.note.trim();
     }
     applyStage(t, idx, note);
-    call('saveTask', t, st.done ? '✅ Справу закрито' : 'Збережено');
+    call('saveTask', t, st.done ? '✅ Sprawa zamknięta' : 'Zapisano');
   }
   async function noAnswer(task) {
     const t = clone(task);
     const stages = type(t).stages, retry = stages.findIndex(s => s.retry);
     const n = countIn(t, '📵') + 1;
-    log(t, '📵 Не відповів на дзвінок (спроба ' + n + ')');
+    log(t, '📵 Nie odebrał telefonu (próba ' + n + ')');
     if (retry >= 0) { t.stage = retry; t.dueAt = now() + stages[retry].due * H; }
     else t.dueAt = now() + 3 * H;
-    call('saveTask', t, 'Записано спробу №' + n + '. Нагадаю через ' + Math.round((t.dueAt - now()) / H) + ' год');
+    call('saveTask', t, 'Zapisano próbę nr ' + n + '. Przypomnę za ' + Math.round((t.dueAt - now()) / H) + ' godz.');
   }
   function remindDoctor(task) {
     const t = clone(task);
     const n = countIn(t, '🔔') + 1;
     const phone = doctorPhone(t.doctor);
-    const text = 'Доброго дня! Нагадую щодо пацієнта ' + t.patient + ': ' + t.purpose + '. Етап: ' + stage(t).n +
-      '. Підкажіть, будь ласка, коли і на скільки часу записати?';
+    const text = 'Dzień dobry! Przypominam w sprawie pacjenta ' + t.patient + ': ' + t.purpose + '. Etap: ' + stage(t).n +
+      '. Proszę o informację, kiedy i na ile czasu umówić pacjenta.';
     if (phone) window.open(waLink(phone, text), '_blank');
-    else toast('Немає номера лікаря в аркуші «Лікарі» — нагадайте усно');
-    log(t, '🔔 Нагадала лікарю' + (t.doctor ? ' ' + t.doctor : '') + ' (' + n + '-й раз)');
+    else toast('Brak numeru lekarza w arkuszu „Lekarze” — przypomnij osobiście');
+    log(t, '🔔 Przypomnienie dla lekarza' + (t.doctor ? ' ' + t.doctor : '') + ' (' + n + '. raz)');
     t.dueAt = now() + 3 * H;
-    call('saveTask', t, 'Нагадування №' + n + ' записано. Наступне через 3 год, якщо лікар не відповість');
+    call('saveTask', t, 'Przypomnienie nr ' + n + ' zapisane. Kolejne za 3 godz., jeśli lekarz nie odpowie');
   }
   async function addNote(task) {
     const r = await dialog({
-      title: 'Коментар / перенести термін',
-      body: '<label>Що зроблено або що відомо</label><textarea name="note" autofocus></textarea>' + duePicker(task.dueAt || now() + 3 * H),
-      ok: 'Зберегти'
+      title: 'Komentarz / zmiana terminu',
+      body: '<label>Co zrobiono lub co wiadomo</label><textarea name="note" autofocus></textarea>' + duePicker(task.dueAt || now() + 3 * H),
+      ok: 'Zapisz'
     });
     if (!r) return;
     const t = clone(task);
     const due = r.due ? new Date(r.due).getTime() : t.dueAt;
     const moved = due !== task.dueAt;
     if (!r.note.trim() && !moved) return;
-    log(t, '💬 ' + (r.note.trim() || 'Перенесено термін') + (moved ? ' (новий термін: ' + fmt(due) + ')' : ''));
+    log(t, '💬 ' + (r.note.trim() || 'Zmieniono termin') + (moved ? ' (nowy termin: ' + fmt(due) + ')' : ''));
     t.dueAt = due;
-    call('saveTask', t, 'Збережено');
+    call('saveTask', t, 'Zapisano');
   }
   async function closeTask(task) {
-    const r = await dialog({ title: 'Закрити без виконання?', body: '<label>Причина (пацієнт відмовився, дубль, неактуально…)</label><textarea name="note" required autofocus></textarea>', ok: 'Закрити', okCls: 'danger' });
+    const r = await dialog({ title: 'Zamknąć bez realizacji?', body: '<label>Powód (pacjent zrezygnował, duplikat, nieaktualne…)</label><textarea name="note" required autofocus></textarea>', ok: 'Zamknij', okCls: 'danger' });
     if (!r) return;
     const t = clone(task);
-    log(t, '✖️ Закрито: ' + r.note.trim());
+    log(t, '✖️ Zamknięto: ' + r.note.trim());
     t.status = 'cancelled'; t.closedAt = now(); t.dueAt = '';
-    call('saveTask', t, 'Закрито');
+    call('saveTask', t, 'Zamknięto');
   }
   function reopen(task) {
     const t = clone(task);
     const idx = type(t).stages.findIndex(s => !s.done);
     t.stage = Math.max(0, idx);
-    log(t, '♻️ Повернуто в роботу');
+    log(t, '♻️ Przywrócono do pracy');
     t.status = 'open'; t.closedAt = ''; t.dueAt = now() + 2 * H;
-    call('saveTask', t, 'Справа знову відкрита');
+    call('saveTask', t, 'Sprawa ponownie otwarta');
   }
 
-  /* ---------- модальні вікна ---------- */
-  function dialog({ title, body, ok = 'OK', okCls = 'primary', cancel = 'Скасувати', wide }) {
+  /* ---------- okna dialogowe ---------- */
+  function dialog({ title, body, ok = 'OK', okCls = 'primary', cancel = 'Anuluj', wide }) {
     return new Promise(resolve => {
       S.modalOpen = true;
       const root = $('#modalRoot');
@@ -297,8 +297,8 @@
     });
   }
   function duePicker(ts) {
-    return '<label>Коли зробити / нагадати</label><div class="presets">' +
-      [['Через 2 год', now() + 2 * H], ['Сьогодні 17:00', new Date().setHours(17, 0, 0, 0)], ['Завтра 10:00', tomorrowAt(10)], ['Через 3 дні', inDaysAt(3, 10)], ['Через тиждень', inDaysAt(7, 10)]]
+    return '<label>Kiedy zrobić / przypomnieć</label><div class="presets">' +
+      [['Za 2 godz.', now() + 2 * H], ['Dziś 17:00', new Date().setHours(17, 0, 0, 0)], ['Jutro 10:00', tomorrowAt(10)], ['Za 3 dni', inDaysAt(3, 10)], ['Za tydzień', inDaysAt(7, 10)]]
         .map(p => '<button type="button" class="small" data-due="' + toDatetimeLocal(p[1]) + '">' + p[0] + '</button>').join('') +
       '</div><input type="datetime-local" name="due" value="' + (ts ? toDatetimeLocal(ts) : '') + '">';
   }
@@ -312,21 +312,21 @@
     const types = cfg().types;
     const typeKeys = Object.keys(types);
     const body =
-      '<div class="quick"><span class="hint">Швидко:</span>' +
-      '<button type="button" class="small" data-tpl="extract">🦷 Видалення / імплант сьогодні → дзвінок завтра</button>' +
-      '<button type="button" class="small" data-tpl="ktsent">📨 Надіслала направлення на КТ</button>' +
-      '<button type="button" class="small" data-tpl="lab">🧪 Відправили в лабораторію</button></div>' +
-      '<label>Тип справи</label><div class="types">' + typeKeys.map(k =>
+      '<div class="quick"><span class="hint">Szybko:</span>' +
+      '<button type="button" class="small" data-tpl="extract">🦷 Ekstrakcja / implant dziś → telefon jutro</button>' +
+      '<button type="button" class="small" data-tpl="ktsent">📨 Wysłano skierowanie na tomografię</button>' +
+      '<button type="button" class="small" data-tpl="lab">🧪 Wysłano do laboratorium</button></div>' +
+      '<label>Typ sprawy</label><div class="types">' + typeKeys.map(k =>
         '<label><input type="radio" name="type" value="' + k + '"' + ((preset.type || 'call_after') === k ? ' checked' : '') + '>' + types[k].icon + ' ' + esc(types[k].label) + '</label>').join('') + '</div>' +
-      '<div class="grid2"><div><label>Пацієнт (ПІБ) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
-      '<div><label>Телефон</label><input name="phone" type="tel" placeholder="+380…" value="' + esc(preset.phone || '') + '"></div>' +
-      '<div><label>Як пацієнт з нами на зв\'язку</label><select name="channel">' + ['Телефон', 'WhatsApp', 'Email', 'Booksy', 'Особисто'].map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
-      '<div><label>Лікар</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
-      '<label>Суть: навіщо і що треба зробити * <span class="hint">(щоб колега одразу зрозуміла, якщо пацієнт передзвонить)</span></label>' +
-      '<textarea name="purpose" required placeholder="Напр.: дзвінок — як почувається після видалення 36 зуба (вчора, лікар Петренко)"></textarea>' +
-      '<label>Етап</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
-      '<p class="hint">Якщо термін не вказати — поставиться автоматично за етапом.</p>';
-    const p = dialog({ title: 'Нова справа', body, ok: 'Створити', wide: true });
+      '<div class="grid2"><div><label>Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
+      '<div><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
+      '<div><label>Jak kontaktuje się pacjent</label><select name="channel">' + ['Telefon', 'WhatsApp', 'E-mail', 'Booksy', 'Osobiście'].map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
+      '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+      '<label>O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
+      '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)"></textarea>' +
+      '<label>Etap</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
+      '<p class="hint">Jeśli nie podasz terminu — ustawi się automatycznie według etapu.</p>';
+    const p = dialog({ title: 'Nowa sprawa', body, ok: 'Utwórz', wide: true });
     const form = $('#modalRoot form');
     const stageSel = form.querySelector('select[name=stage]');
     const fillStages = () => {
@@ -338,9 +338,9 @@
     const setType = k => { form.querySelector('input[name=type][value=' + k + ']').checked = true; fillStages(); };
     form.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => {
       const tpl = b.dataset.tpl, purpose = form.querySelector('[name=purpose]'), due = form.querySelector('[name=due]');
-      if (tpl === 'extract') { setType('call_after'); purpose.value = 'Зателефонувати: як почувається після видалення/імплантації (зуб …, лікар …)'; due.value = toDatetimeLocal(tomorrowAt(11)); }
-      if (tpl === 'ktsent') { setType('kt'); purpose.value = 'Новий пацієнт (реклама). Надіслано направлення на КТ у WhatsApp. Коли прийде лист — показати лікарю і отримати відповідь, коли і на скільки записати'; due.value = toDatetimeLocal(inDaysAt(3, 10)); }
-      if (tpl === 'lab') { setType('lab'); purpose.value = 'Коронки/вініри: відправлено в лабораторію. Коли робота прийде — записати на фіксацію'; due.value = ''; }
+      if (tpl === 'extract') { setType('call_after'); purpose.value = 'Zadzwonić: jak się czuje po ekstrakcji/implantacji (ząb …, lekarz …)'; due.value = toDatetimeLocal(tomorrowAt(11)); }
+      if (tpl === 'ktsent') { setType('kt'); purpose.value = 'Nowy pacjent (reklama). Skierowanie na tomografię wysłane przez WhatsApp. Gdy przyjdzie mail z Diagdent — pokazać lekarzowi i uzyskać odpowiedź, kiedy i na ile czasu umówić'; due.value = toDatetimeLocal(inDaysAt(3, 10)); }
+      if (tpl === 'lab') { setType('lab'); purpose.value = 'Korony/licówki: wysłano do laboratorium. Gdy praca wróci — umówić na osadzenie'; due.value = ''; }
     });
     const r = await p;
     if (!r) return;
@@ -349,28 +349,28 @@
       channel: r.channel, doctor: r.doctor, purpose: r.purpose.trim(), stage: 0, dueAt: '', status: 'open',
       updatedAt: now(), updatedBy: me(), closedAt: '', source: 'manual', history: []
     };
-    log(t, '🆕 Створено');
+    log(t, '🆕 Utworzono');
     applyStage(t, Number(r.stage) || 0, '', r.due ? new Date(r.due).getTime() : 0);
-    t.history.splice(1, 1); // «Етап» дублює «Створено»
-    t.history[0].text = '🆕 Створено на етапі «' + stage(t).n + '»';
-    call('saveTask', t, 'Справу створено');
+    t.history.splice(1, 1); // „Etap” dubluje „Utworzono”
+    t.history[0].text = '🆕 Utworzono na etapie „' + stage(t).n + '”';
+    call('saveTask', t, 'Sprawa utworzona');
   }
 
   async function editDialog(task) {
     const r = await dialog({
-      title: 'Редагувати: ' + task.patient, ok: 'Зберегти',
-      body: '<div class="grid2"><div><label>Пацієнт</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
-        '<div><label>Телефон</label><input name="phone" value="' + esc(task.phone) + '"></div>' +
-        '<div><label>Канал</label><input name="channel" value="' + esc(task.channel) + '"></div>' +
-        '<div><label>Лікар</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
-        '<label>Суть</label><textarea name="purpose" required>' + esc(task.purpose) + '</textarea>'
+      title: 'Edytuj: ' + task.patient, ok: 'Zapisz',
+      body: '<div class="grid2"><div><label>Pacjent</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
+        '<div><label>Telefon</label><input name="phone" value="' + esc(task.phone) + '"></div>' +
+        '<div><label>Kanał</label><input name="channel" value="' + esc(task.channel) + '"></div>' +
+        '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+        '<label>O co chodzi</label><textarea name="purpose" required>' + esc(task.purpose) + '</textarea>'
     });
     if (!r) return;
     const t = clone(task), changed = [];
     ['patient', 'phone', 'channel', 'doctor', 'purpose'].forEach(k => { if ((t[k] || '') !== r[k].trim()) { changed.push(k); t[k] = r[k].trim(); } });
     if (!changed.length) return;
-    log(t, '✏️ Змінено дані картки');
-    call('saveTask', t, 'Збережено');
+    log(t, '✏️ Zmieniono dane karty');
+    call('saveTask', t, 'Zapisano');
   }
 
   function detailDialog(task) {
@@ -384,43 +384,43 @@
       (t.channel ? '<span class="chip">' + esc(t.channel) + '</span>' : '') +
       (t.status === 'open' && t.dueAt ? '<span class="chip ' + (u === 'overdue' ? 'warn' : 'stage') + '">⏰ ' + fmt(t.dueAt) + '</span>' : '') + '</div>' +
       (t.phone ? '<p>📞 <a class="phone" href="tel:' + esc(t.phone) + '">' + esc(t.phone) + '</a> · <a class="phone" target="_blank" href="' + waLink(t.phone, '') + '">WhatsApp</a></p>' : '') +
-      '<p class="purpose"><b>Суть:</b> ' + esc(t.purpose) + '</p>' +
-      '<label>Перевести на етап</label><div class="stages">' + stagesHtml + '</div>' +
+      '<p class="purpose"><b>O co chodzi:</b> ' + esc(t.purpose) + '</p>' +
+      '<label>Przenieś na etap</label><div class="stages">' + stagesHtml + '</div>' +
       '<div class="actions">' + actionButtons(t, true) + '</div>' +
-      '<label>Історія</label><ul class="timeline">' + hist + '</ul>' +
-      '<p class="hint">Створено ' + fmt(t.createdAt) + ' · ' + esc(t.createdBy || '') + '</p>';
-    dialog({ title: (t.patient || '—'), body, ok: '', cancel: 'Закрити', wide: true });
+      '<label>Historia</label><ul class="timeline">' + hist + '</ul>' +
+      '<p class="hint">Utworzono ' + fmt(t.createdAt) + ' · ' + esc(t.createdBy || '') + '</p>';
+    dialog({ title: (t.patient || '—'), body, ok: '', cancel: 'Zamknij', wide: true });
     const form = $('#modalRoot form');
     form.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => { form.__close(null); moveTo(task, Number(b.dataset.stage)); });
     bindActions(form, () => form.__close(null));
   }
   function linkify(s) {
-    return esc(s).replace(/(https?:\/\/[^\s]+)/g, '<a target="_blank" href="$1">лист ↗</a>');
+    return esc(s).replace(/(https?:\/\/[^\s]+)/g, '<a target="_blank" href="$1">mail ↗</a>');
   }
 
-  /* ---------- картки ---------- */
+  /* ---------- karty ---------- */
   function actionButtons(t, inDetail) {
-    if (t.status !== 'open') return '<button type="button" class="small" data-act="reopen" data-id="' + t.id + '">♻️ Повернути в роботу</button>';
+    if (t.status !== 'open') return '<button type="button" class="small" data-act="reopen" data-id="' + t.id + '">♻️ Przywróć do pracy</button>';
     const ty = type(t), st = stage(t), ni = nextIdx(t), nst = ty.stages[ni];
     let b = '';
     if (ni !== t.stage) b += '<button type="button" class="small primary" data-act="next" data-id="' + t.id + '">' + (nst.done ? '✅ ' : '➡️ ') + esc(nst.n) + '</button>';
-    if (ty.stages.some(s => s.retry) && !st.nag) b += '<button type="button" class="small" data-act="noanswer" data-id="' + t.id + '">📵 Не відповів</button>';
-    if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Написати лікарю' : 'Нагадати лікарю') + '</button>';
-    b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Коментар / термін</button>';
-    if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Дані</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Закрити без виконання</button>';
+    if (ty.stages.some(s => s.retry) && !st.nag) b += '<button type="button" class="small" data-act="noanswer" data-id="' + t.id + '">📵 Nie odebrał</button>';
+    if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Napisz do lekarza' : 'Przypomnij lekarzowi') + '</button>';
+    b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Komentarz / termin</button>';
+    if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Dane</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Zamknij bez realizacji</button>';
     return b;
   }
   function bindActions(root, before) {
     root.querySelectorAll('[data-act]').forEach(b => b.onclick = e => {
       e.stopPropagation();
       const t = S.data.tasks.find(x => x.id === b.dataset.id); if (!t) return;
-      if (!me()) { toast('Спершу оберіть, хто на зміні'); return; }
+      if (!me()) { toast('Najpierw wybierz, kto jest na zmianie'); return; }
       if (before) before();
       const a = b.dataset.act;
       if (a === 'next') moveTo(t, nextIdx(t));
       if (a === 'noanswer') noAnswer(t);
       if (a === 'doctor') {
-        if (t.type === 'kt' && t.stage === 1) { const c = clone(t); applyStage(c, 2, 'надіслано лікарю'); remindDoctor(c); }
+        if (t.type === 'kt' && t.stage === 1) { const c = clone(t); applyStage(c, 2, 'wysłano do lekarza'); remindDoctor(c); }
         else remindDoctor(t);
       }
       if (a === 'note') addNote(t);
@@ -431,8 +431,8 @@
   }
   function card(t) {
     const ty = type(t), st = stage(t), u = urgency(t), le = lastEntry(t);
-    const dueTxt = t.status !== 'open' ? (t.status === 'done' ? '✅ виконано ' : '✖️ закрито ') + fmt(t.closedAt)
-      : !t.dueAt ? '' : u === 'overdue' ? '⏰ прострочено ' + ago(t.dueAt) : '⏰ ' + fmt(t.dueAt);
+    const dueTxt = t.status !== 'open' ? (t.status === 'done' ? '✅ zrobione ' : '✖️ zamknięte ') + fmt(t.closedAt)
+      : !t.dueAt ? '' : u === 'overdue' ? '⏰ po terminie ' + ago(t.dueAt) : '⏰ ' + fmt(t.dueAt);
     const tries = countIn(t, '📵'), nags = countIn(t, '🔔');
     return '<div class="card ' + u + '" data-open="' + t.id + '">' +
       '<div class="row1"><span class="patient">' + esc(t.patient) + '</span>' +
@@ -440,12 +440,12 @@
       '<span class="due ' + u + '">' + dueTxt + '</span></div>' +
       '<div class="chips"><span class="chip">' + ty.icon + ' ' + esc(ty.label) + '</span><span class="chip stage">' + esc(st.n) + '</span>' +
       (t.doctor ? '<span class="chip">👨‍⚕️ ' + esc(t.doctor) + '</span>' : '') +
-      (tries ? '<span class="chip warn">📵 ' + tries + ' спроб</span>' : '') +
-      (nags ? '<span class="chip warn">🔔 нагадано ' + nags + '×</span>' : '') +
-      (isStale(t) ? '<span class="chip stale">🧊 без руху ' + ago(t.updatedAt || t.createdAt) + '</span>' : '') +
-      (t.source === 'email' ? '<span class="chip">🤖 з пошти</span>' : '') + '</div>' +
+      (tries ? '<span class="chip warn">📵 prób: ' + tries + '</span>' : '') +
+      (nags ? '<span class="chip warn">🔔 przypomniano ' + nags + '×</span>' : '') +
+      (isStale(t) ? '<span class="chip stale">🧊 bez ruchu ' + ago(t.updatedAt || t.createdAt) + '</span>' : '') +
+      (t.source === 'email' ? '<span class="chip">🤖 z maila</span>' : '') + '</div>' +
       '<div class="purpose">' + esc(t.purpose) + '</div>' +
-      (le ? '<div class="last">Останнє: ' + esc(le.text.replace(/https?:\/\/\S+/g, '')) + ' — ' + esc(le.who || '') + ', ' + fmt(le.t) + '</div>' : '') +
+      (le ? '<div class="last">Ostatnio: ' + esc(le.text.replace(/https?:\/\/\S+/g, '')) + ' — ' + esc(le.who || '') + ', ' + fmt(le.t) + '</div>' : '') +
       '<div class="actions">' + actionButtons(t, false) + '</div></div>';
   }
   function cards(list, emptyMsg) {
@@ -453,7 +453,7 @@
   }
   const byDue = (a, b) => (a.dueAt || 9e15) - (b.dueAt || 9e15);
 
-  /* ---------- вкладки ---------- */
+  /* ---------- zakładki ---------- */
   function openTasks() { return S.data.tasks.filter(t => t.status === 'open'); }
   function pendingShift() {
     const sh = S.data.shifts[S.data.shifts.length - 1];
@@ -464,13 +464,13 @@
     const open = openTasks();
     const due = open.filter(t => urgency(t) === 'overdue' || urgency(t) === 'today').sort(byDue);
     const staleOnly = open.filter(t => isStale(t) && due.indexOf(t) < 0);
-    let h = '<h2>Зробити сьогодні <span class="hint">прострочені вгорі</span></h2>' + cards(due, 'Усе зроблено 🎉 На сьогодні справ немає.');
-    if (staleOnly.length) h += '<h2>🧊 Довго без руху <span class="hint">термін минув, понад ' + cfg().staleHours + ' год ніхто не торкався</span></h2>' + cards(staleOnly, '');
+    let h = '<h2>Do zrobienia dziś <span class="hint">zaległe na górze</span></h2>' + cards(due, 'Wszystko zrobione 🎉 Na dziś brak spraw.');
+    if (staleOnly.length) h += '<h2>🧊 Długo bez ruchu <span class="hint">po terminie, nikt nie ruszał ponad ' + cfg().staleHours + ' godz.</span></h2>' + cards(staleOnly, '');
     return h;
   }
   function viewAll() {
     const open = openTasks();
-    if (!open.length) return '<div class="empty" style="margin-top:20px">Відкритих справ немає</div>';
+    if (!open.length) return '<div class="empty" style="margin-top:20px">Brak otwartych spraw</div>';
     return Object.keys(cfg().types).map(k => {
       const list = open.filter(t => t.type === k).sort((a, b) => a.stage - b.stage || byDue(a, b));
       if (!list.length) return '';
@@ -479,7 +479,7 @@
   }
   function viewArchive() {
     const list = S.data.tasks.filter(t => t.status !== 'open').sort((a, b) => b.closedAt - a.closedAt);
-    return '<h2>Закриті за 30 днів</h2>' + cards(list, 'Поки порожньо');
+    return '<h2>Zamknięte w ostatnich 30 dniach</h2>' + cards(list, 'Na razie pusto');
   }
   function viewSearch() {
     const q = S.q.toLowerCase(), qd = digits(q);
@@ -487,9 +487,9 @@
       (t.patient || '').toLowerCase().includes(q) || (t.purpose || '').toLowerCase().includes(q) ||
       (qd.length >= 3 && digits(t.phone).includes(qd))
     ).sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || b.updatedAt - a.updatedAt);
-    return '<h2>Результати пошуку «' + esc(S.q) + '» <span class="count">' + list.length + '</span></h2>' +
-      '<p class="hint">Пацієнт передзвонив і питає «ви мені дзвонили?» — відкрийте картку, там вся історія.</p>' +
-      cards(list, 'Нічого не знайдено. Шукаємо серед відкритих справ і закритих за 30 днів.');
+    return '<h2>Wyniki wyszukiwania „' + esc(S.q) + '” <span class="count">' + list.length + '</span></h2>' +
+      '<p class="hint">Pacjent oddzwania i pyta „dzwoniliście do mnie?” — otwórz kartę, tam jest cała historia.</p>' +
+      cards(list, 'Nic nie znaleziono. Szukamy wśród otwartych spraw i zamkniętych w ostatnich 30 dniach.');
   }
 
   function viewShift() {
@@ -501,23 +501,23 @@
     let h = '';
     if (pend && pend.from !== me()) {
       const theirs = S.data.tasks.filter(t => (t.history || []).some(x => x.who === pend.from && x.t >= new Date(pend.at).setHours(0, 0, 0, 0)));
-      h += '<h2>📥 Прийняти зміну від ' + esc(pend.from) + '</h2><div class="panel">' +
-        '<p>Здано ' + fmt(pend.at) + '. Відкритих справ: <b>' + open.length + '</b>, прострочених: <b style="color:var(--red)">' + overdue.length + '</b>.</p>' +
-        (pend.note ? '<p><b>Нотатка:</b> ' + esc(pend.note) + '</p>' : '') +
-        '<p class="hint">Перегляньте справи, з якими працювала колега, і натисніть «Приймаю».</p>' +
-        '<button class="primary" id="acceptBtn">✅ Я ознайомилась — приймаю зміну</button></div>' +
-        '<h2>Справи, які рухала ' + esc(pend.from) + ' за зміну <span class="count">' + theirs.length + '</span></h2>' + cards(theirs, 'Немає');
+      h += '<h2>📥 Przejmij zmianę od: ' + esc(pend.from) + '</h2><div class="panel">' +
+        '<p>Przekazano ' + fmt(pend.at) + '. Otwartych spraw: <b>' + open.length + '</b>, zaległych: <b style="color:var(--red)">' + overdue.length + '</b>.</p>' +
+        (pend.note ? '<p><b>Notatka:</b> ' + esc(pend.note) + '</p>' : '') +
+        '<p class="hint">Przejrzyj sprawy, którymi zajmowała się koleżanka, i kliknij „Przejmuję”.</p>' +
+        '<button class="primary" id="acceptBtn">✅ Zapoznałam się — przejmuję zmianę</button></div>' +
+        '<h2>Sprawy, które prowadziła ' + esc(pend.from) + ' na swojej zmianie <span class="count">' + theirs.length + '</span></h2>' + cards(theirs, 'Brak');
     }
-    h += '<h2>📤 Здати зміну</h2><div class="panel">' +
-      '<p>Відкритих: <b>' + open.length + '</b> · прострочених: <b style="color:var(--red)">' + overdue.length + '</b> · справ, які ви рухали за зміну: <b>' + mine.length + '</b></p>' +
-      (overdue.length ? '<p style="color:var(--red)">⚠️ Перед передачею по кожній простроченій справі залиште коментар або перенесіть термін, щоб колега знала, що робити.</p>' : '') +
-      '<label>Що важливо знати колезі (необов\'язково, усе інше вже є в картках)</label><textarea id="shiftNote" placeholder="Напр.: лікар Петренко обіцяв відповісти по КТ Іванової після 16:00"></textarea>' +
-      '<div class="actions"><button class="primary" id="handBtn">📤 Здаю зміну</button></div></div>';
-    if (overdue.length) h += '<h2>⏰ Прострочені</h2>' + cards(overdue.sort(byDue), '');
-    h += '<h2>Журнал змін</h2><div class="tablewrap"><table><tr><th>Здано</th><th>Хто здав</th><th>Нотатка</th><th>Відкр./простр.</th><th>Прийняв</th></tr>' +
+    h += '<h2>📤 Przekaż zmianę</h2><div class="panel">' +
+      '<p>Otwartych: <b>' + open.length + '</b> · zaległych: <b style="color:var(--red)">' + overdue.length + '</b> · spraw, które prowadziłaś na tej zmianie: <b>' + mine.length + '</b></p>' +
+      (overdue.length ? '<p style="color:var(--red)">⚠️ Przed przekazaniem dodaj komentarz albo zmień termin w każdej zaległej sprawie, żeby koleżanka wiedziała, co robić.</p>' : '') +
+      '<label>Co ważne dla koleżanki (opcjonalnie, reszta jest już w kartach)</label><textarea id="shiftNote" placeholder="Np.: dr Nowak obiecał odpowiedzieć w sprawie tomografii p. Kowalskiej po 16:00"></textarea>' +
+      '<div class="actions"><button class="primary" id="handBtn">📤 Przekazuję zmianę</button></div></div>';
+    if (overdue.length) h += '<h2>⏰ Zaległe</h2>' + cards(overdue.sort(byDue), '');
+    h += '<h2>Dziennik zmian</h2><div class="tablewrap"><table><tr><th>Przekazano</th><th>Kto przekazał</th><th>Notatka</th><th>Otw./zaległe</th><th>Przejęła</th></tr>' +
       (shifts.length ? shifts.map(s => '<tr><td>' + fmt(s.at) + '</td><td>' + esc(s.from) + '</td><td>' + esc(s.note) + '</td><td>' + s.openCount + ' / ' + s.overdueCount +
-        '</td><td>' + (s.acceptedBy ? esc(s.acceptedBy) + ', ' + fmt(s.acceptedAt) : '<span style="color:var(--amber)">ще не прийнято</span>') + '</td></tr>').join('')
-        : '<tr><td colspan="5" class="hint">Ще не було передач</td></tr>') + '</table></div>';
+        '</td><td>' + (s.acceptedBy ? esc(s.acceptedBy) + ', ' + fmt(s.acceptedAt) : '<span style="color:var(--amber)">jeszcze nie przejęto</span>') + '</td></tr>').join('')
+        : '<tr><td colspan="5" class="hint">Nie było jeszcze przekazań</td></tr>') + '</table></div>';
     return h;
   }
 
@@ -529,11 +529,11 @@
     const closedWeek = closed.filter(t => t.closedAt > weekAgo);
     const avgDays = list => { const d = list.filter(t => t.status === 'done'); return d.length ? (d.reduce((s, t) => s + (t.closedAt - t.createdAt), 0) / d.length / 864e5).toFixed(1) : '—'; };
     const tile = (n, l, cls) => '<div class="tile ' + (cls || '') + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
-    let h = '<h2>Загальна картина</h2><div class="tiles">' +
-      tile(open.length, 'відкритих справ') + tile(overdue.length, 'прострочених', overdue.length ? 'red' : 'green') +
-      tile(stale.length, 'без руху > ' + cfg().staleHours + ' год', stale.length ? 'red' : 'green') +
-      tile(closedWeek.length, 'закрито за 7 днів', 'green') + tile(avgDays(closed), 'днів у середньому до виконання') + '</div>';
-    h += '<h2>За типами</h2><div class="tablewrap"><table><tr><th>Тип</th><th>Відкрито</th><th>Прострочено</th><th>Виконано за 30 дн</th><th>Закрито без виконання</th><th>Сер. днів</th></tr>' +
+    let h = '<h2>Ogólny obraz</h2><div class="tiles">' +
+      tile(open.length, 'otwartych spraw') + tile(overdue.length, 'zaległych', overdue.length ? 'red' : 'green') +
+      tile(stale.length, 'bez ruchu > ' + cfg().staleHours + ' godz.', stale.length ? 'red' : 'green') +
+      tile(closedWeek.length, 'zamknięto w 7 dni', 'green') + tile(avgDays(closed), 'dni średnio do realizacji') + '</div>';
+    h += '<h2>Według typów</h2><div class="tablewrap"><table><tr><th>Typ</th><th>Otwarte</th><th>Zaległe</th><th>Zrobione (30 dni)</th><th>Zamknięte bez realizacji</th><th>Śr. dni</th></tr>' +
       Object.keys(cfg().types).map(k => {
         const a = all.filter(t => t.type === k);
         return '<tr><td>' + cfg().types[k].icon + ' ' + esc(cfg().types[k].label) + '</td><td>' + a.filter(t => t.status === 'open').length + '</td><td>' +
@@ -550,28 +550,28 @@
       if (x.text.indexOf('🔔') === 0) p.nags++;
     }));
     closedWeek.forEach(t => { if (people[t.updatedBy]) people[t.updatedBy].closed++; });
-    h += '<h2>Хто що робив за 7 днів</h2><div class="tablewrap"><table><tr><th>Хто</th><th>Дій</th><th>Створено</th><th>Закрито</th><th>Недодзвонів записано</th><th>Нагадувань лікарям</th></tr>' +
+    h += '<h2>Kto co robił w ostatnich 7 dniach</h2><div class="tablewrap"><table><tr><th>Kto</th><th>Działań</th><th>Utworzono</th><th>Zamknięto</th><th>Nieodebranych telefonów</th><th>Przypomnień lekarzom</th></tr>' +
       (Object.keys(people).length ? Object.keys(people).map(n => { const p = people[n]; return '<tr><td>' + esc(n) + '</td><td>' + p.actions + '</td><td>' + p.created + '</td><td>' + p.closed + '</td><td>' + p.calls + '</td><td>' + p.nags + '</td></tr>'; }).join('')
-        : '<tr><td colspan="6" class="hint">Ще немає даних</td></tr>') + '</table></div>';
+        : '<tr><td colspan="6" class="hint">Brak danych</td></tr>') + '</table></div>';
     const docs = {};
     open.filter(t => type(t).stages[t.stage].nag && t.doctor).forEach(t => { (docs[t.doctor] = docs[t.doctor] || []).push(t); });
-    h += '<h2>👨‍⚕️ Чекаємо відповіді від лікарів</h2>' + (Object.keys(docs).length
-      ? '<div class="tablewrap"><table><tr><th>Лікар</th><th>Пацієнти</th><th>Найдовше чекаємо</th></tr>' + Object.keys(docs).map(d =>
+    h += '<h2>👨‍⚕️ Czekamy na odpowiedź lekarzy</h2>' + (Object.keys(docs).length
+      ? '<div class="tablewrap"><table><tr><th>Lekarz</th><th>Pacjenci</th><th>Najdłużej czekamy</th></tr>' + Object.keys(docs).map(d =>
         '<tr><td>' + esc(d) + '</td><td>' + docs[d].map(t => esc(t.patient)).join(', ') + '</td><td>' + ago(Math.min.apply(null, docs[d].map(t => t.updatedAt))) + '</td></tr>').join('') + '</table></div>'
-      : '<div class="empty">Ніхто з лікарів нічого не винен 👍</div>');
-    if (stale.length) h += '<h2>🧊 Зависли</h2>' + cards(stale.sort((a, b) => a.updatedAt - b.updatedAt), '');
+      : '<div class="empty">Żaden lekarz nie zalega z odpowiedzią 👍</div>');
+    if (stale.length) h += '<h2>🧊 Zawieszone</h2>' + cards(stale.sort((a, b) => a.updatedAt - b.updatedAt), '');
     return h;
   }
 
-  /* ---------- рендер ---------- */
+  /* ---------- renderowanie ---------- */
   function render() {
     if (!S.data) return;
     const c = cfg();
-    document.title = c.clinicName + ' — дошка справ';
+    document.title = c.clinicName + ' — tablica spraw';
     $('#title').textContent = '🦷 ' + c.clinicName;
     const sel = $('#me'), saved = store.get('me');
     if (sel.options.length !== c.admins.length + 1) {
-      sel.innerHTML = '<option value="">— оберіть —</option>' + c.admins.map(a => '<option>' + esc(a) + '</option>').join('');
+      sel.innerHTML = '<option value="">— wybierz —</option>' + c.admins.map(a => '<option>' + esc(a) + '</option>').join('');
       if (saved && c.admins.indexOf(saved) >= 0) sel.value = saved;
     }
     const open = openTasks();
@@ -579,22 +579,22 @@
     const overdueCount = open.filter(t => urgency(t) === 'overdue').length;
     const pend = pendingShift();
     const tabs = [
-      ['now', '⏰ Зараз', nowCount, overdueCount > 0],
-      ['all', '📋 Усі відкриті', open.length],
-      ['shift', '🔄 Передача зміни', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
-      ['stats', '📊 Статистика'],
-      ['archive', '🗄 Архів']
+      ['now', '⏰ Teraz', nowCount, overdueCount > 0],
+      ['all', '📋 Wszystkie otwarte', open.length],
+      ['shift', '🔄 Przekazanie zmiany', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
+      ['stats', '📊 Statystyki'],
+      ['archive', '🗄 Archiwum']
     ];
     $('#tabs').innerHTML = tabs.map(t => '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] && !S.q ? 'on' : '') + '">' + t[1] +
       (t[2] !== undefined && t[2] !== '' ? '<span class="count' + (t[3] ? ' red' : '') + '">' + t[2] + '</span>' : '') + '</button>').join('');
 
     let h = '';
-    if (!me()) h += '<div class="banner">👋 Оберіть угорі, хто зараз на зміні: від цього імені записуються всі дії.</div>';
+    if (!me()) h += '<div class="banner">👋 Wybierz u góry, kto jest teraz na zmianie: wszystkie działania zapisują się pod tym imieniem.</div>';
     if (pend && me() && pend.from !== me() && S.tab !== 'shift')
-      h += '<div class="banner">📥 <span><b>' + esc(pend.from) + '</b> здала зміну ' + fmt(pend.at) + (pend.note ? ': «' + esc(pend.note) + '»' : '') +
-        '. Зміну ще не прийнято.</span><button class="small primary" data-goto="shift">Переглянути і прийняти</button></div>';
+      h += '<div class="banner">📥 <span><b>' + esc(pend.from) + '</b> przekazała zmianę ' + fmt(pend.at) + (pend.note ? ': „' + esc(pend.note) + '”' : '') +
+        '. Zmiana jeszcze nie przejęta.</span><button class="small primary" data-goto="shift">Przejrzyj i przejmij</button></div>';
     if (!c.ktAutomation && S.tab === 'now')
-      h += '<p class="hint" style="margin-top:12px">🤖 Автоматичне створення справ з листів про КТ вимкнено: заповніть «ktEmailQuery» в аркуші «Налаштування».</p>';
+      h += '<p class="hint" style="margin-top:12px">🤖 Automatyczne tworzenie spraw z maili o tomografii jest wyłączone: uzupełnij „ktEmailQuery” w arkuszu „Ustawienia”.</p>';
     h += S.q ? viewSearch() : ({ now: viewNow, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
     $('#app').innerHTML = h;
 
@@ -606,18 +606,18 @@
     $('#app').querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.tab = b.dataset.goto; render(); });
     const acc = $('#acceptBtn');
     if (acc) acc.onclick = () => {
-      if (!me()) return toast('Оберіть, хто на зміні');
+      if (!me()) return toast('Wybierz, kto jest na zmianie');
       const p = Object.assign({}, pendingShift(), { acceptedBy: me(), acceptedAt: now() });
-      call('saveShift', p, 'Зміну прийнято. Гарної роботи!');
+      call('saveShift', p, 'Zmiana przejęta. Miłej pracy!');
     };
     const hand = $('#handBtn');
     if (hand) hand.onclick = () => {
-      if (!me()) return toast('Оберіть, хто на зміні');
+      if (!me()) return toast('Wybierz, kto jest na zmianie');
       const o = openTasks();
       call('saveShift', {
         id: 'S' + now().toString(36), at: now(), from: me(), note: $('#shiftNote').value.trim(),
         openCount: o.length, overdueCount: o.filter(t => urgency(t) === 'overdue').length, acceptedBy: '', acceptedAt: ''
-      }, 'Зміну здано. Колега побачить повідомлення.');
+      }, 'Zmiana przekazana. Koleżanka zobaczy powiadomienie.');
     };
   }
 
@@ -627,9 +627,9 @@
   });
   $('#q').addEventListener('input', e => { S.q = e.target.value.trim(); render(); });
   $('#me').addEventListener('change', e => { store.set('me', e.target.value); render(); });
-  $('#addBtn').onclick = () => { if (!S.data) return; if (!me()) return toast('Спершу оберіть, хто на зміні'); newTaskDialog(); };
+  $('#addBtn').onclick = () => { if (!S.data) return; if (!me()) return toast('Najpierw wybierz, kto jest na zmianie'); newTaskDialog(); };
 
-  api('getData').then(d => { S.data = d; render(); }).catch(e => { $('#app').innerHTML = '<div class="empty">Не вдалося завантажити: ' + esc(e && e.message || e) + '</div>'; });
+  api('getData').then(d => { S.data = d; render(); }).catch(e => { $('#app').innerHTML = '<div class="empty">Nie udało się załadować: ' + esc(e && e.message || e) + '</div>'; });
   setInterval(refresh, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 })();
