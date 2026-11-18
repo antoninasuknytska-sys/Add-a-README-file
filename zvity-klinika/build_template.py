@@ -163,9 +163,9 @@ D = "'Довідники'!"
 dv["A1"] = "ДОВІДНИКИ: заповніть один раз, далі вони підтягуються у випадаючі списки та звіти"; dv["A1"].font = font(bold=True, size=12)
 dv["A2"] = "Жовті клітинки можна змінювати. Імена та % — приклад. Нових лікарів і послуги з Felgdent скрипт додає сам (порожній % підсвічується червоним)."
 dv["A2"].font = font(italic=True, color="666666")
-docs = [("Лікар 1", "Лікар", 0.35, 0.9), ("Лікар 2", "Лікар", 0.35, 0.75), ("Лікар 3", "Лікар", 0.40, 1.05), ("Лікар 4", "Лікар", 0.40, 1.0),
-        ("Лікар 5", "Лікар", 0.35, 1.0), ("Лікар 6", "Лікар", 0.40, 0.4), ("Лікар 7", "Лікар", 0.30, 1.2),
-        ("Гігієністка 1", "Гігієністка", 0.20, 0.95), ("Гігієністка 2", "Гігієністка", 0.20, 0.95)]
+docs = [("Lekarz 1", "Лікар", 0.35, 0.9), ("Lekarz 2", "Лікар", 0.35, 0.75), ("Lekarz 3", "Лікар", 0.40, 1.05), ("Lekarz 4", "Лікар", 0.40, 1.0),
+        ("Lekarz 5", "Лікар", 0.35, 1.0), ("Lekarz 6", "Лікар", 0.40, 0.4), ("Lekarz 7", "Лікар", 0.30, 1.2),
+        ("Higienistka 1", "Гігієністка", 0.20, 0.95), ("Higienistka 2", "Гігієністка", 0.20, 0.95)]
 header(dv, 3, ["Лікар / гігієністка (як у Felgdent)", "Роль", "% від (вартість − технік − спецпрепарати)", "Сер. тривалість візиту, год (з Felgdent)"], 1)
 for i in range(17):
     vals = docs[i] if i < len(docs) else (None, None, None, None)
@@ -429,10 +429,10 @@ header(vs, 1, ["Дата візиту", "Місяць (авто)", "Пацієн
 vs.freeze_panes = "C2"; vs.row_dimensions[1].height = 45
 widths(vs, {"A": 12, "B": 10, "C": 18, "D": 10, "E": 20, "F": 15, "G": 15, "H": 34, "I": 11, "J": 11, "K": 12, "L": 18, "M": 11, "N": 9, "O": 9, "P": 13, "Q": 13, "R": 30})
 vs.column_dimensions["R"].hidden = True
-doc_dirs = {"Лікар 1": ["Zachowawcza", "Endodoncja"], "Лікар 2": ["Zachowawcza", "Dziecięca"], "Лікар 3": ["Endodoncja"],
-            "Лікар 4": ["Chirurgia", "Implantologia"], "Лікар 5": ["Protetyka"], "Лікар 6": ["Ortodoncja"],
-            "Лікар 7": ["Zachowawcza", "Protetyka"], "Гігієністка 1": ["Profilaktyka"], "Гігієністка 2": ["Profilaktyka"]}
-doc_weight = {"Лікар 1": 16, "Лікар 2": 14, "Лікар 3": 7, "Лікар 4": 9, "Лікар 5": 8, "Лікар 6": 12, "Лікар 7": 9, "Гігієністка 1": 13, "Гігієністка 2": 12}
+doc_dirs = {"Lekarz 1": ["Zachowawcza", "Endodoncja"], "Lekarz 2": ["Zachowawcza", "Dziecięca"], "Lekarz 3": ["Endodoncja"],
+            "Lekarz 4": ["Chirurgia", "Implantologia"], "Lekarz 5": ["Protetyka"], "Lekarz 6": ["Ortodoncja"],
+            "Lekarz 7": ["Zachowawcza", "Protetyka"], "Higienistka 1": ["Profilaktyka"], "Higienistka 2": ["Profilaktyka"]}
+doc_weight = {"Lekarz 1": 16, "Lekarz 2": 14, "Lekarz 3": 7, "Lekarz 4": 9, "Lekarz 5": 8, "Lekarz 6": 12, "Lekarz 7": 9, "Higienistka 1": 13, "Higienistka 2": 12}
 src_w = [("Google", 26), ("Instagram/Facebook", 10), ("Z sieci", 6), ("ZnanyLekarz", 12), ("Booksy", 4), ("Ulotka (promocja)", 4),
          ("Znajomy", 14), ("Inny pacjent", 10), ("Mailing", 2), ("Z ulicy", 5), ("Inne", 3)]
 pay_w = [("Karta", 45), ("BLIK", 15), ("Gotówka", 15), ("Przelew", 10), ("Raty PayU", 5), ("Mediraty", 4), ("Bon podarunkowy", 2), ("Przedpłata (wcześniej)", 4)]
@@ -1101,9 +1101,9 @@ def bar(title, col, r1, n, anchor, w):
     ch_.legend = None; ch_.roundedCorners = False; ch_.height = 8; ch_.width = w
     ch_.x_axis.delete = False; ch_.y_axis.delete = False; ch_.title.overlay = False
     db.add_chart(ch_, anchor)
-bar("Прибуток клініки за годину крісла, zł", 10, DR0, len(docs), f"A{LAST+2}", 18)
-bar("Маржа за годину крісла по напрямах, zł", 10, DI0, len(dirs), f"F{LAST+2}", 17)
-db.print_area = f"A1:M{LAST+19}"
+bar("Прибуток клініки за годину крісла, zł", 10, DR0, len(docs), f"A{LAST+4}", 18)
+bar("Маржа за годину крісла по напрямах, zł", 10, DI0, len(dirs), f"F{LAST+4}", 17)
+db.print_area = f"A1:M{LAST+21}"
 db.page_setup.orientation = "portrait"; db.page_setup.paperSize = 9
 db.page_setup.fitToWidth = 1; db.page_setup.fitToHeight = 0
 db.sheet_properties.pageSetUpPr.fitToPage = True
@@ -1219,6 +1219,70 @@ for i, (t, kind) in enumerate(txt):
         c.fill = fill(sw[kind][0]); c.font = font(bold=True, color=sw[kind][1], size=11); c.border = BOX
 ins.page_setup.fitToWidth = 1; ins.page_setup.fitToHeight = 0; ins.sheet_properties.pageSetUpPr.fitToPage = True
 
+# ========================= ПОЛЬСЬКА ВЕРСІЯ ЗВІТІВ =========================
+import translations_pl as TPL
+from copy import copy as _copy
+def tr_formula(f):
+    return re.sub(r'"([^"]*)"', lambda m_: '"' + TPL.FORMULA.get(m_.group(1), m_.group(1)) + '"', f)
+def clone_pl(src, title):
+    dst = wb.copy_worksheet(src); dst.title = title
+    for row in dst.iter_rows():
+        for c in row:
+            v = c.value
+            if isinstance(v, str):
+                c.value = tr_formula(v) if v.startswith("=") else TPL.PLAIN.get(v, v)
+    for cf in src.conditional_formatting:
+        for rule in cf.rules:
+            r2 = _copy(rule); r2.formula = [tr_formula(f) for f in rule.formula]
+            dst.conditional_formatting.add(str(cf.sqref), r2)
+    dst.sheet_view.showGridLines = False
+    dst.print_area = src.print_area.split('!')[-1].replace('$', '') if src.print_area else None
+    dst.page_setup.orientation = src.page_setup.orientation; dst.page_setup.paperSize = 9
+    dst.page_setup.fitToWidth = 1; dst.page_setup.fitToHeight = 0
+    dst.sheet_properties.pageSetUpPr.fitToPage = True
+    dst.page_margins.left = dst.page_margins.right = 0.4
+    dst.sheet_properties.tabColor = "C0392B"
+    return dst
+rpl = clone_pl(db, "Raport PL")
+for title, col, r1, n, anchor_, w in ((TPL.CHARTS["Прибуток клініки за годину крісла, zł"], 10, DR0, len(docs), f"A{LAST+4}", 18),
+                                      (TPL.CHARTS["Маржа за годину крісла по напрямах, zł"], 10, DI0, len(dirs), f"F{LAST+4}", 17)):
+    ch_ = BarChart(); ch_.type = "bar"; ch_.title = title
+    ch_.add_data(Reference(rpl, min_col=col, min_row=r1, max_row=r1 + n), titles_from_data=True)
+    ch_.set_categories(Reference(rpl, min_col=1, min_row=r1 + 1, max_row=r1 + n))
+    ch_.legend = None; ch_.roundedCorners = False; ch_.height = 8; ch_.width = w
+    ch_.x_axis.delete = False; ch_.y_axis.delete = False; ch_.title.overlay = False
+    rpl.add_chart(ch_, anchor_)
+ypl = clone_pl(yr, "Rok PL")
+bc2 = BarChart(); bc2.title = TPL.CHARTS["Виручка і чистий прибуток по місяцях, zł"]
+bc2.add_data(Reference(ypl, min_col=1, max_col=13, min_row=5), titles_from_data=True, from_rows=True)
+bc2.add_data(Reference(ypl, min_col=1, max_col=13, min_row=9), titles_from_data=True, from_rows=True)
+bc2.set_categories(Reference(ypl, min_col=2, max_col=13, min_row=4))
+bc2.roundedCorners = False; bc2.legend.overlay = False; bc2.title.overlay = False
+bc2.x_axis.delete = False; bc2.y_axis.delete = False; bc2.x_axis.number_format = MON; bc2.height = 9; bc2.width = 30
+ypl.add_chart(bc2, "A18")
+ypl["A5"] = "Przychód"; ypl["A9"] = "Zysk netto"   # підписи рядів графіка
+# польська інструкція
+ipl = wb.create_sheet("Instrukcja")
+ipl.sheet_view.showGridLines = False
+ipl.column_dimensions["A"].width = 4; ipl.column_dimensions["B"].width = 125
+for i, (t, kind) in enumerate(TPL.INSTRUKCJA):
+    c = ipl.cell(row=1 + i, column=2, value=t)
+    c.font = {"h1": font(bold=True, size=16, color="1F4E5A"), "h2": font(bold=True, size=11, color="1F4E5A"), "warn": font(bold=True, color=BAD_T)}.get(kind, font())
+    c.alignment = Alignment(wrap_text=True, vertical="top")
+    if kind == "warn": c.fill = fill(BAD_F)
+    if kind in sw:
+        c.fill = fill(sw[kind][0]); c.font = font(bold=True, color=sw[kind][1], size=11); c.border = BOX
+ipl.page_setup.fitToWidth = 1; ipl.page_setup.fitToHeight = 0; ipl.sheet_properties.pageSetUpPr.fitToPage = True
+ipl.sheet_properties.tabColor = "C0392B"
+# двомовні заголовки аркушів введення
+for name in ("Візити", "Банк", "Фактури", "Витрати", "Персонал"):
+    ws = wb[name]
+    for c in ws[1]:
+        if isinstance(c.value, str) and c.value in TPL.HEADERS:
+            c.value = c.value + "\n" + TPL.HEADERS[c.value]
+            c.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+    ws.row_dimensions[1].height = 58
+
 # ========================= ЖОВТЕ / СІРЕ + ЗАХИСТ =========================
 UNLOCK = Protection(locked=False)
 INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGH", N), "Витрати": ("ACEFGH", N), "Felgdent статуси": ("ABCD", 500), "Записи Felgdent": ("ACDEFG", 5001),
@@ -1251,7 +1315,7 @@ for row in wb["Налаштування"].iter_rows(min_row=13, max_row=12 + len
     for c in row: c.protection = UNLOCK
 # Дашборд і Рік: усі розрахункові клітинки світло-сірі (кольори світлофора лягають поверх), аркуш повністю захищений
 GREY_DASH = PatternFill("solid", fgColor="F0F0F0")
-for ws in (wb["Дашборд"], wb["Рік"]):
+for ws in (wb["Дашборд"], wb["Рік"], wb["Raport PL"], wb["Rok PL"]):
     for row in ws.iter_rows(min_row=4, max_col=14):
         for c in row:
             v = c.value
@@ -1260,10 +1324,10 @@ for ws in (wb["Дашборд"], wb["Рік"]):
                 if (c.fill is None or c.fill.fgColor.rgb in ("00000000", None)) and not (c.font and c.font.color and c.font.color.rgb == "00FFFFFF"):
                     c.fill = GREY_DASH
     protect(ws)
-protect(wb["Інструкція"])
+protect(wb["Інструкція"]); protect(wb["Instrukcja"])
 
 # порядок аркушів
-order = ["Інструкція", "Дашборд", "Рік", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
+order = ["Інструкція", "Дашборд", "Рік", "Instrukcja", "Raport PL", "Rok PL", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
          "Пацієнти", "Felgdent статуси", "Записи Felgdent", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:

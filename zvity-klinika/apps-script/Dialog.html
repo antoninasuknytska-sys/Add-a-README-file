@@ -18,9 +18,9 @@
 </style>
 </head>
 <body>
-  <label>1. Тип файлу</label>
+  <label>1. Тип файлу / Typ pliku</label>
   <select id="type">
-    <option value="AUTO">Визначити автоматично</option>
+    <option value="AUTO">Визначити автоматично / Rozpoznaj automatycznie</option>
     <option value="WPLATY">Felgdent – Koszty i wpłaty (оплати + технік)</option>
     <option value="FSTATUS">Felgdent – Status wizyt (вкажіть місяць)</option>
     <option value="FDUR">Felgdent – Średnia długość wizyty</option>
@@ -35,16 +35,16 @@
     <option value="ADS">Google Ads – звіт</option>
   </select>
 
-  <label>2. Місяць звіту (для «Status wizyt» і Google Ads без дат)</label>
+  <label>2. Місяць звіту / Miesiąc raportu (dla «Status wizyt» i Google Ads)</label>
   <input type="month" id="month">
 
-  <label>3. Файли (CSV, XLSX) — можна кілька одразу</label>
-  <div id="drop">Перетягніть файли сюди або натисніть, щоб вибрати
+  <label>3. Файли / Pliki (CSV, XLSX) — можна кілька / można kilka</label>
+  <div id="drop">Перетягніть файли сюди / Przeciągnij pliki tutaj lub kliknij
     <input type="file" id="files" multiple accept=".csv,.txt,.xlsx,.xls,.ods" style="display:none">
     <div id="names" class="hint"></div>
   </div>
 
-  <button id="go">Імпортувати</button>
+  <button id="go">Імпортувати / Importuj</button>
   <div id="log"></div>
 
 <script>
@@ -64,12 +64,12 @@
     document.getElementById('log').appendChild(d);
   }
   document.getElementById('go').onclick = function () {
-    if (!picked.length) { log('Спершу виберіть файли.', 'warn'); return; }
+    if (!picked.length) { log('Спершу виберіть файли. / Najpierw wybierz pliki.', 'warn'); return; }
     var btn = this; btn.disabled = true;
     var type = document.getElementById('type').value, month = document.getElementById('month').value;
     var queue = picked.slice();
     (function next() {
-      if (!queue.length) { btn.disabled = false; log('Готово. Можна закрити вікно — Дашборд уже оновлено.', 'ok'); return; }
+      if (!queue.length) { btn.disabled = false; log('Готово / Gotowe. Дашборд і Raport PL оновлено / zaktualizowane.', 'ok'); return; }
       var f = queue.shift();
       var r = new FileReader();
       r.onload = function () {

@@ -26,25 +26,25 @@ var UKLAD = {
 
 // ------------------------------------------------------------------ меню
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('🦷 Звіти клініки')
-    .addItem('Завантажити файли…', 'pokazDialog')
-    .addItem('Імпортувати з папки Google Drive', 'importZFolderuMenu')
+  SpreadsheetApp.getUi().createMenu('🦷 Звіти клініки / Raporty kliniki')
+    .addItem('Завантажити файли… / Wczytaj pliki…', 'pokazDialog')
+    .addItem('Імпорт з папки Google Drive / Import z folderu Drive', 'importZFolderuMenu')
     .addSeparator()
-    .addItem('Перерахувати категорії банку', 'przeliczKategorieMenu')
-    .addItem('Звірити фактури з банком', 'zestawFakturyMenu')
-    .addItem('Оновити джерела й нових пацієнтів у візитах', 'uzupelnijZrodlaMenu')
+    .addItem('Перерахувати категорії банку / Przelicz kategorie banku', 'przeliczKategorieMenu')
+    .addItem('Звірити фактури з банком / Uzgodnij faktury z bankiem', 'zestawFakturyMenu')
+    .addItem('Оновити джерела пацієнтів / Uzupełnij źródła pacjentów', 'uzupelnijZrodlaMenu')
     .addSeparator()
-    .addItem('Надіслати звіт зараз', 'wyslijRaport')
-    .addItem('Увімкнути автоматику (імпорт щоночі, звіт 15-го о 21:00)', 'ustawHarmonogram')
-    .addItem('Захистити автоматичні клітинки', 'zabezpieczMenu')
+    .addItem('Надіслати звіт зараз / Wyślij raport teraz', 'wyslijRaport')
+    .addItem('Увімкнути автоматику / Włącz automatyzację', 'ustawHarmonogram')
+    .addItem('Захистити автоматичні клітинки / Chroń komórki automatyczne', 'zabezpieczMenu')
     .addSeparator()
-    .addItem('Очистити демо-дані', 'wyczyscDemo')
+    .addItem('Очистити демо-дані / Usuń dane demo', 'wyczyscDemo')
     .addToUi();
 }
 
 function pokazDialog() {
   var html = HtmlService.createHtmlOutputFromFile('Dialog').setWidth(560).setHeight(600);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Завантаження файлів');
+  SpreadsheetApp.getUi().showModalDialog(html, 'Завантаження файлів / Wczytywanie plików');
 }
 
 function alert_(msg) { try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); } }
@@ -535,7 +535,7 @@ var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H'
 /** Колонки, які заповнює скрипт: попередження при ручній зміні (скрипт пише вільно). */
 var SKRYPT_KOLUMNY = { 'Візити': ['R'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'],
   'Витрати': ['I'], 'Felgdent статуси': ['E'], 'Записи Felgdent': ['H'] };
-var CALE_ARKUSZE = ['Дашборд', 'Рік', 'Інструкція'];
+var CALE_ARKUSZE = ['Дашборд', 'Рік', 'Інструкція', 'Raport PL', 'Rok PL', 'Instrukcja'];
 
 function zabezpiecz() {
   var ss = SpreadsheetApp.getActive();
