@@ -1,0 +1,10 @@
+// Демо-дані для локального стенду
+module.exports = function seed(ctx) {
+  const H = 36e5, now = Date.now();
+  const mk = (id, o) => ctx.saveTask(Object.assign({ id, createdAt: now - 30 * H, createdBy: 'Оля', phone: '', channel: 'Телефон', doctor: '', status: 'open', updatedAt: now - 2 * H, updatedBy: 'Оля', closedAt: '', source: 'manual', history: [] }, o));
+  mk('D1', { type: 'kt', patient: 'Іванова Марія', phone: '+380501234567', channel: 'WhatsApp', doctor: 'Петренко', purpose: 'Новий пацієнт з реклами. КТ виконана, потрібна відповідь лікаря: коли і на скільки записати', stage: 2, dueAt: now - 1.5 * H, history: [{ t: now - 30 * H, who: 'Оля', text: '🆕 Створено на етапі «Направлення на КТ надіслано»' }, { t: now - 6 * H, who: '🤖 Автомат', text: 'Прийшов лист: КТ готова. Покажіть лікарю.' }, { t: now - 5.5 * H, who: 'Оля', text: '🔔 Нагадала лікарю Петренко (1-й раз)' }] });
+  mk('D2', { type: 'call_after', patient: 'Бондар Олег', phone: '+380671112233', doctor: 'Коваль', purpose: 'Як почувається після видалення 38 зуба (вчора)', stage: 1, dueAt: now + 1 * H, updatedAt: now - 2 * H, history: [{ t: now - 26 * H, who: 'Марта', text: '🆕 Створено' }, { t: now - 2 * H, who: 'Оля', text: '📵 Не відповів на дзвінок (спроба 1)' }] });
+  mk('D3', { type: 'lab', patient: 'Ткаченко Ірина', phone: '+380931234567', doctor: 'Петренко', purpose: 'Вініри 6 од. Коли прийдуть з лабораторії — записати на фіксацію (90 хв)', stage: 0, dueAt: now + 50 * H, updatedAt: now - 60 * H, history: [{ t: now - 60 * H, who: 'Марта', text: '🆕 Створено' }] });
+  mk('D4', { type: 'confirm', patient: 'Мельник Андрій', phone: '+380661234567', purpose: 'Підтвердити запис на завтра 9:00 (чистка)', stage: 0, dueAt: new Date().setHours(18, 0, 0, 0), history: [{ t: now - 3 * H, who: 'Марта', text: '🆕 Створено' }] });
+  mk('D5', { type: 'call_after', patient: 'Шевчук Ганна', purpose: 'Після імплантації 46 — самопочуття', stage: 3, dueAt: '', status: 'done', closedAt: now - 20 * H, updatedBy: 'Марта', history: [{ t: now - 48 * H, who: 'Оля', text: '🆕 Створено' }, { t: now - 20 * H, who: 'Марта', text: '➡️ Етап: «Поговорили — все добре»' }] });
+};

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дошка справ</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #fff; --ink: #1d2433; --muted: #6b7385; --line: #e2e6ee;
+    --brand: #1a73e8; --brand-ink: #fff; --red: #d93025; --red-bg: #fdecea;
+    --amber: #b06000; --amber-bg: #fef4e0; --green: #188038; --green-bg: #e6f4ea;
+    --blue-bg: #e8f0fe; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; padding: 7px 12px; }
+  button:hover { border-color: #b8c0cf; }
+  button.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  button.danger { color: var(--red); }
+  button.small { padding: 4px 9px; font-size: 13px; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  textarea { min-height: 70px; resize: vertical; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
+
+  header { background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 16px; max-width: 1100px; margin: 0 auto; }
+  .top h1 { font-size: 17px; margin: 0 auto 0 0; }
+  .me { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .me select { width: auto; padding: 5px 8px; }
+  .search { flex: 1 1 220px; max-width: 360px; }
+  nav { display: flex; gap: 4px; overflow-x: auto; padding: 0 16px; max-width: 1100px; margin: 0 auto; }
+  nav button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none; padding: 10px 12px; white-space: nowrap; color: var(--muted); }
+  nav button.on { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+  .count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 12px; margin-left: 4px; }
+  .count.red { background: var(--red); color: #fff; }
+
+  .banner { margin: 14px 0 0; padding: 12px 14px; border-radius: var(--radius); background: var(--amber-bg); color: #5c3c00; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .banner b { color: #3d2800; }
+  h2 { font-size: 16px; margin: 22px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); background: var(--card); border-radius: var(--radius); border: 1px dashed var(--line); }
+
+  .list { display: grid; gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; }
+  .card.overdue { border-left-color: var(--red); }
+  .card.today { border-left-color: var(--amber); }
+  .card.later { border-left-color: var(--green); }
+  .card.closed { opacity: .75; border-left-color: #9aa0a6; }
+  .row1 { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .patient { font-weight: 650; font-size: 16px; }
+  .phone { color: var(--brand); text-decoration: none; font-size: 14px; }
+  .due { margin-left: auto; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .due.overdue { color: var(--red); } .due.today { color: var(--amber); } .due.later { color: var(--green); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .chip { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--blue-bg); color: #174ea6; }
+  .chip.stage { background: #f1f3f4; color: var(--ink); }
+  .chip.warn { background: var(--red-bg); color: var(--red); }
+  .chip.stale { background: #e8eaed; color: #3c4043; }
+  .purpose { margin: 4px 0; }
+  .last { font-size: 13px; color: var(--muted); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .tile .n { font-size: 28px; font-weight: 700; }
+  .tile.red .n { color: var(--red); } .tile.green .n { color: var(--green); }
+  .tile .l { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); font-size: 14px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f8f9fb; font-weight: 600; font-size: 13px; color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(20,25,35,.45); display: flex; align-items: flex-start; justify-content: center; padding: 30px 12px; overflow-y: auto; z-index: 20; }
+  .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 620px; padding: 18px 18px 14px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .modal h3 { margin: 0 0 6px; font-size: 18px; }
+  .modal .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  .types { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
+  .types label { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--ink); font-size: 14px; cursor: pointer; }
+  .types input { width: auto; margin-right: 6px; }
+  .types label:has(input:checked) { border-color: var(--brand); background: var(--blue-bg); }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } .due { margin-left: 0; width: 100%; } }
+  .timeline { list-style: none; padding: 0; margin: 8px 0 0; max-height: 260px; overflow-y: auto; border-top: 1px solid var(--line); }
+  .timeline li { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .timeline .meta { color: var(--muted); font-size: 12px; }
+  .stages { display: flex; flex-wrap: wrap; gap: 6px; }
+  .stages button.cur { background: var(--blue-bg); border-color: var(--brand); font-weight: 600; }
+  .quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #202124; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 30; font-size: 14px; }
+  .loading { padding: 60px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1 id="title">🦷 Дошка справ</h1>
+    <input class="search" id="q" type="search" placeholder="🔎 Пошук: прізвище, телефон, суть…">
+    <div class="me">На зміні: <select id="me"></select></div>
+    <button class="primary" id="addBtn">＋ Нова справа</button>
+  </div>
+  <nav id="tabs"></nav>
+</header>
+<div class="wrap" id="app"><div class="loading">Завантаження…</div></div>
+<div id="modalRoot"></div>
+
+<script>
+(function () {
+  const H = 36e5;
+  const S = { data: null, tab: 'now', q: '', busy: false, modalOpen: false };
+  const $ = sel => document.querySelector(sel);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  /* ---------- зв'язок із сервером ---------- */
+  function api(fn, arg) {
+    return new Promise((resolve, reject) => {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](arg);
+    });
+  }
+  async function call(fn, arg, okMsg) {
+    S.busy = true;
+    try {
+      S.data = await api(fn, arg);
+      if (okMsg) toast(okMsg);
+      render();
+    } catch (e) {
+      toast('⚠️ Помилка: ' + (e && e.message ? e.message : e));
+    } finally { S.busy = false; }
+  }
+  async function refresh() {
+    if (S.busy || S.modalOpen) return;
+    try { S.data = await api('getData'); render(); } catch (e) { /* тихо, спробуємо пізніше */ }
+  }
+
+  /* ---------- дрібниці ---------- */
+  const cfg = () => S.data.config;
+  const me = () => $('#me').value || '';
+  const type = t => cfg().types[t.type] || { label: t.type, icon: '•', stages: [{ n: '?' }] };
+  const stage = t => type(t).stages[t.stage] || { n: '?' };
+  const now = () => Date.now();
+  const newId = () => 'T' + now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const digits = s => String(s || '').replace(/\D/g, '');
+  const pad = n => String(n).padStart(2, '0');
+  const days = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  function fmt(ts) {
+    const d = new Date(ts), today = new Date();
+    const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const dayDiff = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date(today).setHours(0, 0, 0, 0)) / 864e5);
+    if (dayDiff === 0) return 'сьогодні ' + hm;
+    if (dayDiff === 1) return 'завтра ' + hm;
+    if (dayDiff === -1) return 'вчора ' + hm;
+    return days[d.getDay()] + ' ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' ' + hm;
+  }
+  function ago(ts) {
+    const m = Math.round((now() - ts) / 6e4);
+    if (m < 60) return m + ' хв';
+    const h = Math.round(m / 60);
+    return h < 48 ? h + ' год' : Math.round(h / 24) + ' дн';
+  }
+  const endOfToday = () => new Date().setHours(23, 59, 59, 999);
+  function urgency(t) {
+    if (t.status !== 'open') return 'closed';
+    if (!t.dueAt) return 'later';
+    if (t.dueAt < now()) return 'overdue';
+    if (t.dueAt <= endOfToday()) return 'today';
+    return 'later';
+  }
+  // «Зависла» = термін минув і ніхто не торкався довше за staleHours (очікування лабораторії до терміну не рахується)
+  const isStale = t => t.status === 'open' && (!t.dueAt || t.dueAt < now()) && now() - (t.updatedAt || t.createdAt) > cfg().staleHours * H;
+  const lastEntry = t => (t.history || [])[t.history.length - 1];
+  const countIn = (t, mark) => (t.history || []).filter(h => h.text.indexOf(mark) === 0).length;
+  function toDatetimeLocal(ts) {
+    const d = new Date(ts);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function tomorrowAt(h) { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.getTime(); }
+  function inDaysAt(n, h) { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(h, 0, 0, 0); return d.getTime(); }
+  function toast(msg) {
+    document.querySelectorAll('.toast').forEach(x => x.remove());
+    const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+    document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+  }
+  function doctorPhone(name) { const d = cfg().doctors.find(x => x.name === name); return d ? d.phone : ''; }
+  function waLink(phone, text) { return 'https://wa.me/' + digits(phone) + '?text=' + encodeURIComponent(text); }
+
+  /* ---------- зміни в справі (вся логіка тут, сервер лише зберігає) ---------- */
+  function log(t, text) {
+    t.history = t.history || [];
+    t.history.push({ t: now(), who: me(), text: text });
+    t.updatedAt = now(); t.updatedBy = me();
+  }
+  function applyStage(t, idx, note, due) {
+    const st = type(t).stages[idx];
+    t.stage = idx;
+    log(t, '➡️ Етап: «' + st.n + '»' + (note ? ' — ' + note : ''));
+    if (st.done) { t.status = 'done'; t.closedAt = now(); t.dueAt = ''; }
+    else { t.status = 'open'; t.closedAt = ''; t.dueAt = due || now() + st.due * H; }
+  }
+  function nextIdx(t) {
+    const st = stage(t);
+    return st.next != null ? st.next : Math.min(t.stage + 1, type(t).stages.length - 1);
+  }
+  const clone = t => JSON.parse(JSON.stringify(t));
+
+  async function moveTo(task, idx) {
+    const t = clone(task), st = type(t).stages[idx];
+    let note = '';
+    if (st.ask) {
+      const r = await dialog({ title: st.n, body: '<label>' + esc(st.ask) + '</label><textarea name="note" required autofocus></textarea>', ok: 'Зберегти' });
+      if (!r) return; note = r.note.trim();
+    }
+    applyStage(t, idx, note);
+    call('saveTask', t, st.done ? '✅ Справу закрито' : 'Збережено');
+  }
+  async function noAnswer(task) {
+    const t = clone(task);
+    const stages = type(t).stages, retry = stages.findIndex(s => s.retry);
+    const n = countIn(t, '📵') + 1;
+    log(t, '📵 Не відповів на дзвінок (спроба ' + n + ')');
+    if (retry >= 0) { t.stage = retry; t.dueAt = now() + stages[retry].due * H; }
+    else t.dueAt = now() + 3 * H;
+    call('saveTask', t, 'Записано спробу №' + n + '. Нагадаю через ' + Math.round((t.dueAt - now()) / H) + ' год');
+  }
+  function remindDoctor(task) {
+    const t = clone(task);
+    const n = countIn(t, '🔔') + 1;
+    const phone = doctorPhone(t.doctor);
+    const text = 'Доброго дня! Нагадую щодо пацієнта ' + t.patient + ': ' + t.purpose + '. Етап: ' + stage(t).n +
+      '. Підкажіть, будь ласка, коли і на скільки часу записати?';
+    if (phone) window.open(waLink(phone, text), '_blank');
+    else toast('Немає номера лікаря в аркуші «Лікарі» — нагадайте усно');
+    log(t, '🔔 Нагадала лікарю' + (t.doctor ? ' ' + t.doctor : '') + ' (' + n + '-й раз)');
+    t.dueAt = now() + 3 * H;
+    call('saveTask', t, 'Нагадування №' + n + ' записано. Наступне через 3 год, якщо лікар не відповість');
+  }
+  async function addNote(task) {
+    const r = await dialog({
+      title: 'Коментар / перенести термін',
+      body: '<label>Що зроблено або що відомо</label><textarea name="note" autofocus></textarea>' + duePicker(task.dueAt || now() + 3 * H),
+      ok: 'Зберегти'
+    });
+    if (!r) return;
+    const t = clone(task);
+    const due = r.due ? new Date(r.due).getTime() : t.dueAt;
+    const moved = due !== task.dueAt;
+    if (!r.note.trim() && !moved) return;
+    log(t, '💬 ' + (r.note.trim() || 'Перенесено термін') + (moved ? ' (новий термін: ' + fmt(due) + ')' : ''));
+    t.dueAt = due;
+    call('saveTask', t, 'Збережено');
+  }
+  async function closeTask(task) {
+    const r = await dialog({ title: 'Закрити без виконання?', body: '<label>Причина (пацієнт відмовився, дубль, неактуально…)</label><textarea name="note" required autofocus></textarea>', ok: 'Закрити', okCls: 'danger' });
+    if (!r) return;
+    const t = clone(task);
+    log(t, '✖️ Закрито: ' + r.note.trim());
+    t.status = 'cancelled'; t.closedAt = now(); t.dueAt = '';
+    call('saveTask', t, 'Закрито');
+  }
+  function reopen(task) {
+    const t = clone(task);
+    const idx = type(t).stages.findIndex(s => !s.done);
+    t.stage = Math.max(0, idx);
+    log(t, '♻️ Повернуто в роботу');
+    t.status = 'open'; t.closedAt = ''; t.dueAt = now() + 2 * H;
+    call('saveTask', t, 'Справа знову відкрита');
+  }
+
+  /* ---------- модальні вікна ---------- */
+  function dialog({ title, body, ok = 'OK', okCls = 'primary', cancel = 'Скасувати', wide }) {
+    return new Promise(resolve => {
+      S.modalOpen = true;
+      const root = $('#modalRoot');
+      root.innerHTML = '<div class="modal-bg"><form class="modal"' + (wide ? ' style="max-width:760px"' : '') + '><h3>' + esc(title) + '</h3>' + body +
+        '<div class="foot">' + (cancel ? '<button type="button" data-x>' + esc(cancel) + '</button>' : '') +
+        (ok ? '<button type="submit" class="' + okCls + '">' + esc(ok) + '</button>' : '') + '</div></form></div>';
+      const form = root.querySelector('form');
+      const close = v => { root.innerHTML = ''; S.modalOpen = false; resolve(v); };
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const o = {}; new FormData(form).forEach((v, k) => { o[k] = v; });
+        close(o);
+      });
+      root.querySelectorAll('[data-x]').forEach(b => b.onclick = () => close(null));
+      root.querySelector('.modal-bg').addEventListener('mousedown', e => { if (e.target.classList.contains('modal-bg')) close(null); });
+      document.addEventListener('keydown', function onEsc(e) { if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); if (S.modalOpen) close(null); } });
+      const af = form.querySelector('[autofocus]'); if (af) setTimeout(() => af.focus(), 30);
+      form.__close = close;
+    });
+  }
+  function duePicker(ts) {
+    return '<label>Коли зробити / нагадати</label><div class="presets">' +
+      [['Через 2 год', now() + 2 * H], ['Сьогодні 17:00', new Date().setHours(17, 0, 0, 0)], ['Завтра 10:00', tomorrowAt(10)], ['Через 3 дні', inDaysAt(3, 10)], ['Через тиждень', inDaysAt(7, 10)]]
+        .map(p => '<button type="button" class="small" data-due="' + toDatetimeLocal(p[1]) + '">' + p[0] + '</button>').join('') +
+      '</div><input type="datetime-local" name="due" value="' + (ts ? toDatetimeLocal(ts) : '') + '">';
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-due]'); if (!b) return;
+    const inp = b.closest('form').querySelector('input[name=due]'); inp.value = b.dataset.due;
+  });
+
+  async function newTaskDialog(preset) {
+    preset = preset || {};
+    const types = cfg().types;
+    const typeKeys = Object.keys(types);
+    const body =
+      '<div class="quick"><span class="hint">Швидко:</span>' +
+      '<button type="button" class="small" data-tpl="extract">🦷 Видалення / імплант сьогодні → дзвінок завтра</button>' +
+      '<button type="button" class="small" data-tpl="ktsent">📨 Надіслала направлення на КТ</button>' +
+      '<button type="button" class="small" data-tpl="lab">🧪 Відправили в лабораторію</button></div>' +
+      '<label>Тип справи</label><div class="types">' + typeKeys.map(k =>
+        '<label><input type="radio" name="type" value="' + k + '"' + ((preset.type || 'call_after') === k ? ' checked' : '') + '>' + types[k].icon + ' ' + esc(types[k].label) + '</label>').join('') + '</div>' +
+      '<div class="grid2"><div><label>Пацієнт (ПІБ) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
+      '<div><label>Телефон</label><input name="phone" type="tel" placeholder="+380…" value="' + esc(preset.phone || '') + '"></div>' +
+      '<div><label>Як пацієнт з нами на зв\'язку</label><select name="channel">' + ['Телефон', 'WhatsApp', 'Email', 'Booksy', 'Особисто'].map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
+      '<div><label>Лікар</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+      '<label>Суть: навіщо і що треба зробити * <span class="hint">(щоб колега одразу зрозуміла, якщо пацієнт передзвонить)</span></label>' +
+      '<textarea name="purpose" required placeholder="Напр.: дзвінок — як почувається після видалення 36 зуба (вчора, лікар Петренко)"></textarea>' +
+      '<label>Етап</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
+      '<p class="hint">Якщо термін не вказати — поставиться автоматично за етапом.</p>';
+    const p = dialog({ title: 'Нова справа', body, ok: 'Створити', wide: true });
+    const form = $('#modalRoot form');
+    const stageSel = form.querySelector('select[name=stage]');
+    const fillStages = () => {
+      const k = form.querySelector('input[name=type]:checked').value;
+      stageSel.innerHTML = types[k].stages.map((s, i) => s.done ? '' : '<option value="' + i + '">' + esc(s.n) + '</option>').join('');
+    };
+    form.querySelectorAll('input[name=type]').forEach(r => r.onchange = fillStages);
+    fillStages();
+    const setType = k => { form.querySelector('input[name=type][value=' + k + ']').checked = true; fillStages(); };
+    form.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => {
+      const tpl = b.dataset.tpl, purpose = form.querySelector('[name=purpose]'), due = form.querySelector('[name=due]');
+      if (tpl === 'extract') { setType('call_after'); purpose.value = 'Зателефонувати: як почувається після видалення/імплантації (зуб …, лікар …)'; due.value = toDatetimeLocal(tomorrowAt(11)); }
+      if (tpl === 'ktsent') { setType('kt'); purpose.value = 'Новий пацієнт (реклама). Надіслано направлення на КТ у WhatsApp. Коли прийде лист — показати лікарю і отримати відповідь, коли і на скільки записати'; due.value = toDatetimeLocal(inDaysAt(3, 10)); }
+      if (tpl === 'lab') { setType('lab'); purpose.value = 'Коронки/вініри: відправлено в лабораторію. Коли робота прийде — записати на фіксацію'; due.value = ''; }
+    });
+    const r = await p;
+    if (!r) return;
+    const t = {
+      id: newId(), createdAt: now(), createdBy: me(), type: r.type, patient: r.patient.trim(), phone: r.phone.trim(),
+      channel: r.channel, doctor: r.doctor, purpose: r.purpose.trim(), stage: 0, dueAt: '', status: 'open',
+      updatedAt: now(), updatedBy: me(), closedAt: '', source: 'manual', history: []
+    };
+    log(t, '🆕 Створено');
+    applyStage(t, Number(r.stage) || 0, '', r.due ? new Date(r.due).getTime() : 0);
+    t.history.splice(1, 1); // «Етап» дублює «Створено»
+    t.history[0].text = '🆕 Створено на етапі «' + stage(t).n + '»';
+    call('saveTask', t, 'Справу створено');
+  }
+
+  async function editDialog(task) {
+    const r = await dialog({
+      title: 'Редагувати: ' + task.patient, ok: 'Зберегти',
+      body: '<div class="grid2"><div><label>Пацієнт</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
+        '<div><label>Телефон</label><input name="phone" value="' + esc(task.phone) + '"></div>' +
+        '<div><label>Канал</label><input name="channel" value="' + esc(task.channel) + '"></div>' +
+        '<div><label>Лікар</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+        '<label>Суть</label><textarea name="purpose" required>' + esc(task.purpose) + '</textarea>'
+    });
+    if (!r) return;
+    const t = clone(task), changed = [];
+    ['patient', 'phone', 'channel', 'doctor', 'purpose'].forEach(k => { if ((t[k] || '') !== r[k].trim()) { changed.push(k); t[k] = r[k].trim(); } });
+    if (!changed.length) return;
+    log(t, '✏️ Змінено дані картки');
+    call('saveTask', t, 'Збережено');
+  }
+
+  function detailDialog(task) {
+    const t = task, ty = type(t), u = urgency(t);
+    const hist = (t.history || []).slice().reverse().map(h =>
+      '<li>' + linkify(h.text) + '<div class="meta">' + fmt(h.t) + ' · ' + esc(h.who || '') + '</div></li>').join('');
+    const stagesHtml = ty.stages.map((s, i) => '<button type="button" class="small' + (i === t.stage && t.status === 'open' ? ' cur' : '') + '" data-stage="' + i + '">' + (s.done ? '✅ ' : '') + esc(s.n) + '</button>').join('');
+    const body =
+      '<div class="chips"><span class="chip">' + ty.icon + ' ' + esc(ty.label) + '</span>' +
+      (t.doctor ? '<span class="chip">👨‍⚕️ ' + esc(t.doctor) + '</span>' : '') +
+      (t.channel ? '<span class="chip">' + esc(t.channel) + '</span>' : '') +
+      (t.status === 'open' && t.dueAt ? '<span class="chip ' + (u === 'overdue' ? 'warn' : 'stage') + '">⏰ ' + fmt(t.dueAt) + '</span>' : '') + '</div>' +
+      (t.phone ? '<p>📞 <a class="phone" href="tel:' + esc(t.phone) + '">' + esc(t.phone) + '</a> · <a class="phone" target="_blank" href="' + waLink(t.phone, '') + '">WhatsApp</a></p>' : '') +
+      '<p class="purpose"><b>Суть:</b> ' + esc(t.purpose) + '</p>' +
+      '<label>Перевести на етап</label><div class="stages">' + stagesHtml + '</div>' +
+      '<div class="actions">' + actionButtons(t, true) + '</div>' +
+      '<label>Історія</label><ul class="timeline">' + hist + '</ul>' +
+      '<p class="hint">Створено ' + fmt(t.createdAt) + ' · ' + esc(t.createdBy || '') + '</p>';
+    dialog({ title: (t.patient || '—'), body, ok: '', cancel: 'Закрити', wide: true });
+    const form = $('#modalRoot form');
+    form.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => { form.__close(null); moveTo(task, Number(b.dataset.stage)); });
+    bindActions(form, () => form.__close(null));
+  }
+  function linkify(s) {
+    return esc(s).replace(/(https?:\/\/[^\s]+)/g, '<a target="_blank" href="$1">лист ↗</a>');
+  }
+
+  /* ---------- картки ---------- */
+  function actionButtons(t, inDetail) {
+    if (t.status !== 'open') return '<button type="button" class="small" data-act="reopen" data-id="' + t.id + '">♻️ Повернути в роботу</button>';
+    const ty = type(t), st = stage(t), ni = nextIdx(t), nst = ty.stages[ni];
+    let b = '';
+    if (ni !== t.stage) b += '<button type="button" class="small primary" data-act="next" data-id="' + t.id + '">' + (nst.done ? '✅ ' : '➡️ ') + esc(nst.n) + '</button>';
+    if (ty.stages.some(s => s.retry) && !st.nag) b += '<button type="button" class="small" data-act="noanswer" data-id="' + t.id + '">📵 Не відповів</button>';
+    if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Написати лікарю' : 'Нагадати лікарю') + '</button>';
+    b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Коментар / термін</button>';
+    if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Дані</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Закрити без виконання</button>';
+    return b;
+  }
+  function bindActions(root, before) {
+    root.querySelectorAll('[data-act]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const t = S.data.tasks.find(x => x.id === b.dataset.id); if (!t) return;
+      if (!me()) { toast('Спершу оберіть, хто на зміні'); return; }
+      if (before) before();
+      const a = b.dataset.act;
+      if (a === 'next') moveTo(t, nextIdx(t));
+      if (a === 'noanswer') noAnswer(t);
+      if (a === 'doctor') {
+        if (t.type === 'kt' && t.stage === 1) { const c = clone(t); applyStage(c, 2, 'надіслано лікарю'); remindDoctor(c); }
+        else remindDoctor(t);
+      }
+      if (a === 'note') addNote(t);
+      if (a === 'edit') editDialog(t);
+      if (a === 'cancel') closeTask(t);
+      if (a === 'reopen') reopen(t);
+    });
+  }
+  function card(t) {
+    const ty = type(t), st = stage(t), u = urgency(t), le = lastEntry(t);
+    const dueTxt = t.status !== 'open' ? (t.status === 'done' ? '✅ виконано ' : '✖️ закрито ') + fmt(t.closedAt)
+      : !t.dueAt ? '' : u === 'overdue' ? '⏰ прострочено ' + ago(t.dueAt) : '⏰ ' + fmt(t.dueAt);
+    const tries = countIn(t, '📵'), nags = countIn(t, '🔔');
+    return '<div class="card ' + u + '" data-open="' + t.id + '">' +
+      '<div class="row1"><span class="patient">' + esc(t.patient) + '</span>' +
+      (t.phone ? '<a class="phone" href="tel:' + esc(t.phone) + '" onclick="event.stopPropagation()">' + esc(t.phone) + '</a>' : '') +
+      '<span class="due ' + u + '">' + dueTxt + '</span></div>' +
+      '<div class="chips"><span class="chip">' + ty.icon + ' ' + esc(ty.label) + '</span><span class="chip stage">' + esc(st.n) + '</span>' +
+      (t.doctor ? '<span class="chip">👨‍⚕️ ' + esc(t.doctor) + '</span>' : '') +
+      (tries ? '<span class="chip warn">📵 ' + tries + ' спроб</span>' : '') +
+      (nags ? '<span class="chip warn">🔔 нагадано ' + nags + '×</span>' : '') +
+      (isStale(t) ? '<span class="chip stale">🧊 без руху ' + ago(t.updatedAt || t.createdAt) + '</span>' : '') +
+      (t.source === 'email' ? '<span class="chip">🤖 з пошти</span>' : '') + '</div>' +
+      '<div class="purpose">' + esc(t.purpose) + '</div>' +
+      (le ? '<div class="last">Останнє: ' + esc(le.text.replace(/https?:\/\/\S+/g, '')) + ' — ' + esc(le.who || '') + ', ' + fmt(le.t) + '</div>' : '') +
+      '<div class="actions">' + actionButtons(t, false) + '</div></div>';
+  }
+  function cards(list, emptyMsg) {
+    return list.length ? '<div class="list">' + list.map(card).join('') + '</div>' : '<div class="empty">' + emptyMsg + '</div>';
+  }
+  const byDue = (a, b) => (a.dueAt || 9e15) - (b.dueAt || 9e15);
+
+  /* ---------- вкладки ---------- */
+  function openTasks() { return S.data.tasks.filter(t => t.status === 'open'); }
+  function pendingShift() {
+    const sh = S.data.shifts[S.data.shifts.length - 1];
+    return sh && !sh.acceptedBy ? sh : null;
+  }
+
+  function viewNow() {
+    const open = openTasks();
+    const due = open.filter(t => urgency(t) === 'overdue' || urgency(t) === 'today').sort(byDue);
+    const staleOnly = open.filter(t => isStale(t) && due.indexOf(t) < 0);
+    let h = '<h2>Зробити сьогодні <span class="hint">прострочені вгорі</span></h2>' + cards(due, 'Усе зроблено 🎉 На сьогодні справ немає.');
+    if (staleOnly.length) h += '<h2>🧊 Довго без руху <span class="hint">термін минув, понад ' + cfg().staleHours + ' год ніхто не торкався</span></h2>' + cards(staleOnly, '');
+    return h;
+  }
+  function viewAll() {
+    const open = openTasks();
+    if (!open.length) return '<div class="empty" style="margin-top:20px">Відкритих справ немає</div>';
+    return Object.keys(cfg().types).map(k => {
+      const list = open.filter(t => t.type === k).sort((a, b) => a.stage - b.stage || byDue(a, b));
+      if (!list.length) return '';
+      return '<h2>' + cfg().types[k].icon + ' ' + esc(cfg().types[k].label) + ' <span class="count">' + list.length + '</span></h2>' + cards(list, '');
+    }).join('');
+  }
+  function viewArchive() {
+    const list = S.data.tasks.filter(t => t.status !== 'open').sort((a, b) => b.closedAt - a.closedAt);
+    return '<h2>Закриті за 30 днів</h2>' + cards(list, 'Поки порожньо');
+  }
+  function viewSearch() {
+    const q = S.q.toLowerCase(), qd = digits(q);
+    const list = S.data.tasks.filter(t =>
+      (t.patient || '').toLowerCase().includes(q) || (t.purpose || '').toLowerCase().includes(q) ||
+      (qd.length >= 3 && digits(t.phone).includes(qd))
+    ).sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || b.updatedAt - a.updatedAt);
+    return '<h2>Результати пошуку «' + esc(S.q) + '» <span class="count">' + list.length + '</span></h2>' +
+      '<p class="hint">Пацієнт передзвонив і питає «ви мені дзвонили?» — відкрийте картку, там вся історія.</p>' +
+      cards(list, 'Нічого не знайдено. Шукаємо серед відкритих справ і закритих за 30 днів.');
+  }
+
+  function viewShift() {
+    const open = openTasks(), pend = pendingShift(), shifts = S.data.shifts.slice().reverse();
+    const overdue = open.filter(t => urgency(t) === 'overdue');
+    const lastAccepted = S.data.shifts.filter(s => s.acceptedBy === me()).pop();
+    const since = Math.max(lastAccepted ? lastAccepted.acceptedAt : 0, new Date().setHours(0, 0, 0, 0));
+    const mine = S.data.tasks.filter(t => (t.history || []).some(h => h.who === me() && h.t >= since));
+    let h = '';
+    if (pend && pend.from !== me()) {
+      const theirs = S.data.tasks.filter(t => (t.history || []).some(x => x.who === pend.from && x.t >= new Date(pend.at).setHours(0, 0, 0, 0)));
+      h += '<h2>📥 Прийняти зміну від ' + esc(pend.from) + '</h2><div class="panel">' +
+        '<p>Здано ' + fmt(pend.at) + '. Відкритих справ: <b>' + open.length + '</b>, прострочених: <b style="color:var(--red)">' + overdue.length + '</b>.</p>' +
+        (pend.note ? '<p><b>Нотатка:</b> ' + esc(pend.note) + '</p>' : '') +
+        '<p class="hint">Перегляньте справи, з якими працювала колега, і натисніть «Приймаю».</p>' +
+        '<button class="primary" id="acceptBtn">✅ Я ознайомилась — приймаю зміну</button></div>' +
+        '<h2>Справи, які рухала ' + esc(pend.from) + ' за зміну <span class="count">' + theirs.length + '</span></h2>' + cards(theirs, 'Немає');
+    }
+    h += '<h2>📤 Здати зміну</h2><div class="panel">' +
+      '<p>Відкритих: <b>' + open.length + '</b> · прострочених: <b style="color:var(--red)">' + overdue.length + '</b> · справ, які ви рухали за зміну: <b>' + mine.length + '</b></p>' +
+      (overdue.length ? '<p style="color:var(--red)">⚠️ Перед передачею по кожній простроченій справі залиште коментар або перенесіть термін, щоб колега знала, що робити.</p>' : '') +
+      '<label>Що важливо знати колезі (необов\'язково, усе інше вже є в картках)</label><textarea id="shiftNote" placeholder="Напр.: лікар Петренко обіцяв відповісти по КТ Іванової після 16:00"></textarea>' +
+      '<div class="actions"><button class="primary" id="handBtn">📤 Здаю зміну</button></div></div>';
+    if (overdue.length) h += '<h2>⏰ Прострочені</h2>' + cards(overdue.sort(byDue), '');
+    h += '<h2>Журнал змін</h2><div class="tablewrap"><table><tr><th>Здано</th><th>Хто здав</th><th>Нотатка</th><th>Відкр./простр.</th><th>Прийняв</th></tr>' +
+      (shifts.length ? shifts.map(s => '<tr><td>' + fmt(s.at) + '</td><td>' + esc(s.from) + '</td><td>' + esc(s.note) + '</td><td>' + s.openCount + ' / ' + s.overdueCount +
+        '</td><td>' + (s.acceptedBy ? esc(s.acceptedBy) + ', ' + fmt(s.acceptedAt) : '<span style="color:var(--amber)">ще не прийнято</span>') + '</td></tr>').join('')
+        : '<tr><td colspan="5" class="hint">Ще не було передач</td></tr>') + '</table></div>';
+    return h;
+  }
+
+  function viewStats() {
+    const all = S.data.tasks, open = openTasks(), t0 = now();
+    const overdue = open.filter(t => urgency(t) === 'overdue'), stale = open.filter(isStale);
+    const weekAgo = t0 - 7 * 864e5;
+    const closed = all.filter(t => t.status !== 'open');
+    const closedWeek = closed.filter(t => t.closedAt > weekAgo);
+    const avgDays = list => { const d = list.filter(t => t.status === 'done'); return d.length ? (d.reduce((s, t) => s + (t.closedAt - t.createdAt), 0) / d.length / 864e5).toFixed(1) : '—'; };
+    const tile = (n, l, cls) => '<div class="tile ' + (cls || '') + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
+    let h = '<h2>Загальна картина</h2><div class="tiles">' +
+      tile(open.length, 'відкритих справ') + tile(overdue.length, 'прострочених', overdue.length ? 'red' : 'green') +
+      tile(stale.length, 'без руху > ' + cfg().staleHours + ' год', stale.length ? 'red' : 'green') +
+      tile(closedWeek.length, 'закрито за 7 днів', 'green') + tile(avgDays(closed), 'днів у середньому до виконання') + '</div>';
+    h += '<h2>За типами</h2><div class="tablewrap"><table><tr><th>Тип</th><th>Відкрито</th><th>Прострочено</th><th>Виконано за 30 дн</th><th>Закрито без виконання</th><th>Сер. днів</th></tr>' +
+      Object.keys(cfg().types).map(k => {
+        const a = all.filter(t => t.type === k);
+        return '<tr><td>' + cfg().types[k].icon + ' ' + esc(cfg().types[k].label) + '</td><td>' + a.filter(t => t.status === 'open').length + '</td><td>' +
+          a.filter(t => urgency(t) === 'overdue').length + '</td><td>' + a.filter(t => t.status === 'done').length + '</td><td>' +
+          a.filter(t => t.status === 'cancelled').length + '</td><td>' + avgDays(a) + '</td></tr>';
+      }).join('') + '</table></div>';
+    const people = {};
+    all.forEach(t => (t.history || []).forEach(x => {
+      if (x.t < weekAgo || !x.who) return;
+      const p = people[x.who] = people[x.who] || { actions: 0, created: 0, closed: 0, calls: 0, nags: 0 };
+      p.actions++;
+      if (x.text.indexOf('🆕') === 0) p.created++;
+      if (x.text.indexOf('📵') === 0) p.calls++;
+      if (x.text.indexOf('🔔') === 0) p.nags++;
+    }));
+    closedWeek.forEach(t => { if (people[t.updatedBy]) people[t.updatedBy].closed++; });
+    h += '<h2>Хто що робив за 7 днів</h2><div class="tablewrap"><table><tr><th>Хто</th><th>Дій</th><th>Створено</th><th>Закрито</th><th>Недодзвонів записано</th><th>Нагадувань лікарям</th></tr>' +
+      (Object.keys(people).length ? Object.keys(people).map(n => { const p = people[n]; return '<tr><td>' + esc(n) + '</td><td>' + p.actions + '</td><td>' + p.created + '</td><td>' + p.closed + '</td><td>' + p.calls + '</td><td>' + p.nags + '</td></tr>'; }).join('')
+        : '<tr><td colspan="6" class="hint">Ще немає даних</td></tr>') + '</table></div>';
+    const docs = {};
+    open.filter(t => type(t).stages[t.stage].nag && t.doctor).forEach(t => { (docs[t.doctor] = docs[t.doctor] || []).push(t); });
+    h += '<h2>👨‍⚕️ Чекаємо відповіді від лікарів</h2>' + (Object.keys(docs).length
+      ? '<div class="tablewrap"><table><tr><th>Лікар</th><th>Пацієнти</th><th>Найдовше чекаємо</th></tr>' + Object.keys(docs).map(d =>
+        '<tr><td>' + esc(d) + '</td><td>' + docs[d].map(t => esc(t.patient)).join(', ') + '</td><td>' + ago(Math.min.apply(null, docs[d].map(t => t.updatedAt))) + '</td></tr>').join('') + '</table></div>'
+      : '<div class="empty">Ніхто з лікарів нічого не винен 👍</div>');
+    if (stale.length) h += '<h2>🧊 Зависли</h2>' + cards(stale.sort((a, b) => a.updatedAt - b.updatedAt), '');
+    return h;
+  }
+
+  /* ---------- рендер ---------- */
+  function render() {
+    if (!S.data) return;
+    const c = cfg();
+    document.title = c.clinicName + ' — дошка справ';
+    $('#title').textContent = '🦷 ' + c.clinicName;
+    const sel = $('#me'), saved = store.get('me');
+    if (sel.options.length !== c.admins.length + 1) {
+      sel.innerHTML = '<option value="">— оберіть —</option>' + c.admins.map(a => '<option>' + esc(a) + '</option>').join('');
+      if (saved && c.admins.indexOf(saved) >= 0) sel.value = saved;
+    }
+    const open = openTasks();
+    const nowCount = open.filter(t => ['overdue', 'today'].indexOf(urgency(t)) >= 0).length;
+    const overdueCount = open.filter(t => urgency(t) === 'overdue').length;
+    const pend = pendingShift();
+    const tabs = [
+      ['now', '⏰ Зараз', nowCount, overdueCount > 0],
+      ['all', '📋 Усі відкриті', open.length],
+      ['shift', '🔄 Передача зміни', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
+      ['stats', '📊 Статистика'],
+      ['archive', '🗄 Архів']
+    ];
+    $('#tabs').innerHTML = tabs.map(t => '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] && !S.q ? 'on' : '') + '">' + t[1] +
+      (t[2] !== undefined && t[2] !== '' ? '<span class="count' + (t[3] ? ' red' : '') + '">' + t[2] + '</span>' : '') + '</button>').join('');
+
+    let h = '';
+    if (!me()) h += '<div class="banner">👋 Оберіть угорі, хто зараз на зміні: від цього імені записуються всі дії.</div>';
+    if (pend && me() && pend.from !== me() && S.tab !== 'shift')
+      h += '<div class="banner">📥 <span><b>' + esc(pend.from) + '</b> здала зміну ' + fmt(pend.at) + (pend.note ? ': «' + esc(pend.note) + '»' : '') +
+        '. Зміну ще не прийнято.</span><button class="small primary" data-goto="shift">Переглянути і прийняти</button></div>';
+    if (!c.ktAutomation && S.tab === 'now')
+      h += '<p class="hint" style="margin-top:12px">🤖 Автоматичне створення справ з листів про КТ вимкнено: заповніть «ktEmailQuery» в аркуші «Налаштування».</p>';
+    h += S.q ? viewSearch() : ({ now: viewNow, all: viewAll, shift: viewShift, stats: viewStats, archive: viewArchive })[S.tab]();
+    $('#app').innerHTML = h;
+
+    bindActions($('#app'));
+    $('#app').querySelectorAll('[data-open]').forEach(el => el.onclick = e => {
+      if (e.target.closest('a,button')) return;
+      const t = S.data.tasks.find(x => x.id === el.dataset.open); if (t) detailDialog(t);
+    });
+    $('#app').querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.tab = b.dataset.goto; render(); });
+    const acc = $('#acceptBtn');
+    if (acc) acc.onclick = () => {
+      if (!me()) return toast('Оберіть, хто на зміні');
+      const p = Object.assign({}, pendingShift(), { acceptedBy: me(), acceptedAt: now() });
+      call('saveShift', p, 'Зміну прийнято. Гарної роботи!');
+    };
+    const hand = $('#handBtn');
+    if (hand) hand.onclick = () => {
+      if (!me()) return toast('Оберіть, хто на зміні');
+      const o = openTasks();
+      call('saveShift', {
+        id: 'S' + now().toString(36), at: now(), from: me(), note: $('#shiftNote').value.trim(),
+        openCount: o.length, overdueCount: o.filter(t => urgency(t) === 'overdue').length, acceptedBy: '', acceptedAt: ''
+      }, 'Зміну здано. Колега побачить повідомлення.');
+    };
+  }
+
+  $('#tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-tab]'); if (!b) return;
+    S.tab = b.dataset.tab; S.q = ''; $('#q').value = ''; render();
+  });
+  $('#q').addEventListener('input', e => { S.q = e.target.value.trim(); render(); });
+  $('#me').addEventListener('change', e => { store.set('me', e.target.value); render(); });
+  $('#addBtn').onclick = () => { if (!S.data) return; if (!me()) return toast('Спершу оберіть, хто на зміні'); newTaskDialog(); };
+
+  api('getData').then(d => { S.data = d; render(); }).catch(e => { $('#app').innerHTML = '<div class="empty">Не вдалося завантажити: ' + esc(e && e.message || e) + '</div>'; });
+  setInterval(refresh, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+})();
+</script>
+</body>
+</html>
