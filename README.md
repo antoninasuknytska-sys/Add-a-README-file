@@ -40,6 +40,8 @@ Pomijane automatycznie: maile Diagdent (tomografie mają własną automatyzację
 
 Wyszukiwarka u góry przeszukuje też skrzynkę z ostatnich 14 dni.
 
+**Nie trzeba odświeżać strony.** Otwarta tablica co minutę sama sprawdza pocztę i telefon (gdy otwiera ją konto recepcji). Nowa wiadomość pokazuje się sama, z krótkim powiadomieniem i dźwiękiem, a na karcie przeglądarki widać licznik, np. „(3) Gabinet…”. Obok „Na zmianie” jest godzina ostatniego odświeżenia (🔄 14:32). Gdy tablica jest zamknięta, poczta i tak jest sprawdzana co 5 minut w tle.
+
 ## Instalacja (ok. 20 minut, jednorazowo)
 
 **Gdzie co jest:**

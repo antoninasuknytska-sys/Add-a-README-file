@@ -502,8 +502,26 @@ function debtsMonthHtml_() {
 /** Wyzwalacz co 5 min: najpierw tomografie (Diagdent), potem skrzynka. */
 function checkMail() {
   if (!runningAsReception_()) return; // wyzwalacz utworzony z innego konta (np. właściciela) — nie czytamy cudzej poczty
-  checkKtEmails();
-  checkInbox();
+  // tylko jedno sprawdzanie naraz (wyzwalacz co 5 min + otwarta tablica co minutę)
+  let lock = null;
+  try { lock = LockService.getDocumentLock(); } catch (e) { /* brak */ }
+  if (lock && !lock.tryLock(1000)) return;
+  try {
+    checkKtEmails();
+    checkInbox();
+  } finally { if (lock) lock.releaseLock(); }
+}
+
+/**
+ * Wołane przez otwartą tablicę co ok. minutę: na koncie recepcji sprawdza pocztę i telefon
+ * (nie częściej niż co 50 s, bez względu na liczbę otwartych ekranów) i zwraca świeże dane.
+ */
+function checkNow() {
+  try {
+    const last = Number(PropertiesService.getScriptProperties().getProperty('inboxLastCheck')) || 0;
+    if (runningAsReception_() && Date.now() - last > 50 * 1000) checkMail();
+  } catch (e) { logError_('checkNow', e); }
+  return getData();
 }
 
 /**

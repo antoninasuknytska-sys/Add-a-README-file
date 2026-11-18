@@ -114,7 +114,7 @@
   <div class="top">
     <h1 id="title">🦷 Tablica spraw</h1>
     <input class="search" id="q" type="search" placeholder="🔎 Szukaj: nazwisko, telefon, opis…">
-    <div class="me">Na zmianie: <select id="me"></select></div>
+    <div class="me">Na zmianie: <select id="me"></select> <span id="upd" class="hint" title="Tablica odświeża się sama co minutę"></span></div>
     <button class="primary" id="addBtn">＋ Nowa sprawa</button>
   </div>
   <nav id="tabs"></nav>
@@ -149,9 +149,29 @@
       toast('⚠️ Błąd: ' + (e && e.message ? e.message : e));
     } finally { S.busy = false; }
   }
+  /** Co minutę (gdy karta jest widoczna): serwer sprawdza pocztę i telefon, a nowe wiadomości pokazują się same. */
   async function refresh() {
-    if (S.busy || S.modalOpen) return;
-    try { S.data = await api('getData'); render(); } catch (e) { /* po cichu, spróbujemy później */ }
+    if (S.busy || S.modalOpen || document.hidden || !S.data) return;
+    try {
+      const before = {};
+      inbox().forEach(i => { before[i.id] = 1; });
+      const d = await api('checkNow');
+      if (S.busy || S.modalOpen) return; // ktoś zaczął coś robić w trakcie — nie przerywamy
+      S.data = d;
+      const fresh = inbox().filter(i => !before[i.id] && (i.status === 'new' || (isTalk(i) && !i.tags)));
+      if (fresh.length) notifyNew(fresh);
+      render();
+    } catch (e) { /* po cichu, spróbujemy za minutę */ }
+  }
+  function notifyNew(list) {
+    const f = list[0];
+    toast('📥 Nowe: ' + src(f)[0] + ' ' + (f.kind || src(f)[1]) + (f.name || f.phone ? ' — ' + (f.name || f.phone) : '') + (list.length > 1 ? ' (+' + (list.length - 1) + ')' : ''));
+    try { // krótki dźwięk (przeglądarka pozwala po pierwszym kliknięciu na stronie)
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = 880; g.gain.value = 0.08; o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + 0.18);
+    } catch (e) { /* bez dźwięku */ }
   }
 
   /* ---------- drobiazgi ---------- */
@@ -994,7 +1014,9 @@
   function render() {
     if (!S.data) return;
     const c = cfg();
-    document.title = c.clinicName + ' — tablica spraw';
+    const waiting = newInbox().length + undescribed().length;
+    document.title = (waiting ? '(' + waiting + ') ' : '') + c.clinicName + ' — tablica spraw'; // licznik widać na karcie przeglądarki
+    const upd = $('#upd'); if (upd) upd.textContent = '🔄 ' + hhmm(S.data.now || Date.now());
     $('#title').textContent = '🦷 ' + c.clinicName;
     const sel = $('#me'), saved = store.get('me');
     if (sel.options.length !== c.admins.length + 1) {

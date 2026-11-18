@@ -26,7 +26,7 @@ const sentMail = [];
 const ctx = {
   console, Date, JSON, Math,
   SpreadsheetApp: { getActive: () => ss, openByUrl: u => { if (!/owner/.test(u)) throw new Error('no access'); return ownerSs; }, getUi: () => ({ alert() {}, createMenu: () => ({ addItem() { return this; }, addToUi() {} }) }) },
-  LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+  LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }), getDocumentLock: () => ({ tryLock: () => true, releaseLock() {} }) },
   Logger: { log: () => {} },
   ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, nearMinute() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
   MailApp: { sendEmail: m => sentMail.push(m) },
