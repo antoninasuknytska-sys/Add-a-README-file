@@ -103,13 +103,15 @@ Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca Arl
 
 Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ODEBRANE` lub `CRM WYCHODZĄCE`. Po tym tablica je rozpoznaje.
 
-**Co tablica robi z rozmowami:**
-- **Nieodebrane** → nowa wiadomość w skrzynce (⚡, „oddzwonić”).
-- **Odebrane i wychodzące** → **„📞 Rejestr połączeń”** na dole skrzynki (dziś i wczoraj). Nie trzeba ich klikać.
-- Jeśli numer należy do pacjenta z otwartą sprawą, rozmowa sama zapisze się w historii sprawy („📤 Połączenie wychodzące o 14:32”). Przyciskiem **„💬 Notatka do sprawy”** dopiszesz, o czym była rozmowa.
-- Gdy recepcja **oddzwoni** albo pacjent **dodzwoni się ponownie**, wcześniejsze „nieodebrane” z tego numeru zamyka się samo z notatką „Oddzwoniono 14:32”.
-- Rozmowa z nieznanego numeru → w rejestrze jest przycisk **„➕ Sprawa”**.
-- W raporcie miesięcznym widać, ile było rozmów przychodzących i wychodzących.
+**Co tablica robi z telefonami i SMS-ami:**
+- Wszystko z telefonu gabinetu trafia do **„📞 Rejestr telefonu: rozmowy i SMS”** w „📥 Skrzynce” (dziś i wczoraj): nieodebrane, odebrane, wychodzące i SMS-y, z godziną, numerem i nazwą z kontaktów.
+- **Nieodebrane** → dodatkowo nowa wiadomość „⚡ oddzwonić”. Gdy recepcja **oddzwoni** albo pacjent **dodzwoni się ponownie**, zamyka się samo z notatką *„Oddzwoniono (połączenie wychodzące 14:32)”*, widoczną w rejestrze.
+- **Każdą rozmowę opisujemy** przyciskiem **🏷 Opisz**: kto to był, **powód / wynik (można zaznaczyć kilka naraz)** i krótka notatka. Lista powodów jest w „Ustawieniach” → `callTags` (można dopisywać własne): *Umówiony / zapisał się, Zastanowi się, Oddzwonić, Za drogo, Szuka NFZ, Pomyłka (inna klinika), Pytanie o cenę, Promocja / akcja, Zmiana lub odwołanie wizyty, Pytanie o wizytę / wynik, Nie odebrał, Firma / dostawca / reklama, Inne*.
+- Nieopisane rozmowy są na samej górze skrzynki (**„🏷 Rozmowy do opisania”**) i w liczniku zakładki, a przy przekazaniu zmiany tablica o nich przypomina.
+- Zaznaczenie **„Oddzwonić”** lub **„Zastanowi się”** od razu włącza **📅 Przypomnij**: powstaje sprawa „Nowe zapytanie” z terminem (domyślnie jutro 10:00), a przy pacjencie z otwartą sprawą przesuwa się jej termin.
+- Numer pacjenta z otwartą sprawą: rozmowa sama zapisuje się w historii sprawy („📤 Połączenie wychodzące o 14:32”), a opis z 🏷 też.
+- SMS-y, formularze ze strony i maile pacjentów: „✔ Załatwione” otwiera ten sam opis z powodami.
+- **📊 Statystyki** i **raport miesięczny**: ile rozmów przychodzących, wychodzących, nieodebranych (i ile oddzwoniono, średnio po ilu minutach), SMS-ów, rozmów bez opisu oraz **ile razy który powód** (np. „Za drogo” 14×, „Szuka NFZ” 9×), a także kto opisywał rozmowy.
 
 ## 💰 Potrącenia: reklamacje i koszty do pokrycia
 

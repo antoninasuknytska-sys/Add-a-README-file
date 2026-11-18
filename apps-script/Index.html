@@ -99,6 +99,11 @@
   details { margin-top: 18px; }
   details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   .src { font-size: 18px; }
+  .tags { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; }
+  .tags label { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; color: var(--ink); font-size: 14px; cursor: pointer; }
+  .tags input { width: auto; margin-right: 6px; }
+  .tags label:has(input:checked) { border-color: var(--brand); background: var(--blue-bg); }
+  .chip.tag { background: #e6f4ea; color: #0d5c26; }
   .question { background: var(--amber-bg); color: #5c3c00; padding: 8px 10px; border-radius: 8px; margin-top: 8px; font-size: 14px; }
   .question button { margin-left: 6px; }
   .answer { background: var(--green-bg); color: #0d5c26; padding: 6px 10px; border-radius: 8px; margin-top: 4px; font-size: 14px; }
@@ -519,6 +524,7 @@
   }
   async function inboxAction(act, i) {
     if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
+    if (act === 'describe' || (act === 'done' && CONTACT_SRC.indexOf(i.source) >= 0)) return describeDialog(i);
     if (act === 'done') {
       const r = await dialog({ title: 'Załatwione', ok: 'Zapisz', body: '<label>Co zrobiono? (opcjonalnie)</label><textarea name="note" autofocus placeholder="Np.: potwierdzono w Booksy / oddzwoniono, umówiono na 25.11 10:00"></textarea>' });
       if (!r) return;
@@ -551,23 +557,86 @@
     }
     if (act === 'reopen') call('saveInbox', { item: Object.assign({}, i, { status: 'new', handledBy: '', handledAt: '', note: '' }) }, 'Przywrócono');
   }
+  /* ---------- opis rozmów (telefony, SMS, zapytania) ---------- */
+  const CONTACT_SRC = ['call', 'call_in', 'call_out', 'sms', 'www_form', 'www_msg', 'email'];
+  const PHONE_SRC = ['call', 'call_in', 'call_out', 'sms'];
+  const isTalk = i => i.source === 'call_in' || i.source === 'call_out';
+  const undescribed = () => inbox().filter(i => isTalk(i) && !i.tags).sort((a, b) => a.receivedAt - b.receivedAt);
+  const tagChips = i => i.tags ? String(i.tags).split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="chip tag">' + esc(t) + '</span>').join(' ') : '';
+  const REMIND_TAGS = /oddzwoni|zastanowi/i;
+
+  /** Opisz rozmowę / wiadomość: powody (kilka naraz), notatka, opcjonalnie przypomnienie = sprawa. */
+  async function describeDialog(i) {
+    if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
+    const m = i.taskId ? S.data.tasks.find(x => x.id === i.taskId && x.status === 'open') : matchTask(i);
+    const cur = String(i.tags || '').split(',').map(x => x.trim());
+    const p = dialog({
+      title: src(i)[0] + ' ' + (i.status === 'new' && i.source === 'call' ? 'Nieodebrane — opisz po oddzwonieniu' : 'Opisz: ' + (i.kind || src(i)[1])), ok: 'Zapisz', wide: true,
+      body: '<p class="hint">' + fmt(i.receivedAt) + (i.phone ? ' · ' + esc(i.phone) : '') + (i.text ? ' · ' + esc(String(i.text).slice(0, 160)) : '') + '</p>' +
+        '<label>Kto to był (imię i nazwisko)</label><input name="name" value="' + esc(i.name || '') + '" placeholder="np. Anna Kowalska">' +
+        '<label>Powód / wynik rozmowy — zaznacz wszystko, co pasuje</label><div class="tags">' +
+        cfg().callTags.map(t => '<label><input type="checkbox" name="tag" value="' + esc(t) + '"' + (cur.indexOf(t) >= 0 ? ' checked' : '') + '>' + esc(t) + '</label>').join('') + '</div>' +
+        '<label>Notatka (o czym rozmawiano)</label><textarea name="note" placeholder="np. pyta o implant, cena 4500 zł za drogo, porówna z inną kliniką">' + esc(i.status !== 'new' ? (i.note || '') : '') + '</textarea>' +
+        (m ? '<div class="match">🔗 Pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + '. Opis zapisze się też w historii tej sprawy.</div>' : '') +
+        '<label style="margin-top:14px"><input type="checkbox" name="remind" value="1" style="width:auto;margin-right:6px">📅 Przypomnij ' + (m ? '(ustaw nowy termin w sprawie)' : '(utwórz sprawę „Nowe zapytanie”)') + '</label>' +
+        duePicker(tomorrowAt(10))
+    });
+    const form = $('#modalRoot form');
+    const remind = form.querySelector('[name=remind]');
+    form.querySelectorAll('[name=tag]').forEach(c => c.addEventListener('change', () => {
+      if (c.checked && REMIND_TAGS.test(c.value)) remind.checked = true;
+    }));
+    const r = await p;
+    if (!r) return;
+    const tags = Array.prototype.slice.call(form.querySelectorAll('[name=tag]:checked')).map(c => c.value);
+    if (!tags.length && !r.note.trim()) return toast('Zaznacz powód albo wpisz notatkę');
+    const item = Object.assign({}, handled(i, r.note.trim(), i.taskId), { tags: tags.join(', '), name: r.name.trim() || i.name || '' });
+    const line = '🏷 ' + src(i)[1] + ' (' + fmt(i.receivedAt) + '): ' + tags.join(', ') + (r.note.trim() ? ' — ' + r.note.trim() : '');
+    const due = r.due ? new Date(r.due).getTime() : tomorrowAt(10);
+    let task = null;
+    if (m) {
+      task = clone(m);
+      log(task, line);
+      if (r.remind) { task.dueAt = due; log(task, '📅 Przypomnienie: ' + fmt(due)); }
+      item.taskId = task.id;
+    } else if (r.remind) {
+      const thinking = tags.some(t => /zastanowi/i.test(t));
+      task = {
+        id: newId(), createdAt: now(), createdBy: me(), type: 'lead', patient: item.name || i.phone || 'Nieznany', phone: i.phone || '',
+        channel: src(i)[2], doctor: '', purpose: src(i)[1] + ': ' + tags.join(', ') + (r.note.trim() ? ' — ' + r.note.trim() : ''),
+        stage: thinking ? 2 : 0, dueAt: due, status: 'open', updatedAt: now(), updatedBy: me(), closedAt: '', source: 'manual',
+        history: [{ t: now(), who: me(), text: '🆕 Utworzono z rozmowy: ' + line }]
+      };
+      item.taskId = task.id;
+    }
+    call('saveInbox', task ? { item: item, task: task } : { item: item }, task && !m ? 'Zapisano + przypomnienie ' + fmt(due) : 'Zapisano');
+  }
+
   function viewInbox() {
     const fresh = newInbox().sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.receivedAt - b.receivedAt);
     const done = inbox().filter(i => i.status === 'done').sort((a, b) => b.handledAt - a.handledAt);
-    const logs = inbox().filter(i => i.status === 'log').sort((a, b) => b.receivedAt - a.receivedAt);
+    const since = new Date(); since.setDate(since.getDate() - 1); since.setHours(0, 0, 0, 0);
+    const logs = inbox().filter(i => PHONE_SRC.indexOf(i.source) >= 0 && i.receivedAt >= since.getTime()).sort((a, b) => b.receivedAt - a.receivedAt);
+    const todo = undescribed();
     const logRow = i => {
       const t = i.taskId ? S.data.tasks.find(x => x.id === i.taskId) : null;
+      const state = i.source === 'call' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na oddzwonienie</span> ' : '<span class="chip tag">✔ ' + esc(i.note || 'obsłużone') + '</span> ')
+        : i.source === 'sms' && i.status === 'new' ? '<span class="chip warn">⚡ czeka na odpowiedź</span> ' : '';
       return '<tr><td style="white-space:nowrap">' + fmt(i.receivedAt) + '</td><td>' + src(i)[0] + ' ' + esc(src(i)[1]) + '</td><td>' +
-        (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' +
+        (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' + state + tagChips(i) +
+        (i.tags && i.note && i.source !== 'call' ? '<div class="hint">' + esc(i.note) + '</div>' : '') + (i.tags || (i.status !== 'new' && i.status !== 'log') ? '<div class="hint">' + esc(i.handledBy || '') + '</div>' : '') +
+        (isTalk(i) && !i.tags ? '<span class="hint" style="color:var(--red)">bez opisu</span>' : '') + '</td><td>' +
         (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
-        (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬 Notatka do sprawy</button>' : '<button class="small" data-iact="create" data-id="' + i.id + '">➕ Sprawa</button>') + '</td></tr>';
+        '<button class="small' + (isTalk(i) && !i.tags ? ' primary' : '') + '" data-iact="describe" data-id="' + i.id + '">' + (i.tags ? '✏️' : '🏷 Opisz') + '</button> ' +
+        (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬</button>' : '') + '</td></tr>';
     };
-    return '<h2>Nowe wiadomości <span class="count' + (fresh.some(isLate) ? ' red' : '') + '">' + fresh.length + '</span> <span class="hint">pilne (⚡) i najstarsze na górze · czerwone czekają dłużej niż ' + cfg().inboxAlertMinutes + ' min</span></h2>' +
+    const logTable = list => '<div class="tablewrap"><table><tr><th>Kiedy</th><th>Rodzaj</th><th>Numer / kontakt</th><th>Powód / wynik</th><th>Sprawa</th><th></th></tr>' + list.map(logRow).join('') + '</table></div>';
+    return (todo.length ? '<h2>🏷 Rozmowy do opisania <span class="count red">' + todo.length + '</span> <span class="hint">kto dzwonił i po co — zaznacz powód / wynik</span></h2>' + logTable(todo) : '') +
+      '<h2>Nowe wiadomości <span class="count' + (fresh.some(isLate) ? ' red' : '') + '">' + fresh.length + '</span> <span class="hint">pilne (⚡) i najstarsze na górze · czerwone czekają dłużej niż ' + cfg().inboxAlertMinutes + ' min</span></h2>' +
       inboxCards(fresh, 'Skrzynka pusta 🎉 Wszystkie wiadomości obsłużone.') +
       '<details><summary>Obsłużone w ostatnich 14 dniach (' + done.length + ')</summary>' + inboxCards(done, 'Brak') + '</details>' +
-      '<details><summary>📞 Rejestr połączeń — dziś i wczoraj (' + logs.length + ')</summary>' +
-      (logs.length ? '<p class="hint">Odebrane i wychodzące rozmowy zapisują się same. Rozmowa z pacjentem, który ma otwartą sprawę, jest już w historii tej sprawy.</p><div class="tablewrap"><table><tr><th>Kiedy</th><th>Rodzaj</th><th>Numer / kontakt</th><th>Sprawa</th><th></th></tr>' + logs.map(logRow).join('') + '</table></div>'
-        : '<div class="empty">Brak — skonfiguruj makra 3 i 4 w MacroDroid (instrukcja)</div>') + '</details>' +
+      '<h2>📞 Rejestr telefonu: rozmowy i SMS — dziś i wczoraj <span class="count">' + logs.length + '</span></h2>' +
+      (logs.length ? logTable(logs) : '<div class="empty">Brak — skonfiguruj MacroDroid (instrukcja)</div>') +
       '<p class="hint" style="margin-top:16px">Instagram i WhatsApp sprawdzaj w Meta Business Suite / na telefonie. Jeśli pacjent czegoś potrzebuje, kliknij „＋ Nowa sprawa” i wybierz kanał Instagram lub WhatsApp.</p>';
   }
 
@@ -808,6 +877,7 @@
     h += '<h2>📤 Przekaż zmianę</h2><div class="panel">' +
       '<p>Otwartych: <b>' + open.length + '</b> · zaległych: <b style="color:var(--red)">' + overdue.length + '</b> · spraw, które prowadziłaś na tej zmianie: <b>' + mine.length + '</b> · nowych w skrzynce: <b' + (newInbox().length ? ' style="color:var(--red)"' : '') + '>' + newInbox().length + '</b></p>' +
       (qsForMe().length ? '<p style="color:var(--red)">❓ Są pytania bez odpowiedzi (zakładka „Teraz”). Odpowiedz przed przekazaniem zmiany.</p>' : '') +
+      (undescribed().length ? '<p style="color:var(--red)">🏷 ' + undescribed().length + ' rozmów bez opisu — opisz je w „📥 Skrzynce” przed przekazaniem zmiany.</p>' : '') +
       (newInbox().length ? '<p style="color:var(--red)">📥 W skrzynce są nieobsłużone wiadomości — obsłuż je albo zrób z nich sprawy przed przekazaniem zmiany.</p>' : '') +
       (overdue.length ? '<p style="color:var(--red)">⚠️ Przed przekazaniem dodaj komentarz albo zmień termin w każdej zaległej sprawie, żeby koleżanka wiedziała, co robić.</p>' : '') +
       '<label>Co ważne dla koleżanki (opcjonalnie, reszta jest już w kartach)</label><textarea id="shiftNote" placeholder="Np.: dr Nowak obiecał odpowiedzieć w sprawie tomografii p. Kowalskiej po 16:00"></textarea>' +
@@ -842,6 +912,16 @@
       : '<div class="empty">Brak pytań. Pytanie zadasz przyciskiem „❓ Pytanie” na dowolnej karcie.</div>');
     const wk = inbox().filter(i => i.receivedAt > weekAgo && i.status !== 'log'); // rejestr połączeń nie liczy się do czasu reakcji
     const react = list => { const d = list.filter(i => i.status !== 'new' && i.handledAt); return d.length ? Math.round(d.reduce((s, i) => s + (i.handledAt - i.receivedAt), 0) / d.length / 6e4) + ' min' : '—'; };
+    const ph = inbox().filter(i => i.receivedAt > weekAgo && PHONE_SRC.indexOf(i.source) >= 0);
+    const phBy = k => ph.filter(i => i.source === k);
+    const back = phBy('call').filter(i => /oddzwoniono|dodzwonił/i.test(i.note || ''));
+    const tagCnt = {};
+    inbox().filter(i => i.receivedAt > weekAgo && i.tags).forEach(i => String(i.tags).split(',').map(x => x.trim()).filter(Boolean).forEach(t => { tagCnt[t] = (tagCnt[t] || 0) + 1; }));
+    h += '<h2>📞 Telefony i SMS (7 dni)</h2><div class="tiles">' + tile(phBy('call_in').length, 'rozmów przychodzących') + tile(phBy('call_out').length, 'wychodzących') +
+      tile(phBy('call').length, 'nieodebranych (oddzwoniono: ' + back.length + ')', phBy('call').length > back.length ? 'red' : 'green') + tile(phBy('sms').length, 'SMS') +
+      tile(ph.filter(i => isTalk(i) && !i.tags).length, 'rozmów bez opisu', ph.some(i => isTalk(i) && !i.tags) ? 'red' : 'green') + '</div>' +
+      (Object.keys(tagCnt).length ? '<div class="tablewrap" style="margin-top:10px"><table><tr><th>Powód / wynik rozmowy</th><th>Ile razy</th></tr>' +
+        Object.keys(tagCnt).sort((a, b) => tagCnt[b] - tagCnt[a]).map(k => '<tr><td>' + esc(k) + '</td><td>' + tagCnt[k] + '</td></tr>').join('') + '</table></div>' : '');
     h += '<h2>📥 Skrzynka (7 dni)</h2><div class="tiles">' + tile(wk.length, 'wiadomości') +
       tile(newInbox().length, 'czeka na obsługę', newInbox().some(isLate) ? 'red' : 'green') + tile(react(wk), 'średni czas reakcji') + '</div>' +
       '<div class="tablewrap" style="margin-top:10px"><table><tr><th>Źródło</th><th>Wiadomości</th><th>Obsłużone</th><th>Zrobiono sprawę</th><th>Śr. reakcja</th></tr>' +
@@ -895,7 +975,7 @@
     const pend = pendingShift();
     const tabs = [
       ['now', '⏰ Teraz', nowCount + qsForMe().length, overdueCount > 0 || qsForMe().length > 0],
-      ['inbox', '📥 Skrzynka', newInbox().length, newInbox().some(isLate)],
+      ['inbox', '📥 Skrzynka', newInbox().length + undescribed().length, newInbox().some(isLate) || undescribed().length > 0],
       ['all', '📋 Wszystkie otwarte', open.length],
       ['shift', '🔄 Przekazanie zmiany', pend && pend.from !== me() ? '!' : '', pend && pend.from !== me()],
       ['stats', '📊 Statystyki'],

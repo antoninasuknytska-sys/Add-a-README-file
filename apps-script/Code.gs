@@ -31,8 +31,8 @@ const TASK_HEADERS = [
   'Źródło', 'Historia (JSON)'
 ];
 const SHIFT_COLS = ['id', 'at', 'from', 'note', 'openCount', 'overdueCount', 'acceptedBy', 'acceptedAt'];
-const INBOX_COLS = ['id', 'msgId', 'receivedAt', 'source', 'kind', 'name', 'phone', 'email', 'subject', 'text', 'link', 'mailbox', 'urgent', 'status', 'handledBy', 'handledAt', 'note', 'taskId', 'when', 'service', 'doctor'];
-const INBOX_HEADERS = ['ID', 'ID maila', 'Otrzymano', 'Źródło', 'Rodzaj', 'Imię i nazwisko', 'Telefon', 'E-mail', 'Temat', 'Treść', 'Link', 'Skrzynka', 'Pilne', 'Status', 'Kto obsłużył', 'Kiedy obsłużono', 'Notatka', 'ID sprawy', 'Termin wizyty', 'Usługa', 'Do kogo'];
+const INBOX_COLS = ['id', 'msgId', 'receivedAt', 'source', 'kind', 'name', 'phone', 'email', 'subject', 'text', 'link', 'mailbox', 'urgent', 'status', 'handledBy', 'handledAt', 'note', 'taskId', 'when', 'service', 'doctor', 'tags'];
+const INBOX_HEADERS = ['ID', 'ID maila', 'Otrzymano', 'Źródło', 'Rodzaj', 'Imię i nazwisko', 'Telefon', 'E-mail', 'Temat', 'Treść', 'Link', 'Skrzynka', 'Pilne', 'Status', 'Kto obsłużył', 'Kiedy obsłużono', 'Notatka', 'ID sprawy', 'Termin wizyty', 'Usługa', 'Do kogo', 'Powód / wynik rozmowy'];
 const SHIFT_HEADERS = ['ID', 'Przekazano', 'Kto przekazał', 'Notatka', 'Otwartych spraw', 'Zaległych', 'Kto przejął', 'Przejęto'];
 
 /**
@@ -182,6 +182,8 @@ const DEFAULT_SETTINGS = [
   ['debtsSheetUrl', '', 'Link do arkusza „Potrącenia” na koncie właściciela (dentonia.pl), udostępnionego dla polishdent.pl@gmail.com jako Edytor. Puste = potrącenia w tym arkuszu'],
   ['ownerPin', '', 'Opcjonalny PIN do zakładki „Potrącenia”. Puste = recepcja też widzi listę (domyślnie)'],
   ['inboxIgnore', 'diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
+  ['callTags', 'Umówiony / zapisał się, Zastanowi się, Oddzwonić, Za drogo, Szuka NFZ, Pomyłka (inna klinika), Pytanie o cenę, Promocja / akcja, Zmiana lub odwołanie wizyty, Pytanie o wizytę / wynik, Nie odebrał, Firma / dostawca / reklama, Inne',
+    'Powody i wyniki rozmów do zaznaczania przy telefonach i SMS (po przecinku). Można dopisywać własne'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
 ];
@@ -234,6 +236,14 @@ function setup() {
   } catch (e) { /* uruchomione nie z arkusza */ }
 }
 
+/** Dopisz brakujące nagłówki (gdy nowa wersja dodaje kolumny do istniejącego arkusza). */
+function ensureHeaders_(sh, headers) {
+  const cur = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+  if (cur.some((v, i) => v !== headers[i])) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#e8f0fe');
+  }
+}
+
 function ensureSheet_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
@@ -259,8 +269,7 @@ function getData() {
   const monthAgo = Date.now() - 30 * 864e5;
   const tasks = readTasks_().filter(t => t.status === 'open' || (t.closedAt || 0) > monthAgo);
   const twoWeeks = Date.now() - 14 * 864e5;
-  const twoDays = Date.now() - 2 * 864e5;
-  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > (i.status === 'log' ? twoDays : twoWeeks));
+  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > twoWeeks || (i.status === 'log' && !i.tags));
   return {
     now: Date.now(),
     config: {
@@ -277,7 +286,8 @@ function getData() {
       viewer: activeEmail_(),
       viewerIsOwner: !!activeEmail_() && activeEmail_() === String(s.ownerEmail || '').toLowerCase().trim(),
       debtsUrl: String(s.debtsSheetUrl || '').trim(),
-      inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
+      inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30,
+      callTags: String(s.callTags || DEFAULT_SETTINGS.filter(r => r[0] === 'callTags')[0][1]).split(',').map(x => x.trim()).filter(Boolean)
     },
     tasks: tasks,
     inbox: inbox,
@@ -313,6 +323,7 @@ function saveInbox(payload) {
   try {
     if (payload.task) upsertTask_(payload.task);
     const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
+    ensureHeaders_(sh, INBOX_HEADERS);
     const row = inboxToRow_(payload.item);
     const rowIdx = findRow_(sh, payload.item.id);
     if (rowIdx > 0) sh.getRange(rowIdx, 1, 1, row.length).setValues([row]);
@@ -537,6 +548,7 @@ function checkInbox() {
     lock.waitLock(20000);
     try {
       const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
+      ensureHeaders_(sh, INBOX_HEADERS);
       changed.inbox.forEach(i => { const r = findRow_(sh, i.id); if (r > 0) sh.getRange(r, 1, 1, INBOX_COLS.length).setValues([inboxToRow_(i)]); });
       fresh.filter(i => !i.drop).forEach(i => sh.appendRow(inboxToRow_(i)));
       changed.tasks.forEach(t => upsertTask_(t));
@@ -1009,6 +1021,7 @@ function monthlyReport() {
           '<b>' + esc_(t.patient) + '</b>', esc_(t.doctor || ''), esc_(String(t.purpose || '').slice(0, 140)), st(t),
           Utilities.formatDate(new Date(t.createdAt), Session.getScriptTimeZone(), 'dd.MM')].concat(g.types.length > 1 ? [TYPES[t.type].icon + ' ' + TYPES[t.type].label] : [])));
     }).join('') +
+    phoneReportHtml_(inbox, tbl) +
     '<h3>📥 Skrzynka: ' + inbox.length + ' wiadomości</h3>' + tbl(['Źródło', 'Wiadomości', 'Obsłużone', 'Zrobiono sprawę', 'Śr. czas reakcji'], inboxRows) +
     '<h3>👩‍💼 Praca recepcji</h3>' + tbl(['Kto', 'Działań', 'Utworzone sprawy', 'Zamknięte', 'Nieodebrane telefony', 'Przypomnienia lekarzom', 'Odpowiedzi na pytania'],
       peopleRows) +
@@ -1024,6 +1037,28 @@ function monthlyReport() {
 }
 
 /* ===================== Pomocnicze ===================== */
+
+/** Raport: telefony i SMS — ile, oddzwonienia, powody / wyniki rozmów, kto opisywał. */
+function phoneReportHtml_(inbox, tbl) {
+  const by = k => inbox.filter(i => i.source === k);
+  const missed = by('call');
+  const back = missed.filter(i => /oddzwoniono|dodzwonił/i.test(i.note || ''));
+  const backMin = back.filter(i => i.handledAt).map(i => (i.handledAt - i.receivedAt) / 6e4);
+  const talks = by('call_in').concat(by('call_out'));
+  const noDesc = talks.filter(i => !i.tags).length;
+  const tags = {}, who = {};
+  inbox.filter(i => i.tags).forEach(i => {
+    String(i.tags).split(',').map(x => x.trim()).filter(Boolean).forEach(t => { tags[t] = (tags[t] || 0) + 1; });
+    if (i.handledBy && i.handledBy !== BOT) who[i.handledBy] = (who[i.handledBy] || 0) + 1;
+  });
+  return '<h3>📞 Telefony i SMS</h3><p>Rozmowy przychodzące: <b>' + by('call_in').length + '</b> · wychodzące: <b>' + by('call_out').length +
+    '</b> · nieodebrane: <b>' + missed.length + '</b> (oddzwoniono: <b>' + back.length + '</b>' +
+    (backMin.length ? ', średnio po ' + Math.round(backMin.reduce((a, b) => a + b, 0) / backMin.length) + ' min' : '') +
+    ') · SMS: <b>' + by('sms').length + '</b> · rozmów bez opisu: <b' + (noDesc ? ' style="color:#c62828"' : '') + '>' + noDesc + '</b></p>' +
+    '<p><b>Powody i wyniki rozmów</b></p>' +
+    tbl(['Powód / wynik', 'Ile razy'], Object.keys(tags).sort((a, b) => tags[b] - tags[a]).map(k => [esc_(k), tags[k]])) +
+    (Object.keys(who).length ? '<p>Opisane rozmowy i wiadomości: ' + Object.keys(who).map(n => esc_(n) + ' — ' + who[n]).join(', ') + '</p>' : '');
+}
 
 function questionsHtml_(open) {
   const qs = [];
