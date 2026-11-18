@@ -159,7 +159,7 @@ const DEFAULT_DOCTORS = [
   ['Kornelia Borska', '', 'Kornelia, dr Borska'],
   ['Artur', '', 'Artur'],
   ['Oliwia (higienistka)', '', 'Oliwia'],
-  ['Antonina (higienistka)', '', 'Antonina']
+  ['Antonina (higienistka)', '', 'Antonina, Tosia']
 ];
 
 const DEFAULT_SETTINGS = [

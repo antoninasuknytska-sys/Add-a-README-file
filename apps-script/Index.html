@@ -566,7 +566,9 @@
   const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
   const monthLabel = k => MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(0, 4);
   const isOwner = () => cfg().viewer ? cfg().viewerIsOwner : me() === cfg().ownerName;
-  const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().staff || [], cfg().admins.filter(a => a !== cfg().ownerName));
+  // Osoba z recepcji, która jest też w „Lekarzach” (np. Tosia = Antonina, higienistka), pojawia się raz
+  const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().staff || [], cfg().admins.filter(a => a !== cfg().ownerName &&
+    !cfg().doctors.some(d => (d.aliases || []).some(x => x.toLowerCase() === a.toLowerCase()))));
   S.pin = ''; S.debts = null; S.debtMonth = monthKey(Date.now());
 
   async function loadDebts(pin) {
