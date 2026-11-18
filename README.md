@@ -14,7 +14,7 @@ Każda sprawa ma etap, termin i pełną historię, więc druga zmiana zawsze wie
 | Nadia N dzwoniła, pacjent nie odebrał, Tosia nic o tym nie wie | Przycisk **📵 Nie odebrał** zapisuje próbę z godziną i imieniem i przypomina o oddzwonieniu za 3 godz. Gdy pacjent oddzwania, wystarczy wpisać w **wyszukiwarkę** nazwisko lub kilka cyfr telefonu, żeby od razu zobaczyć, kto, kiedy i **po co** dzwonił. Pole „O co chodzi” jest obowiązkowe |
 | Przekazanie zmiany ustnie | Zakładka **🔄 Przekazanie zmiany**: „Przekazuję zmianę” → koleżanka widzi żółty baner i listę spraw, którymi zajmowała się poprzednia zmiana, i klika **„Przejmuję”**. Wszystko trafia do dziennika |
 | Zapytania z Booksy, ZnanyLekarz, strony, maili, SMS-ów i nieodebranych połączeń giną | Zakładka **📥 Skrzynka**: co 5 min wszystko trafia w jedno miejsce (szczegóły niżej). Wiadomość, na którą nikt nie zareagował przez 30 min, robi się czerwona |
-| Właściciel nie widzi, że sprawa wisi 2–3 dni | Zakładka **📊 Statystyki**: zaległe, „zawieszone” (po terminie i nikt nie ruszał ponad 48 godz.), na odpowiedź których lekarzy czekamy, kto ile zrobił w tygodniu. Codziennie rano właściciel dostaje **raport e-mail** |
+| Właściciel nie widzi, że sprawa wisi 2–3 dni | Zakładka **📊 Statystyki**: zaległe, „zawieszone” (po terminie i nikt nie ruszał ponad 48 godz.), na odpowiedź których lekarzy czekamy, kto ile zrobił w tygodniu. Codziennie o 20:30 właściciel dostaje **raport e-mail** |
 
 Szybkie szablony w oknie „Nowa sprawa”: *„Ekstrakcja / implant dziś → telefon jutro”*, *„Wysłano skierowanie na tomografię”*, *„Wysłano do laboratorium”*: termin i tekst wstawiają się same.
 
