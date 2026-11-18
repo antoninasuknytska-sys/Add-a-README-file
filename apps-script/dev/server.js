@@ -25,7 +25,7 @@ const ctx = {
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
   MailApp: { sendEmail: m => sentMail.push(m) },
-  Utilities: { formatDate: d => (d.getMonth() + 1) + '.' + d.getFullYear() },
+  Utilities: { formatDate: (d, tz, f) => f === 'MM.yyyy' ? (d.getMonth() + 1) + '.' + d.getFullYear() : d.toLocaleDateString('pl-PL') },
   GmailApp: null,
   HtmlService: {}
 };

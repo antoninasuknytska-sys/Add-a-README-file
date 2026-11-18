@@ -115,7 +115,9 @@ const DEFAULT_SETTINGS = [
   ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
   ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
   ['mailboxes', 'polishdent.pl@gmail.com=PL', 'Skrzynka recepcji (adres=znaczek). Maile wysłane z niej nie trafiają do „Skrzynki”. Przy kilku skrzynkach (po przecinku) na wiadomościach pojawia się znaczek'],
-  ['ownerName', 'Właściciel', 'Imię właściciela z listy admins: gdy recepcja odpowie na jego pytanie, przychodzi mu e-mail'],
+  ['ownerName', 'Właściciel', 'Imię właściciela z listy admins (nie pojawia się na liście osób do potrąceń)'],
+  ['staff', '', 'Pozostali pracownicy do zakładki „Potrącenia” (asystentki, higienistki itp.), po przecinku. Lekarze i recepcja są dodawani automatycznie'],
+  ['notifyAnswers', 'nie', 'tak = e-mail do właściciela, gdy recepcja odpowie na jego pytanie (domyślnie nie — odpowiedzi są na tablicy)'],
   ['ownerPin', '', 'PIN właściciela do zakładki „Potrącenia” (np. 4–6 cyfr). Puste = zakładka otwarta dla wszystkich. Recepcja może dodawać wpisy bez PIN-u'],
   ['inboxIgnore', 'diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
@@ -128,7 +130,8 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('🦷 Tablica spraw')
     .addItem('1. Konfiguracja początkowa', 'setup')
     .addItem('Sprawdź teraz pocztę (skrzynka + tomografie)', 'checkMail')
-    .addItem('Wyślij teraz raport właścicielowi', 'dailyReport')
+    .addItem('Wyślij teraz raport dzienny', 'dailyReport')
+    .addItem('Wyślij teraz raport miesięczny (poprzedni miesiąc)', 'monthlyReport')
     .addToUi();
 }
 
@@ -199,6 +202,7 @@ function getData() {
       ktAutomation: !!s.ktEmailQuery,
       multiBox: mailboxes_(s).length > 1,
       ownerName: String(s.ownerName || 'Właściciel').trim(),
+      staff: String(s.staff || '').split(',').map(x => x.trim()).filter(Boolean),
       hasPin: !!String(s.ownerPin || '').trim(),
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
     },
@@ -222,7 +226,7 @@ function upsertTask_(task) {
   if (rowIdx > 0) {
     const current = rowToTask_(sh.getRange(rowIdx, 1, 1, TASK_COLS.length).getValues()[0]);
     task.history = mergeHistory_(current.history, task.history);
-    try { notifyAnswers_(current.history, task); } catch (e) { /* e-mail nie może zablokować zapisu */ }
+    try { if (/^(tak|yes|1)$/i.test(String(getSettings_().notifyAnswers || '').trim())) notifyAnswers_(current.history, task); } catch (e) { /* e-mail nie może zablokować zapisu */ }
     sh.getRange(rowIdx, 1, 1, TASK_COLS.length).setValues([taskToRow_(task)]);
   } else {
     sh.appendRow(taskToRow_(task));
@@ -343,9 +347,13 @@ function debtsMonthHtml_() {
   const per = {};
   list.forEach(x => { const p = per[x.person] = per[x.person] || { sum: 0, open: 0, n: 0 }; p.sum += x.amount; p.n++; if (x.status === 'open') p.open += x.amount; });
   const zl = n => n.toFixed(2).replace('.', ',') + ' zł';
+  const fd = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'dd.MM.yyyy');
   return '<h3>💰 Potrącenia: ' + Utilities.formatDate(new Date(from), Session.getScriptTimeZone(), 'MM.yyyy') + ' (+ nierozliczone wcześniejsze)</h3>' +
     '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px"><tr><th>Kto</th><th>Pozycji</th><th>Razem</th><th>Do potrącenia</th></tr>' +
-    Object.keys(per).map(k => '<tr><td>' + esc_(k) + '</td><td>' + per[k].n + '</td><td>' + zl(per[k].sum) + '</td><td><b>' + zl(per[k].open) + '</b></td></tr>').join('') + '</table>';
+    Object.keys(per).sort((a, b) => per[b].open - per[a].open).map(k => '<tr><td>' + esc_(k) + '</td><td>' + per[k].n + '</td><td>' + zl(per[k].sum) + '</td><td><b>' + zl(per[k].open) + '</b></td></tr>').join('') + '</table>' +
+    '<p><b>Szczegóły:</b></p><table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px"><tr><th>Data</th><th>Kto</th><th>Kategoria</th><th>Pacjent</th><th>Opis</th><th>Kwota</th><th>Status</th></tr>' +
+    list.sort((a, b) => (a.person > b.person ? 1 : a.person < b.person ? -1 : a.date - b.date)).map(x => '<tr><td>' + fd(x.date) + '</td><td>' + esc_(x.person) + '</td><td>' + esc_(x.category) + '</td><td>' + esc_(x.patient) +
+      '</td><td>' + esc_(x.description) + '</td><td>' + zl(x.amount) + '</td><td>' + (x.status === 'settled' ? '✅ potrącono' : '<b>do potrącenia</b>') + '</td></tr>').join('') + '</table>';
 }
 
 /* ===================== Automatyzacja ===================== */
@@ -720,7 +728,6 @@ function dailyReport() {
     '</b>, bez ruchu ponad ' + (s.staleHours || 48) + ' godz.: <b>' + stale.length + '</b>, zamknięto w 7 dni: <b>' + closedWeek.length + '</b>.</p>' +
     table('⏰ Zaległe', overdue) + table('🧊 Zawieszone bez ruchu', stale) +
     questionsHtml_(open) +
-    (new Date().getDate() === 1 ? debtsMonthHtml_() : '') +
     '<p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>';
 
   MailApp.sendEmail({
@@ -728,6 +735,98 @@ function dailyReport() {
     subject: (s.clinicName || 'Gabinet') + ': ' + overdue.length + ' zaległych, ' + stale.length + ' zawieszonych spraw',
     htmlBody: html
   });
+  if (new Date().getDate() === 1) monthlyReport();
+}
+
+/**
+ * Raport miesięczny (1. dnia miesiąca, za poprzedni miesiąc): sprawy, skrzynka, praca recepcji,
+ * przypomnienia lekarzom, pytania i potrącenia na osobę.
+ */
+function monthlyReport() {
+  const s = getSettings_();
+  if (!s.ownerEmail) return;
+  const d = new Date();
+  const from = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+  const to = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const inM = ts => ts >= from && ts < to;
+  const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+  const label = MONTHS[new Date(from).getMonth()] + ' ' + new Date(from).getFullYear();
+  const tbl = (head, rows) => rows.length
+    ? '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px"><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' +
+      rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</table>'
+    : '<p style="color:#666">brak danych</p>';
+  const avg = (arr, unit) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length / unit).toFixed(1).replace('.', ',') : '—';
+
+  const tasks = readTasks_();
+  const created = tasks.filter(t => inM(t.createdAt));
+  const done = tasks.filter(t => t.status === 'done' && inM(t.closedAt));
+  const cancelled = tasks.filter(t => t.status === 'cancelled' && inM(t.closedAt));
+  const open = tasks.filter(t => t.status === 'open');
+  const now = Date.now();
+
+  // Sprawy według typów
+  const typeRows = Object.keys(TYPES).map(k => {
+    const c = created.filter(t => t.type === k).length, dn = done.filter(t => t.type === k);
+    const cn = cancelled.filter(t => t.type === k).length, op = open.filter(t => t.type === k).length;
+    if (!c && !dn.length && !cn && !op) return null;
+    return [TYPES[k].icon + ' ' + esc_(TYPES[k].label), c, dn.length, cn, op, avg(dn.map(t => t.closedAt - t.createdAt), 864e5)];
+  }).filter(Boolean);
+
+  // Praca recepcji (z historii spraw)
+  const people = {};
+  const P = n => (people[n] = people[n] || { actions: 0, created: 0, closed: 0, calls: 0, nags: 0, answers: 0 });
+  const nagsByDoctor = {};
+  const qAsked = [], qAnswered = [];
+  tasks.forEach(t => (t.history || []).forEach(h => {
+    if (h.q) {
+      if (inM(h.t)) qAsked.push(h);
+      if (h.a && inM(h.a.t)) { qAnswered.push(h.a.t - h.t); P(h.a.who).answers++; }
+      return;
+    }
+    if (!inM(h.t) || !h.who || h.who === '🤖 Automat') return;
+    const p = P(h.who);
+    p.actions++;
+    if (h.text.indexOf('🆕') === 0) p.created++;
+    if (h.text.indexOf('📵') === 0) p.calls++;
+    if (h.text.indexOf('🔔') === 0) { p.nags++; const doc = t.doctor || '(bez lekarza)'; nagsByDoctor[doc] = (nagsByDoctor[doc] || 0) + 1; }
+  }));
+  done.concat(cancelled).forEach(t => { if (t.updatedBy && t.updatedBy !== '🤖 Automat') P(t.updatedBy).closed++; });
+  const owner = String(s.ownerName || 'Właściciel').trim();
+  const peopleRows = Object.keys(people).filter(n => n !== owner).map(n => {
+    const p = people[n]; return [esc_(n), p.actions, p.created, p.closed, p.calls, p.nags, p.answers];
+  });
+
+  // Skrzynka
+  const SRC = { booksy: '📅 Booksy', znanylekarz: '🩺 ZnanyLekarz', www_form: '🌐 Formularz na stronie', www_msg: '💬 Wiadomość ze strony',
+    wetransfer: '📦 WeTransfer', email: '✉️ E-mail', sms: '📱 SMS', call: '📞 Nieodebrane połączenia' };
+  const inbox = readInbox_().filter(i => inM(i.receivedAt));
+  const inboxRows = Object.keys(SRC).map(k => {
+    const l = inbox.filter(i => i.source === k);
+    if (!l.length) return null;
+    const h = l.filter(i => i.status !== 'new' && i.handledAt);
+    return [SRC[k], l.length, h.length, l.filter(i => i.taskId).length, avg(h.map(i => i.handledAt - i.receivedAt), 6e4) + ' min'];
+  }).filter(Boolean);
+  const handledBy = {};
+  inbox.forEach(i => { if (i.handledBy) handledBy[i.handledBy] = (handledBy[i.handledBy] || 0) + 1; });
+
+  const html = '<div style="font-family:Arial,sans-serif;font-size:14px">' +
+    '<h2>📅 Raport miesięczny: ' + label + '</h2>' +
+    '<p>Nowych spraw: <b>' + created.length + '</b> · zrobionych: <b>' + done.length + '</b> · zamkniętych bez realizacji: <b>' + cancelled.length +
+    '</b> · średnio dni do realizacji: <b>' + avg(done.map(t => t.closedAt - t.createdAt), 864e5) + '</b></p>' +
+    '<p>Stan na dziś: otwartych <b>' + open.length + '</b>, zaległych <b style="color:#c62828">' + open.filter(t => t.dueAt && t.dueAt < now).length + '</b>.</p>' +
+    '<h3>Sprawy według typów</h3>' + tbl(['Typ', 'Nowe', 'Zrobione', 'Bez realizacji', 'Otwarte teraz', 'Śr. dni'], typeRows) +
+    '<h3>📥 Skrzynka: ' + inbox.length + ' wiadomości</h3>' + tbl(['Źródło', 'Wiadomości', 'Obsłużone', 'Zrobiono sprawę', 'Śr. czas reakcji'], inboxRows) +
+    '<h3>👩‍💼 Praca recepcji</h3>' + tbl(['Kto', 'Działań', 'Utworzone sprawy', 'Zamknięte', 'Nieodebrane telefony', 'Przypomnienia lekarzom', 'Odpowiedzi na pytania'],
+      peopleRows.map(r => r.concat([])).map((r, i) => r)) +
+    (Object.keys(handledBy).length ? '<p>Obsłużone wiadomości w skrzynce: ' + Object.keys(handledBy).map(n => esc_(n) + ' — ' + handledBy[n]).join(', ') + '</p>' : '') +
+    '<h3>👨‍⚕️ Przypomnienia lekarzom (ile razy recepcja musiała przypominać)</h3>' +
+    tbl(['Lekarz', 'Przypomnień'], Object.keys(nagsByDoctor).sort((a, b) => nagsByDoctor[b] - nagsByDoctor[a]).map(k => [esc_(k), nagsByDoctor[k]])) +
+    '<h3>❓ Pytania</h3><p>Zadanych: <b>' + qAsked.length + '</b> · odpowiedzianych: <b>' + qAnswered.length + '</b> · średni czas odpowiedzi: <b>' +
+    avg(qAnswered, 36e5) + ' godz.</b></p>' +
+    debtsMonthHtml_() +
+    '<p><a href="' + ScriptApp.getService().getUrl() + '">Otwórz tablicę</a></p></div>';
+
+  MailApp.sendEmail({ to: s.ownerEmail, subject: (s.clinicName || 'Gabinet') + ': raport miesięczny — ' + label, htmlBody: html });
 }
 
 /* ===================== Pomocnicze ===================== */

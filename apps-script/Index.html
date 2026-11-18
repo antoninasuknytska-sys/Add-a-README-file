@@ -422,7 +422,7 @@
       title: 'Pytanie: ' + task.patient, ok: 'Wyślij pytanie',
       body: '<label>Do kogo</label><select name="to"><option value="">Cała recepcja</option>' + others.map(a => '<option>' + esc(a) + '</option>').join('') + '</select>' +
         '<label>Pytanie</label><textarea name="q" required autofocus placeholder="Np.: Czy pacjentka dostała już wycenę? Dlaczego nie umówiona?"></textarea>' +
-        '<p class="hint">Pytanie pojawi się na karcie i w zakładce „Teraz” u recepcji. Gdy ktoś odpowie, zobaczysz to w karcie i w „Statystykach”' + (me() === 'Właściciel' ? ', a na e-mail przyjdzie powiadomienie' : '') + '.</p>'
+        '<p class="hint">Pytanie pojawi się na karcie i w zakładce „Teraz” u recepcji. Gdy ktoś odpowie, zobaczysz to w karcie i w „Statystykach”' + '' + '.</p>'
     });
     if (!r) return;
     const t = clone(task);
@@ -565,7 +565,7 @@
   const monthKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
   const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
   const monthLabel = k => MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(0, 4);
-  const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().admins.filter(a => a !== cfg().ownerName));
+  const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().staff || [], cfg().admins.filter(a => a !== cfg().ownerName));
   S.pin = ''; S.debts = null; S.debtMonth = monthKey(Date.now());
 
   async function loadDebts(pin) {
