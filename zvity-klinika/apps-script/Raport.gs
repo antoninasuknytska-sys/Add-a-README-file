@@ -1,5 +1,5 @@
 /**
- * МІСЯЧНИЙ ЗВІТ НА ПОШТУ: PDF Дашборду + кольоровий лист з головними цифрами.
+ * МІСЯЧНИЙ ЗВІТ НА ПОШТУ (польською): PDF аркуша «Raport» + кольоровий лист з головними цифрами.
  * Запускається автоматично 15-го числа о 21:00 (див. ustawHarmonogram у Kod.gs).
  */
 
@@ -7,7 +7,7 @@ var EMAIL = 'WPISZ_SWOJ_EMAIL@example.com'; // ← ваша пошта (кіль
 var ZAPISZ_KOPIE_NA_DYSKU = true;           // копія PDF у папці «Raporty kliniki» на Google Drive
 var STREFA = 'Europe/Warsaw';
 
-var JEZYKI = ['uk', 'pl'];                   // мови звіту: 'uk' — українська, 'pl' — polski (можна залишити одну)
+var JEZYKI = ['pl'];                          // звіт лише польською
 
 var KOLORY = {
   'добре':    { bg: '#9FD8A6', tx: '#0B4A17' }, 'dobrze': { bg: '#9FD8A6', tx: '#0B4A17' },
@@ -15,10 +15,7 @@ var KOLORY = {
   'погано':   { bg: '#F28B82', tx: '#6E0B0B' }, 'źle': { bg: '#F28B82', tx: '#6E0B0B' }
 };
 var JEZYK_CFG = {
-  uk: { arkusz: 'Дашборд', plik: 'Zvit_kliniky_', temat: 'Звіт клініки', tytul: 'Звіт клініки за ', zla: 'погано',
-        kol: ['Показник', 'Цей місяць', 'До мин. місяця', 'Оцінка'], legenda: ['ДОБРЕ', 'СЕРЕДНЬО', 'ПОГАНО'],
-        uwaga: 'Звернути увагу', braki: 'Дані неповні', pdf: 'Повний звіт — у PDF у вкладенні.' },
-  pl: { arkusz: 'Raport PL', plik: 'Raport_kliniki_', temat: 'Raport kliniki', tytul: 'Raport kliniki za ', zla: 'źle',
+  pl: { arkusz: 'Raport', plik: 'Raport_kliniki_', temat: 'Raport kliniki', tytul: 'Raport kliniki za ', zla: 'źle',
         kol: ['Wskaźnik', 'Ten miesiąc', 'Do poprz. miesiąca', 'Ocena'], legenda: ['DOBRZE', 'ŚREDNIO', 'ŹLE'],
         uwaga: 'Zwrócić uwagę', braki: 'Dane niepełne', pdf: 'Pełny raport — w załączniku PDF.' }
 };
@@ -35,7 +32,7 @@ function wyslijRaport() {
   SpreadsheetApp.flush();
   Utilities.sleep(8000);
 
-  // 3. PDF: «Дашборд» (українською) і «Raport PL» (польською) — див. JEZYKI
+  // 3. PDF аркуша «Raport»
   var miesiac = Utilities.formatDate(poprzedni, STREFA, 'MM.yyyy');
   var ym = Utilities.formatDate(poprzedni, STREFA, 'yyyy-MM');
   var pdfs = [], sekcje = [];
@@ -52,11 +49,11 @@ function wyslijRaport() {
   });
 
   var html = '<div style="font-family:Arial,sans-serif;font-size:14px">' + sekcje.join('<hr style="margin:28px 0">') +
-    '<p><a href="' + ss.getUrl() + '">Таблиця / Arkusz</a></p></div>';
+    '<p><a href="' + ss.getUrl() + '">Otwórz arkusz</a></p></div>';
   MailApp.sendEmail({
     to: EMAIL,
     subject: JEZYKI.map(function (j) { return JEZYK_CFG[j].temat; }).join(' / ') + ' ' + miesiac,
-    body: 'Звіт клініки / Raport kliniki ' + miesiac + ' (PDF).',
+    body: 'Raport kliniki ' + miesiac + ' (PDF).',
     htmlBody: html,
     attachments: pdfs
   });

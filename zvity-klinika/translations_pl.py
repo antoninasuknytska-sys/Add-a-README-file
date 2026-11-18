@@ -1,4 +1,4 @@
-"""Польський переклад звітів (Дашборд → «Raport PL», Рік → «Rok PL») та заголовків аркушів введення."""
+"""Польська версія звітів (аркуші «Raport», «Rok»), інструкції та заголовків аркушів введення."""
 
 STATUS = {"добре": "dobrze", "середньо": "średnio", "погано": "źle"}
 
@@ -164,7 +164,7 @@ INSTRUKCJA = [
     ("KOLORY", "h2"),
     ("ZIELONY = dobrze", "c_good"), ("POMARAŃCZOWY = średnio, warto się przyjrzeć", "c_mid"), ("CZERWONY = źle, potrzebne działanie", "c_bad"),
     ("JASNOŻÓŁTE komórki — tu wpisujemy dane", "c_inp"), ("JASNOSZARE komórki — liczą się same, chronione przed przypadkowym usunięciem", "c_calc"),
-    ("Raport po polsku: arkusze «Raport PL» i «Rok PL». Te same liczby i kolory co w wersji ukraińskiej («Дашборд», «Рік»).", ""),
+    ("Raport miesięczny: arkusz «Raport». Dynamika roczna: arkusz «Rok».", ""),
     ("Arkusze z danymi mają nazwy ukraińskie (np. «Візити» = Wizyty, «Банк» = Bank, «Витрати» = Koszty), nagłówki kolumn są dwujęzyczne.", ""),
     ("", ""),
     ("JAK WCZYTYWAĆ DANE (Google Arkusze, menu «🦷 Звіти клініки / Raporty kliniki»)", "h2"),
@@ -184,5 +184,5 @@ INSTRUKCJA = [
     ("W poniedziałek, recepcja (~30 min): wczytać raporty z Felgdent i rezerwacje ZnanyLekarz / Booksy; poprawić czerwone komórki.", ""),
     ("W poniedziałek, właściciel (~30 min): wczytać wyciąg bankowy i listę faktur; wybrać kategorię dla czerwonych wierszy w «Банк».", ""),
     ("Do 10. dnia miesiąca: godziny personelu, raport Google Ads. Sekcja 2 «Co trzeba uzupełnić» w raporcie — wszystko zielone.", ""),
-    ("15. dnia o 21:00: skrypt sam wysyła raport PDF (po ukraińsku i po polsku) e-mailem.", ""),
+    ("15. dnia o 21:00: skrypt sam wysyła raport PDF e-mailem.", ""),
 ]

@@ -102,7 +102,7 @@ st = wb.active; st.title = "Налаштування"
 S = "'Налаштування'!"
 st["A1"] = "НАЛАШТУВАННЯ"; st["A1"].font = font(bold=True, size=14)
 for i, (lbl, val, fmt, note) in enumerate([
-    ("Звітний місяць (будь-яка дата в місяці)", dt.date(2026, 10, 1), DATE, "Від цієї клітинки рахується весь Дашборд. Скрипт розсилки 15-го числа сам ставить сюди попередній місяць."),
+    ("Звітний місяць (будь-яка дата в місяці)", dt.date(2026, 10, 1), DATE, "Від цієї клітинки рахується весь звіт «Raport». Скрипт розсилки 15-го числа сам ставить сюди попередній місяць."),
     ("Кількість крісел", 2, "0", "Дані від власника"),
     ("Годин роботи клініки на день", 12, "0", "Графік 8:00–20:00 (дані від власника)"),
     ("Робочих субот у місяці", 0, "0", "Будні рахуються автоматично (пн–пт, без свят)."),
@@ -635,7 +635,7 @@ fsw = wb.create_sheet("Felgdent статуси")
 header(fsw, 1, ["Місяць (1-ше число)", "Статус у Felgdent", "Статус у звіті", "Кількість візитів", "Ключ імпорту"])
 widths(fsw, {"A": 14, "B": 36, "C": 16, "D": 12, "E": 30, "G": 70}); fsw.column_dimensions["E"].hidden = True; fsw.freeze_panes = "A2"
 fsw.row_dimensions[1].height = 30
-fsw["G1"] = ("Звіт Felgdent «Status wizyt» за місяць (при завантаженні вкажіть місяць). Звідси Дашборд бере неявки та скасування, "
+fsw["G1"] = ("Звіт Felgdent «Status wizyt» за місяць (при завантаженні вкажіть місяць). Звідси звіт «Raport» бере неявки та скасування, "
              "якщо візити імпортовано з оплат (у них неявок немає).")
 fsw["G1"].font = font(italic=True, color="444444"); fsw["G1"].alignment = Alignment(wrap_text=True)
 for i in range(2, 501): fsw.cell(row=i, column=1).number_format = MON
@@ -1189,8 +1189,8 @@ txt = [
     ("РЕГЛАМЕНТ (до 2 годин на тиждень)", "h2"),
     ("Щопонеділка, адміністратор (~30 хв): завантажити візити з Felgdent і записи ZnanyLekarz / Booksy; виправити червоні клітинки в «Послугах» і «Візитах».", ""),
     ("Щопонеділка, власник (~30 хв): завантажити виписку з банку і реєстр фактур; вибрати категорію для червоних рядків у «Банку».", ""),
-    ("До 10-го числа: години персоналу, звіт Google Ads за минулий місяць. Подивитися розділ 2 «Що потрібно доповнити» на Дашборді — усе має бути зеленим.", ""),
-    ("15-го о 21:00: скрипт сам ставить попередній місяць і надсилає Дашборд у PDF плюс кольоровий лист на пошту.", ""),
+    ("До 10-го числа: години персоналу, звіт Google Ads за минулий місяць. Подивитися розділ 2 «Co trzeba uzupełnić» у звіті «Raport» — усе має бути зеленим.", ""),
+    ("15-го о 21:00: скрипт сам ставить попередній місяць і надсилає звіт «Raport» (польською) у PDF плюс кольоровий лист на пошту.", ""),
     ("", ""),
     ("ПРАВИЛА ОБЛІКУ (щоб не рахувати двічі)", "h2"),
     ("• Виручка = вартість ВИКОНАНИХ послуг з «Візитів». Ваучер чи передоплата за імплант стають виручкою, коли послугу виконано.", ""),
@@ -1243,7 +1243,7 @@ def clone_pl(src, title):
     dst.page_margins.left = dst.page_margins.right = 0.4
     dst.sheet_properties.tabColor = "C0392B"
     return dst
-rpl = clone_pl(db, "Raport PL")
+rpl = clone_pl(db, "Raport")
 for title, col, r1, n, anchor_, w in ((TPL.CHARTS["Прибуток клініки за годину крісла, zł"], 10, DR0, len(docs), f"A{LAST+4}", 18),
                                       (TPL.CHARTS["Маржа за годину крісла по напрямах, zł"], 10, DI0, len(dirs), f"F{LAST+4}", 17)):
     ch_ = BarChart(); ch_.type = "bar"; ch_.title = title
@@ -1252,7 +1252,7 @@ for title, col, r1, n, anchor_, w in ((TPL.CHARTS["Прибуток клінік
     ch_.legend = None; ch_.roundedCorners = False; ch_.height = 8; ch_.width = w
     ch_.x_axis.delete = False; ch_.y_axis.delete = False; ch_.title.overlay = False
     rpl.add_chart(ch_, anchor_)
-ypl = clone_pl(yr, "Rok PL")
+ypl = clone_pl(yr, "Rok")
 bc2 = BarChart(); bc2.title = TPL.CHARTS["Виручка і чистий прибуток по місяцях, zł"]
 bc2.add_data(Reference(ypl, min_col=1, max_col=13, min_row=5), titles_from_data=True, from_rows=True)
 bc2.add_data(Reference(ypl, min_col=1, max_col=13, min_row=9), titles_from_data=True, from_rows=True)
@@ -1261,6 +1261,9 @@ bc2.roundedCorners = False; bc2.legend.overlay = False; bc2.title.overlay = Fals
 bc2.x_axis.delete = False; bc2.y_axis.delete = False; bc2.x_axis.number_format = MON; bc2.height = 9; bc2.width = 30
 ypl.add_chart(bc2, "A18")
 ypl["A5"] = "Przychód"; ypl["A9"] = "Zysk netto"   # підписи рядів графіка
+# звіти — лише польською: українські робочі копії видаляємо
+for _ws in (rpl, ypl): _ws.sheet_properties.tabColor = "1F4E5A"
+wb.remove(db); wb.remove(yr)
 # польська інструкція
 ipl = wb.create_sheet("Instrukcja")
 ipl.sheet_view.showGridLines = False
@@ -1315,7 +1318,7 @@ for row in wb["Налаштування"].iter_rows(min_row=13, max_row=12 + len
     for c in row: c.protection = UNLOCK
 # Дашборд і Рік: усі розрахункові клітинки світло-сірі (кольори світлофора лягають поверх), аркуш повністю захищений
 GREY_DASH = PatternFill("solid", fgColor="F0F0F0")
-for ws in (wb["Дашборд"], wb["Рік"], wb["Raport PL"], wb["Rok PL"]):
+for ws in (wb["Raport"], wb["Rok"]):
     for row in ws.iter_rows(min_row=4, max_col=14):
         for c in row:
             v = c.value
@@ -1327,7 +1330,7 @@ for ws in (wb["Дашборд"], wb["Рік"], wb["Raport PL"], wb["Rok PL"]):
 protect(wb["Інструкція"]); protect(wb["Instrukcja"])
 
 # порядок аркушів
-order = ["Інструкція", "Дашборд", "Рік", "Instrukcja", "Raport PL", "Rok PL", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
+order = ["Raport", "Rok", "Instrukcja", "Інструкція", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
          "Пацієнти", "Felgdent статуси", "Записи Felgdent", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
@@ -1335,7 +1338,7 @@ for ws in wb.worksheets:
         for c in row:
             if c.font and c.font.name != F:
                 c.font = Font(name=F, size=c.font.size or 10, bold=c.font.bold, italic=c.font.italic, color=c.font.color)
-for name, color in (("Дашборд", "1F4E5A"), ("Рік", "1F4E5A"), ("Інструкція", "999999")):
+for name, color in (("Raport", "1F4E5A"), ("Rok", "1F4E5A"), ("Інструкція", "999999")):
     wb[name].sheet_properties.tabColor = color
 for name in ("Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads", "Пацієнти", "Felgdent статуси", "Записи Felgdent"):
     wb[name].sheet_properties.tabColor = "F2C744"

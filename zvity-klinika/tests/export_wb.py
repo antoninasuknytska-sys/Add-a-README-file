@@ -4,7 +4,7 @@ from openpyxl import load_workbook
 wb = load_workbook(sys.argv[1])
 out = {}
 for ws in wb.worksheets:
-    if ws.title in ('Дашборд', 'Рік', 'Інструкція'): continue
+    if ws.title in ('Raport', 'Rok', 'Інструкція', 'Instrukcja'): continue
     out[ws.title] = [[{'$d': v.isoformat()} if isinstance(v, (datetime.date, datetime.datetime)) else ('' if v is None else v) for v in row]
                      for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 3001), max_col=min(ws.max_column, 26), values_only=True)]
 json.dump(out, open(sys.argv[2], 'w'), ensure_ascii=False)

@@ -69,7 +69,7 @@
     var type = document.getElementById('type').value, month = document.getElementById('month').value;
     var queue = picked.slice();
     (function next() {
-      if (!queue.length) { btn.disabled = false; log('Готово / Gotowe. Дашборд і Raport PL оновлено / zaktualizowane.', 'ok'); return; }
+      if (!queue.length) { btn.disabled = false; log('Готово / Gotowe. Raport zaktualizowany / звіт оновлено.', 'ok'); return; }
       var f = queue.shift();
       var r = new FileReader();
       r.onload = function () {
