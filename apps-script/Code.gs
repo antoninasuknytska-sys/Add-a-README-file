@@ -271,7 +271,7 @@ function getData() {
   const monthAgo = Date.now() - 30 * 864e5;
   const tasks = readTasks_().filter(t => t.status === 'open' || (t.closedAt || 0) > monthAgo);
   const twoWeeks = Date.now() - 14 * 864e5;
-  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > twoWeeks || (i.status === 'log' && !i.tags));
+  const inbox = readInbox_().filter(i => i.status !== 'dup').filter(i => i.status === 'new' || (i.receivedAt || 0) > twoWeeks || (i.status === 'log' && !i.tags));
   return {
     now: Date.now(),
     config: {
@@ -567,11 +567,21 @@ function checkInbox() {
  */
 function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
-  if (!fresh.some(i => i.source === 'call_in' || i.source === 'call_out' || i.source === 'call_end')) return out;
+  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end'].indexOf(i.source) >= 0)) return out;
   const old = readInbox_();
   const open = readTasks_().filter(t => t.status === 'open');
   const hm = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'HH:mm');
   const taskMap = {};
+  const near = (a, b) => Math.abs(a.receivedAt - b.receivedAt) < 2 * 6e4;
+  const same = (a, b) => { const p = digits_(a.phone).slice(-9); return p.length === 9 && p === digits_(b.phone).slice(-9); };
+  // Nieodebrane: „Koniec rozmowy”, który MacroDroid wysłał przy tym samym dzwonieniu (czasem kilka sekund WCZEŚNIEJ),
+  // zapisany już jako rozmowa przychodząca w poprzednim sprawdzeniu — ukrywamy jako duplikat
+  fresh.filter(i => i.source === 'call').forEach(mc => {
+    old.filter(x => x.source === 'call_in' && x.status === 'log' && !x.tags && same(x, mc) && near(x, mc)).forEach(x => {
+      x.status = 'dup';
+      if (out.inbox.indexOf(x) < 0) out.inbox.push(x);
+    });
+  });
   fresh.forEach(i => {
     if (i.source === 'call_end') {
       // Koniec rozmowy: jeśli wcześniej (do 3 godz.) było „wychodzące” na ten numer bez zakończenia — to jego koniec
@@ -591,9 +601,9 @@ function processCalls_(fresh) {
     i.status = 'log'; i.handledBy = BOT; i.handledAt = i.receivedAt;
     const p9 = digits_(i.phone).slice(-9);
     if (p9.length !== 9) return;
+    // „odebrane” / „koniec rozmowy” w ciągu 2 min (przed lub po) od „nieodebranego” z tego numeru to ten sam telefon — pomijamy
+    if (i.source === 'call_in' && old.concat(fresh).some(x => x.source === 'call' && same(x, i) && near(x, i))) { i.drop = true; return; }
     const missedAll = old.concat(fresh).filter(x => x.source === 'call' && digits_(x.phone).slice(-9) === p9 && x.receivedAt <= i.receivedAt);
-    // „odebrane” zaraz po „nieodebranym” z tego samego numeru to ten sam telefon — pomijamy
-    if (i.source === 'call_in' && missedAll.some(x => i.receivedAt - x.receivedAt < 2 * 6e4)) { i.drop = true; return; }
     missedAll.filter(x => x.status === 'new').forEach(x => {
       x.status = 'done'; x.handledBy = BOT; x.handledAt = i.receivedAt;
       x.note = i.source === 'call_out' ? 'Oddzwoniono (połączenie wychodzące ' + hm(i.receivedAt) + ')' : 'Pacjent dodzwonił się ponownie (' + hm(i.receivedAt) + ')';
