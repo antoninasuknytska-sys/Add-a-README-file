@@ -529,6 +529,194 @@
      "conversions"
     ]
    }
+  ],
+  "WPLATY": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data",
+     "data wplaty"
+    ]
+   },
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent"
+    ]
+   },
+   {
+    "name": "description",
+    "required": "так",
+    "aliases": [
+     "opis"
+    ]
+   },
+   {
+    "name": "payment",
+    "required": "так",
+    "aliases": [
+     "metoda platnosci"
+    ]
+   },
+   {
+    "name": "amount",
+    "required": "так",
+    "aliases": [
+     "kwota"
+    ]
+   },
+   {
+    "name": "addedBy",
+    "required": "ні",
+    "aliases": [
+     "dodane przez"
+    ]
+   }
+  ],
+  "FKOSZTY": [
+   {
+    "name": "date",
+    "required": "так",
+    "aliases": [
+     "data"
+    ]
+   },
+   {
+    "name": "addedBy",
+    "required": "так",
+    "aliases": [
+     "dodane przez"
+    ]
+   },
+   {
+    "name": "description",
+    "required": "так",
+    "aliases": [
+     "opis"
+    ]
+   },
+   {
+    "name": "payment",
+    "required": "ні",
+    "aliases": [
+     "metoda platnosci"
+    ]
+   },
+   {
+    "name": "amount",
+    "required": "так",
+    "aliases": [
+     "kwota"
+    ]
+   }
+  ],
+  "FSOURCES": [
+   {
+    "name": "firstName",
+    "required": "так",
+    "aliases": [
+     "imie"
+    ]
+   },
+   {
+    "name": "lastName",
+    "required": "так",
+    "aliases": [
+     "nazwisko"
+    ]
+   },
+   {
+    "name": "source",
+    "required": "так",
+    "aliases": [
+     "pozyskanie pacjenta",
+     "skad pacjent",
+     "zrodlo"
+    ]
+   }
+  ],
+  "FSTATUS": [
+   {
+    "name": "status",
+    "required": "так",
+    "aliases": [
+     "status wizyty"
+    ]
+   },
+   {
+    "name": "count",
+    "required": "так",
+    "aliases": [
+     "ilosc wizyt",
+     "liczba wizyt"
+    ]
+   }
+  ],
+  "FDUR": [
+   {
+    "name": "doctor",
+    "required": "так",
+    "aliases": [
+     "lekarz"
+    ]
+   },
+   {
+    "name": "avg",
+    "required": "так",
+    "aliases": [
+     "sredni czas wizyty",
+     "srednia dlugosc wizyty"
+    ]
+   }
+  ],
+  "FZAPISY": [
+   {
+    "name": "patient",
+    "required": "так",
+    "aliases": [
+     "pacjent"
+    ]
+   },
+   {
+    "name": "added",
+    "required": "ні",
+    "aliases": [
+     "data dodania wizyty"
+    ]
+   },
+   {
+    "name": "orig",
+    "required": "так",
+    "aliases": [
+     "termin wizyty (pierwotny)",
+     "termin wizyty"
+    ]
+   },
+   {
+    "name": "newTerm",
+    "required": "ні",
+    "aliases": [
+     "nowy termin wizyty (przy przesunieciu)",
+     "nowy termin wizyty"
+    ]
+   },
+   {
+    "name": "status",
+    "required": "так",
+    "aliases": [
+     "status wizyt",
+     "status"
+    ]
+   },
+   {
+    "name": "changedBy",
+    "required": "ні",
+    "aliases": [
+     "dokonal zmiany"
+    ]
+   }
   ]
  },
  "statuses": [
@@ -584,6 +772,43 @@
   }
  ],
  "hints": [
+  {
+   "type": "WPLATY",
+   "fragments": [
+    "wplaty"
+   ]
+  },
+  {
+   "type": "FKOSZTY",
+   "fragments": [
+    "koszty"
+   ]
+  },
+  {
+   "type": "FSOURCES",
+   "fragments": [
+    "pozyskani"
+   ]
+  },
+  {
+   "type": "FSTATUS",
+   "fragments": [
+    "status wizyt"
+   ]
+  },
+  {
+   "type": "FDUR",
+   "fragments": [
+    "dlugosc wizyty",
+    "czas wizyty"
+   ]
+  },
+  {
+   "type": "FZAPISY",
+   "fragments": [
+    "przesuni"
+   ]
+  },
   {
    "type": "BOOKSY",
    "fragments": [

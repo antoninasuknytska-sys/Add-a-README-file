@@ -106,6 +106,7 @@ for i, (lbl, val, fmt, note) in enumerate([
     ("Кількість крісел", 2, "0", "Дані від власника"),
     ("Годин роботи клініки на день", 12, "0", "Графік 8:00–20:00 (дані від власника)"),
     ("Робочих субот у місяці", 0, "0", "Будні рахуються автоматично (пн–пт, без свят)."),
+    ("Тривалість візиту за замовчуванням, год", 0.7, "0.00", "Якщо у файлі немає часу візиту і лікар невідомий. 0,7 год = 42 хв (середнє з Felgdent)."),
 ]):
     r = 3 + i
     st.cell(row=r, column=1, value=lbl).font = font()
@@ -162,23 +163,22 @@ D = "'Довідники'!"
 dv["A1"] = "ДОВІДНИКИ: заповніть один раз, далі вони підтягуються у випадаючі списки та звіти"; dv["A1"].font = font(bold=True, size=12)
 dv["A2"] = "Жовті клітинки можна змінювати. Імена та % — приклад. Нових лікарів і послуги з Felgdent скрипт додає сам (порожній % підсвічується червоним)."
 dv["A2"].font = font(italic=True, color="666666")
-docs = [("Лікар 1", "Лікар", 0.35, "Zachowawcza, Endodoncja"), ("Лікар 2", "Лікар", 0.35, "Zachowawcza, Dziecięca"),
-        ("Лікар 3", "Лікар", 0.40, "Endodoncja"), ("Лікар 4", "Лікар", 0.40, "Chirurgia, Implantologia"),
-        ("Лікар 5", "Лікар", 0.35, "Protetyka"), ("Лікар 6", "Лікар", 0.40, "Ortodoncja"),
-        ("Лікар 7", "Лікар", 0.30, "Zachowawcza, Protetyka"), ("Гігієністка 1", "Гігієністка", 0.25, "Profilaktyka"),
-        ("Гігієністка 2", "Гігієністка", 0.25, "Profilaktyka")]
-header(dv, 3, ["Лікар / гігієністка (як у Felgdent)", "Роль", "% від (вартість − технік − спецпрепарати)", "Спеціалізація"], 1)
+docs = [("Лікар 1", "Лікар", 0.35, 0.9), ("Лікар 2", "Лікар", 0.35, 0.75), ("Лікар 3", "Лікар", 0.40, 1.05), ("Лікар 4", "Лікар", 0.40, 1.0),
+        ("Лікар 5", "Лікар", 0.35, 1.0), ("Лікар 6", "Лікар", 0.40, 0.4), ("Лікар 7", "Лікар", 0.30, 1.2),
+        ("Гігієністка 1", "Гігієністка", 0.20, 0.95), ("Гігієністка 2", "Гігієністка", 0.20, 0.95)]
+header(dv, 3, ["Лікар / гігієністка (як у Felgdent)", "Роль", "% від (вартість − технік − спецпрепарати)", "Сер. тривалість візиту, год (з Felgdent)"], 1)
 for i in range(17):
     vals = docs[i] if i < len(docs) else (None, None, None, None)
     for j, v in enumerate(vals):
         c = dv.cell(row=4 + i, column=1 + j, value=v); c.fill = INP; c.border = BOX; c.font = font(color="0000FF")
         if j == 2: c.number_format = "0%"
+        if j == 3: c.number_format = "0.00"
 cf_rules(dv, "C4:C20", None, None, 'AND($A4<>"",$C4="")')
 dirs = ["Zachowawcza", "Endodoncja", "Ortodoncja", "Chirurgia", "Implantologia", "Profilaktyka", "Protetyka", "Dziecięca"]
 header(dv, 3, ["Напрям"], 6)
 for i in range(12):
     c = dv.cell(row=4 + i, column=6, value=dirs[i] if i < len(dirs) else None); c.fill = INP; c.border = BOX; c.font = font(color="0000FF")
-pays = ["Karta", "Gotówka", "Przelew", "BLIK", "Raty PayU", "Mediraty", "Bon podarunkowy", "Przedpłata (wcześniej)"]
+pays = ["Karta", "Gotówka", "Przelew", "BLIK", "Raty PayU", "Mediraty", "Bon podarunkowy", "Przedpłata (wcześniej)", "Czek", "Wpłata mieszana"]
 NONCASH = ["Karta", "Przelew", "BLIK", "Raty PayU", "Mediraty"]
 header(dv, 3, ["Спосіб оплати"], 8)
 for i in range(10):
@@ -210,6 +210,7 @@ cats = [("Materiały i narzędzia (zakupy)", "Матеріали"),
         ("Ubezpieczenie OC / mienia", "Адміністрування"), ("Szkolenia", "Адміністрування"), ("Biuro i drobne", "Адміністрування"),
         ("Prowizje (terminal, PayU, Mediraty, bank)", "Фінансові витрати"), ("Kredyty / odsetki", "Фінансові витрати"),
         ("Podatki (PIT/CIT, VAT)", "Податки і ZUS"), ("ZUS", "Податки і ZUS"), ("Wypłata właściciela", "Власник (виплата собі)"),
+        ("Technik / laboratorium (koszt z Felgdent)", "Лабораторія (технік)"), ("Inne koszty gabinetu (Felgdent)", "Адміністрування"),
         ("Laboratorium – płatność (звірка)", "Не рахувати: лабораторія"),
         ("Implanty / preparaty – płatność (звірка)", "Не рахувати: препарати"),
         ("Wypłaty lekarzy i personelu (звірка)", "Не рахувати: зарплати"),
@@ -346,14 +347,27 @@ FIELDS = {
           ("clicks", "ні", "klikniecia; clicks"),
           ("cost", "так", "koszt; cost"),
           ("conversions", "ні", "konwersje; conversions")],
+ "WPLATY": [("date", "так", "data; data wplaty"), ("patient", "так", "pacjent"), ("description", "так", "opis"),
+          ("payment", "так", "metoda platnosci"), ("amount", "так", "kwota"), ("addedBy", "ні", "dodane przez")],
+ "FKOSZTY": [("date", "так", "data"), ("addedBy", "так", "dodane przez"), ("description", "так", "opis"),
+          ("payment", "ні", "metoda platnosci"), ("amount", "так", "kwota")],
+ "FSOURCES": [("firstName", "так", "imie"), ("lastName", "так", "nazwisko"), ("source", "так", "pozyskanie pacjenta; skad pacjent; zrodlo")],
+ "FSTATUS": [("status", "так", "status wizyty"), ("count", "так", "ilosc wizyt; liczba wizyt")],
+ "FDUR": [("doctor", "так", "lekarz"), ("avg", "так", "sredni czas wizyty; srednia dlugosc wizyty")],
+ "FZAPISY": [("patient", "так", "pacjent"), ("added", "ні", "data dodania wizyty"), ("orig", "так", "termin wizyty (pierwotny); termin wizyty"),
+          ("newTerm", "ні", "nowy termin wizyty (przy przesunieciu); nowy termin wizyty"), ("status", "так", "status wizyt; status"),
+          ("changedBy", "ні", "dokonal zmiany")],
 }
 TYPE_LBL = {"BANK": "Виписка з банку", "INVOICES": "Фактури (реєстр)", "VISITS": "Felgdent – візити", "PATIENTS": "Felgdent – пацієнти",
-            "ZL": "ZnanyLekarz – записи", "BOOKSY": "Booksy – записи", "ADS": "Google Ads – звіт"}
+            "ZL": "ZnanyLekarz – записи", "BOOKSY": "Booksy – записи", "ADS": "Google Ads – звіт",
+            "WPLATY": "Felgdent – wpłaty", "FKOSZTY": "Felgdent – koszty", "FSOURCES": "Felgdent – pozyskanie pacjenta",
+            "FSTATUS": "Felgdent – status wizyt", "FDUR": "Felgdent – średnia długość wizyty", "FZAPISY": "Felgdent – przesunięcia wizyt"}
 STATUSES = [("nieobecn; nie przysz; nie stawil; niestawien; no-show; no show; noshow", "Неявка"),
             ("odwolan; anulowan; rezygnac; cancel", "Скасовано"),
             ("przesuni; zaplanowan; potwierdzon; umowion; oczekuj; planned; confirmed; booked; nowa", "Пропустити"),
             ("zrealizowan; odbyt; wykonan; zakonczon; obecny; obecna; przyszedl; completed; done; finished", "Виконано")]
-HINTS = [("BOOKSY", "booksy"), ("ZL", "znany; docplanner"), ("ADS", "google ads; googleads; adwords; kampani; campaign"),
+HINTS = [("WPLATY", "wplaty"), ("FKOSZTY", "koszty"), ("FSOURCES", "pozyskani"), ("FSTATUS", "status wizyt"),
+         ("FDUR", "dlugosc wizyty; czas wizyty"), ("FZAPISY", "przesuni"), ("BOOKSY", "booksy"), ("ZL", "znany; docplanner"), ("ADS", "google ads; googleads; adwords; kampani; campaign"),
          ("INVOICES", "faktur; ksef; invoice"), ("PATIENTS", "pacjenci; pacjentow; patients"),
          ("VISITS", "felg; wizyty; wizyt; zabiegi"), ("BANK", "wyciag; historia; pko; mbank; santander; ing; pekao; millennium; alior; bnp; credit agricole; bank; operacj")]
 ic = wb.create_sheet("Імпорт-налаштування")
@@ -565,12 +579,13 @@ cf_text(fv, f"I2:J{N}", 'IF($I2="Оплачено","добре",IF($I2="Прос
 # =============== Витрати (вручну) ===============
 ex = wb.create_sheet("Витрати")
 E = "'Витрати'!"
-header(ex, 1, ["Дата", "Місяць (авто)", "Категорія витрат", "Група (авто)", "Опис / постачальник", "Сума, zł", "Спосіб оплати"])
-ex.freeze_panes = "A2"
-widths(ex, {"A": 12, "B": 10, "C": 40, "D": 24, "E": 34, "F": 13, "G": 16, "I": 62})
-ex["I1"] = ("ТІЛЬКИ витрати, яких НЕМАЄ у виписці з банку (готівка, інша картка). Банківські витрати приходять автоматично з аркуша «Банк». "
-            "Виплати лікарям рахуються з «Візитів», погодинний персонал — з «Персоналу».")
-ex["I1"].font = font(bold=True, color="9C0006"); ex["I1"].alignment = Alignment(wrap_text=True)
+header(ex, 1, ["Дата", "Місяць (авто)", "Категорія витрат", "Група (авто)", "Опис / постачальник", "Сума, zł", "Спосіб оплати",
+               "Лікар (для техніка)", "Ключ імпорту"])
+ex.freeze_panes = "A2"; ex.row_dimensions[1].height = 32
+widths(ex, {"A": 12, "B": 10, "C": 40, "D": 24, "E": 34, "F": 13, "G": 16, "H": 22, "I": 30, "K": 62}); ex.column_dimensions["I"].hidden = True
+ex["K1"] = ("ТІЛЬКИ витрати, яких НЕМАЄ у виписці з банку (готівка, інша картка). Банківські витрати приходять автоматично з аркуша «Банк». "
+            "Виплати лікарям рахуються з «Візитів», погодинний персонал — з «Персоналу». Витрати на техніка з Felgdent (Koszty) імпортуються сюди з лікарем.")
+ex["K1"].font = font(bold=True, color="9C0006"); ex["K1"].alignment = Alignment(wrap_text=True)
 for i, (d, c_, desc, a) in enumerate([(dt.date(2026, 9, 12), "Biuro i drobne", "Kawa, woda, drobne (gotówka)", 230),
                                        (dt.date(2026, 10, 9), "Szkolenia", "Kurs endodontyczny (gotówka)", 500),
                                        (dt.date(2026, 10, 14), "Biuro i drobne", "Drobne zakupy (gotówka)", 180)]):
@@ -582,7 +597,7 @@ for i in range(2, N + 1):
     ex.cell(row=i, column=4, value=f'=IF(C{i}="","",IFERROR(INDEX({CAT_G},MATCH(C{i},{CAT_N},0)),"⚠ немає в довіднику"))')
     ex.cell(row=i, column=6).number_format = ZL
     for col in (2, 4): ex.cell(row=i, column=col).fill = CALC
-add_list(ex, f"C2:C{N}", CAT_N); add_list(ex, f"G2:G{N}", f"{D}$H$4:$H$13")
+add_list(ex, f"C2:C{N}", CAT_N); add_list(ex, f"G2:G{N}", f"{D}$H$4:$H$13"); add_list(ex, f"H2:H{N}", DOC_N)
 cf_rules(ex, f"D2:D{N}", None, None, '$D2="⚠ немає в довіднику"')
 
 # =============== Персонал ===============
@@ -615,6 +630,25 @@ pa["F1"] = ("Необов'язково, але дуже корисно: спис
             "а не за першим візитом у цій таблиці.")
 pa["F1"].font = font(italic=True, color="444444"); pa["F1"].alignment = Alignment(wrap_text=True)
 for i in range(2, N + 1): pa.cell(row=i, column=2).number_format = DATE
+
+fsw = wb.create_sheet("Felgdent статуси")
+header(fsw, 1, ["Місяць (1-ше число)", "Статус у Felgdent", "Статус у звіті", "Кількість візитів", "Ключ імпорту"])
+widths(fsw, {"A": 14, "B": 36, "C": 16, "D": 12, "E": 30, "G": 70}); fsw.column_dimensions["E"].hidden = True; fsw.freeze_panes = "A2"
+fsw.row_dimensions[1].height = 30
+fsw["G1"] = ("Звіт Felgdent «Status wizyt» за місяць (при завантаженні вкажіть місяць). Звідси Дашборд бере неявки та скасування, "
+             "якщо візити імпортовано з оплат (у них неявок немає).")
+fsw["G1"].font = font(italic=True, color="444444"); fsw["G1"].alignment = Alignment(wrap_text=True)
+for i in range(2, 501): fsw.cell(row=i, column=1).number_format = MON
+zp = wb.create_sheet("Записи Felgdent")
+header(zp, 1, ["Термін візиту", "Місяць (авто)", "Пацієнт", "Статус", "Статус у Felgdent", "Перенесено?", "Хто змінив", "Ключ імпорту"])
+widths(zp, {"A": 12, "B": 10, "C": 26, "D": 14, "E": 28, "F": 11, "G": 22, "H": 30, "J": 70}); zp.column_dimensions["H"].hidden = True; zp.freeze_panes = "A2"
+zp["J1"] = "Звіт Felgdent «Raport przesunięć wizyt»: перенесення, скасування й неявки за датою візиту."
+zp["J1"].font = font(italic=True, color="444444"); zp["J1"].alignment = Alignment(wrap_text=True)
+NZ = 5001
+for i in range(2, NZ + 1):
+    zp.cell(row=i, column=1).number_format = DATE
+    zp.cell(row=i, column=2, value=f'=IF(A{i}="","",DATE(YEAR(A{i}),MONTH(A{i}),1))').number_format = MON
+cf_text(zp, f"D2:D{NZ}", 'IF($D2="Виконано","добре",IF(OR($D2="Скасовано",$D2="Перенесено"),"середньо",IF($D2="Неявка","погано","")))')
 
 on = wb.create_sheet("Онлайн-записи")
 O_ = "'Онлайн-записи'!"
@@ -692,6 +726,17 @@ def hrs(m, x=""): return f'SUMIFS({VN},{VB},{m},{VM},{OK}{x})'
 def cnt(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK}{x})'
 def newp(m, x=""): return f'COUNTIFS({VB},{m},{VM},{OK},{VD},"Так"{x})'
 def staff_cost(m): return f'SUMIFS({PG},{PB},{m})'
+FSA, FSC, FSD = "'Felgdent статуси'!$A$2:$A$500", "'Felgdent статуси'!$C$2:$C$500", "'Felgdent статуси'!$D$2:$D$500"
+ZB, ZD = "'Записи Felgdent'!$B$2:$B$5001", "'Записи Felgdent'!$D$2:$D$5001"
+EH = f"{E}$H$2:$H${N}"
+LABF = '"Technik / laboratorium (koszt z Felgdent)"'
+def labF(m, doc=None): return f'SUMIFS({EF},{EB},{m},{EC},{LABF}' + (f',{EH},{doc})' if doc else ')')
+def labF_pct(m): return f'SUMPRODUCT(SUMIFS({EF},{EB},{m},{EC},{LABF},{EH},{DOC_N})*{DOC_P})'
+def noshow(m):
+    fs_ = lambda st_: f'SUMIFS({FSD},{FSA},{m},{FSC},"{st_}")'
+    felg = f'({fs_("Неявка")}+{fs_("Скасовано")})/({fs_("Виконано")}+{fs_("Неявка")}+{fs_("Скасовано")})'
+    vis = f'(COUNTIFS({VB},{m},{VM},"Неявка")+COUNTIFS({VB},{m},{VM},"Скасовано"))/COUNTIFS({VB},{m},{VM},"<>")'
+    return f'IFERROR(IF(SUMIFS({FSD},{FSA},{m})>0,{felg},{vis}),0)'
 def grp(m, g): return f'(SUMIFS({EF},{EB},{m},{ED},{g})-SUMIFS({BC},{BB},{m},{BI},{g}))'
 def cat_cost(m, c): return f'(SUMIFS({EF},{EB},{m},{EC},{c})-SUMIFS({BC},{BB},{m},{BH},{c}))'
 def bank_cat(m, c): return f'SUMIFS({BC},{BB},{m},{BH},{c})'
@@ -737,7 +782,7 @@ for rr, lbl in ((rT, "Цей місяць"), (rP, "Минулий місяць")
 def kpi(m, col):
     return [f"={rev(m)}", f"={col}{NP}", f"=IFERROR({col}{NP}/{col}{PL0+1},0)", f"={cnt(m)}", f"={newp(m)}", f"=IFERROR({rev(m)}/{cnt(m)},0)",
             f"=IFERROR({hrs(m)}/{cap(m)},0)",
-            f'=IFERROR((COUNTIFS({VB},{m},{VM},"Неявка")+COUNTIFS({VB},{m},{VM},"Скасовано"))/COUNTIFS({VB},{m},{VM},"<>"),0)']
+            f'={noshow(m)}']
 kfmt = [ZL, ZL, PCT, NUM, NUM, ZL, PCT, PCT]
 PPF = '+0.0" п.п.";-0.0" п.п.";"0"'
 for j, (fc, fp) in enumerate(zip(kpi(M, "B"), kpi(Pm, "C"))):
@@ -786,9 +831,9 @@ cf_zero_good(db, f"A{C0+2}:B{C0+1+CHECKS}", f"$B{C0+2}")
 section(db, PL0 - 1, "3. ДЕ ГРОШІ: ПРИБУТКИ ТА ЗБИТКИ (P&L)")
 header(db, PL0, ["Стаття", "Цей місяць", "Минулий місяць", "Зміна, zł", "% від виручки", "Норма, %", "Оцінка"], 1, SUB)
 lines = [("Виручка (виконані послуги)", lambda m: rev(m), None, "rev"),
-         ("− Лабораторія (технік)", lambda m: lab(m), "Лабораторія (технік)", "c"),
+         ("− Лабораторія (технік)", lambda m: f"{lab(m)}+{labF(m)}", "Лабораторія (технік)", "c"),
          ("− Спецпрепарати / імпланти", lambda m: prep(m), None, "c"),
-         ("− Виплати лікарям і гігієністкам", lambda m: payout(m), "Лікарі і гігієністки", "c"),
+         ("− Виплати лікарям і гігієністкам", lambda m: f"{payout(m)}-{labF_pct(m)}", "Лікарі і гігієністки", "c"),
          ("МАРЖА ПІСЛЯ ПРЯМИХ ВИТРАТ", None, None, "gm"),
          ("− Персонал погодинно (асистентки, рецепція)", lambda m: staff_cost(m), "Персонал погодинно", "c")]
 for gname in ["Матеріали", "Приміщення", "Обладнання", "Маркетинг", "Адміністрування", "Фінансові витрати", "Податки і ZUS", "Власник (виплата собі)"]:
@@ -848,7 +893,9 @@ rg, rm = T("rel")
 for i in range(NDOC):
     rr = DR0 + 1 + i; nm = f"$A{rr}"; x = f",{VF},{nm}"
     put(db, f"A{rr}", f'=IF({D}A{4+i}="","",{D}A{4+i})', bold=True)
-    fs = [cnt(M, x), newp(M, x), rev(M, x), f"IFERROR(D{rr}/B{rr},0)", hrs(M, x), f"IFERROR(D{rr}/F{rr},0)", payout(M, x), marg(M, x),
+    pct = f"N(IFERROR(INDEX({DOC_P},MATCH({nm},{DOC_N},0))*1,0))"
+    fs = [cnt(M, x), newp(M, x), rev(M, x), f"IFERROR(D{rr}/B{rr},0)", hrs(M, x), f"IFERROR(D{rr}/F{rr},0)",
+          f"{payout(M, x)}-{labF(M, nm)}*{pct}", f"{marg(M, x)}-{labF(M, nm)}*(1-{pct})",
           f'IF(F{rr}=0,"",I{rr}/F{rr})', f'COUNTIFS({VB},{M},{VF},{nm},{VM},"Неявка")+COUNTIFS({VB},{M},{VF},{nm},{VM},"Скасовано")',
           f'IF(J{rr}="","",RANK(J{rr},$J${DR0+1}:$J${DR0+NDOC}))', st_hi(f"IFERROR(J{rr}/$J${DRT},\"\")", rg, rm)]
     fm = [NUM, NUM, ZL, ZL, H1, ZL, ZL, ZL, ZL, NUM, "0", None]
@@ -957,10 +1004,12 @@ ch = [("Доступно годин крісел (крісла × години �
       ("Зайнято годин (виконані візити)", lambda m: hrs(m), H1),
       ("Завантаження крісел, %", lambda m: f"IFERROR({hrs(m)}/{cap(m)},0)", PCT),
       ("Вільних годин крісел", lambda m: f"{cap(m)}-{hrs(m)}", H1),
-      ("Неявки + скасування, %", lambda m: f'IFERROR((COUNTIFS({VB},{m},{VM},"Неявка")+COUNTIFS({VB},{m},{VM},"Скасовано"))/COUNTIFS({VB},{m},{VM},"<>"),0)', PCT),
+      ("Неявки + скасування, %", lambda m: noshow(m), PCT),
       ("Втрачена виручка через неявки/скасування", lambda m: f'SUMIFS({VI},{VB},{m},{VM},"Неявка")+SUMIFS({VI},{VB},{m},{VM},"Скасовано")', ZL),
       ("ПОТЕНЦІАЛ: +маржа, якщо заповнити 25% вільних годин", lambda m: f"IFERROR(({cap(m)}-{hrs(m)})*0.25*{marg(m)}/{hrs(m)},0)", ZL),
-      ("Частка візитів повторних пацієнтів, %", lambda m: f'IFERROR(COUNTIFS({VB},{m},{VM},{OK},{VD},"Ні")/{cnt(m)},0)', PCT)]
+      ("Частка візитів повторних пацієнтів, %", lambda m: f'IFERROR(COUNTIFS({VB},{m},{VM},{OK},{VD},"Ні")/{cnt(m)},0)', PCT),
+      ("Перенесено візитів (звіт Felgdent)", lambda m: f'COUNTIFS({ZB},{m},{ZD},"Перенесено")', NUM),
+      ("Неявки (звіт Felgdent «Status wizyt»)", lambda m: f'SUMIFS({FSD},{FSA},{m},{FSC},"Неявка")', NUM)]
 for i, (lbl, fn, fmt) in enumerate(ch):
     rr = CH0 + 1 + i
     pot = lbl.startswith("ПОТЕНЦІАЛ")
@@ -998,7 +1047,7 @@ for col in "BC": put(db, f"{col}{rIn+2}", f"={col}{rIn}-{col}{rIn+1}", ZL, bold=
 cf_rules(db, f"A{rIn+2}:C{rIn+2}", f"$B{rIn+2}>=0", None, f"$B{rIn+2}<0")
 # звірки
 header(db, BK0, ["Звірка", "Нараховано (візити)", "Оплачено з банку", "Розбіжність", "Оцінка"], 5, SUB)
-recon = [("Лабораторія", lab(M), f'-{bank_cat(M, chr(34)+"Laboratorium – płatność (звірка)"+chr(34))}'),
+recon = [("Лабораторія", f"{lab(M)}+{labF(M)}", f'-{bank_cat(M, chr(34)+"Laboratorium – płatność (звірка)"+chr(34))}'),
          ("Імпланти / препарати", prep(M), f'-{bank_cat(M, chr(34)+"Implanty / preparaty – płatność (звірка)"+chr(34))}'),
          ("Лікарі + персонал", f"{payout(M)}+{staff_cost(M)}", f'-{bank_cat(M, chr(34)+"Wypłaty lekarzy i personelu (звірка)"+chr(34))}'),
          ("Безготівкова виручка → рахунок", noncash(M), f"B{rIn}-B{BK0+5}-B{BK0+6}")]
@@ -1070,7 +1119,7 @@ yr["A2"] = "Рік:"; yr["B2"] = f"=YEAR({MCUR})"; yr["B2"].font = font(bold=Tru
 header(yr, 4, ["Показник"] + [""] * 12 + ["Разом / сер."], 1, SUB)
 for k in range(12):
     c = yr[f"{L(2+k)}4"]; c.value = f"=DATE($B$2,{k+1},1)"; c.number_format = MON
-yl = [("Виручка", lambda m: rev(m), ZL, "sum"), ("Прямі витрати (технік, препарати, лікарі)", lambda m: f"{lab(m)}+{prep(m)}+{payout(m)}", ZL, "sum"),
+yl = [("Виручка", lambda m: rev(m), ZL, "sum"), ("Прямі витрати (технік, препарати, лікарі)", lambda m: f"{lab(m)}+{prep(m)}+{payout(m)}-{labF_pct(m)}", ZL, "sum"),
       ("Персонал погодинно", lambda m: staff_cost(m), ZL, "sum"), ("Інші витрати (банк + ручні)", lambda m: opex_all(m), ZL, "sum"),
       ("Чистий прибуток", None, ZL, "sum"), ("Рентабельність", None, PCT, "avg"), ("Візитів (виконано)", lambda m: cnt(m), NUM, "sum"),
       ("Нових пацієнтів", lambda m: newp(m), NUM, "sum"), ("Середній чек", None, ZL, "avg"),
@@ -1125,8 +1174,11 @@ txt = [
     ("Кожне завантаження записується на аркуш «Журнал імпорту» разом із попередженнями.", ""),
     ("", ""),
     ("ЯКІ ФАЙЛИ ЗАВАНТАЖУВАТИ", "h2"),
-    ("1. Felgdent – візити (раз на тиждень): дата, пацієнт, лікар, послуга, сума, статус, час / тривалість → аркуш «Візити». Напрям береться з аркуша «Послуги».", ""),
-    ("2. Felgdent – список пацієнтів з датою реєстрації та джерелом (раз на місяць, необов'язково) → точно видно нових пацієнтів.", ""),
+    ("1. Felgdent → Raporty → «Koszty i wpłaty w gabinecie» (за тиждень або місяць): оплати → «Візити» (виручка, послуги, напрям, спосіб оплати); витрати на техніка → «Витрати» з лікарем.", ""),
+    ("   ⚠ В оплатах Felgdent немає лікаря. Поки не буде звіту з лікарями, впишіть лікаря в «Візитах» (червоні клітинки) або завантажте звіт «Rozliczenia z lekarzami».", ""),
+    ("   Felgdent → «Status wizyt» (за місяць, вкажіть місяць при завантаженні) → неявки та скасування.  «Średnia długość wizyty» → час візиту кожного лікаря в «Довідниках».", ""),
+    ("   Felgdent → «Raport pozyskania pacjenta» → джерела пацієнтів.  «Raport przesunięć wizyt» → перенесення й скасування.", ""),
+    ("2. Якщо є: список візитів з лікарем і сумою (CSV/XLSX) → «Візити» напряму; список пацієнтів з датою реєстрації → точно видно нових.", ""),
     ("ВАЖЛИВО у Felgdent: при записі НОВОГО пацієнта завжди заповнювати «Skąd pacjent». «Brak informacji» = невідомо, чи окупається реклама.", "warn"),
     ("3. Виписка з банку CSV/XLSX (раз на тиждень) → аркуш «Банк». Категорії підставляються за «Правилами банку»; невпізнані — червоні, їх вибирають вручну один раз.", ""),
     ("4. Реєстр фактур (з KSeF або програми бухгалтерії): номер, дата, продавець, NIP, сума, термін → аркуш «Фактури». Скрипт сам знаходить оплату в банку й ставить «Оплачено».", ""),
@@ -1169,9 +1221,9 @@ ins.page_setup.fitToWidth = 1; ins.page_setup.fitToHeight = 0; ins.sheet_propert
 
 # ========================= ЖОВТЕ / СІРЕ + ЗАХИСТ =========================
 UNLOCK = Protection(locked=False)
-INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGH", N), "Витрати": ("ACEFG", N),
+INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGH", N), "Витрати": ("ACEFGH", N), "Felgdent статуси": ("ABCD", 500), "Записи Felgdent": ("ACDEFG", 5001),
               "Персонал": ("ACDEF", 500), "Онлайн-записи": ("ACDEFG", N), "Google Ads": ("ACDEFG", N), "Пацієнти": ("ABC", N), "Послуги": ("ABC", 500)}
-CALC_COLS = {"Візити": ("BOPQ", "R"), "Банк": ("BHI", "FK"), "Фактури": ("IJ", "K"), "Витрати": ("BD", ""), "Персонал": ("BG", ""),
+CALC_COLS = {"Візити": ("BOPQ", "R"), "Банк": ("BHI", "FK"), "Фактури": ("IJ", "K"), "Витрати": ("BD", "I"), "Felgdent статуси": ("", "E"), "Записи Felgdent": ("B", "H"), "Персонал": ("BG", ""),
              "Онлайн-записи": ("B", "H"), "Google Ads": ("B", "H"), "Пацієнти": ("", "D")}
 def protect(ws):
     pr = ws.protection
@@ -1212,7 +1264,7 @@ protect(wb["Інструкція"])
 
 # порядок аркушів
 order = ["Інструкція", "Дашборд", "Рік", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
-         "Пацієнти", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
+         "Пацієнти", "Felgdent статуси", "Записи Felgdent", "Послуги", "Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування", "Журнал імпорту"]
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
     for row in ws.iter_rows():
@@ -1221,7 +1273,7 @@ for ws in wb.worksheets:
                 c.font = Font(name=F, size=c.font.size or 10, bold=c.font.bold, italic=c.font.italic, color=c.font.color)
 for name, color in (("Дашборд", "1F4E5A"), ("Рік", "1F4E5A"), ("Інструкція", "999999")):
     wb[name].sheet_properties.tabColor = color
-for name in ("Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads", "Пацієнти"):
+for name in ("Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads", "Пацієнти", "Felgdent статуси", "Записи Felgdent"):
     wb[name].sheet_properties.tabColor = "F2C744"
 wb.active = 1
 wb.save(OUT)

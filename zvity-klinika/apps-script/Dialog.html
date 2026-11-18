@@ -21,7 +21,12 @@
   <label>1. Тип файлу</label>
   <select id="type">
     <option value="AUTO">Визначити автоматично</option>
-    <option value="VISITS">Felgdent – візити</option>
+    <option value="WPLATY">Felgdent – Koszty i wpłaty (оплати + технік)</option>
+    <option value="FSTATUS">Felgdent – Status wizyt (вкажіть місяць)</option>
+    <option value="FDUR">Felgdent – Średnia długość wizyty</option>
+    <option value="FSOURCES">Felgdent – Raport pozyskania pacjenta</option>
+    <option value="FZAPISY">Felgdent – Raport przesunięć wizyt</option>
+    <option value="VISITS">Felgdent – список візитів (з лікарем)</option>
     <option value="PATIENTS">Felgdent – пацієнти</option>
     <option value="BANK">Виписка з банку</option>
     <option value="INVOICES">Фактури (реєстр)</option>
@@ -30,7 +35,7 @@
     <option value="ADS">Google Ads – звіт</option>
   </select>
 
-  <label>2. Місяць звіту (лише для Google Ads без дат по днях)</label>
+  <label>2. Місяць звіту (для «Status wizyt» і Google Ads без дат)</label>
   <input type="month" id="month">
 
   <label>3. Файли (CSV, XLSX) — можна кілька одразу</label>

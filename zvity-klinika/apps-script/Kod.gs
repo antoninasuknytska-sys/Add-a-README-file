@@ -18,7 +18,9 @@ var UKLAD = {
               cols: { date: 1, platform: 3, patient: 4, doctor: 5, service: 6, status: 7 } },
   ADS:      { sheet: 'Google Ads', last: 3001, keyCol: 8,
               cols: { date: 1, campaign: 3, impressions: 4, clicks: 5, cost: 6, conversions: 7 } },
-  EXPENSES: { sheet: 'Витрати', last: 3001, keyCol: 7, cols: { date: 1, category: 3, description: 5, amount: 6, payment: 7 } },
+  EXPENSES: { sheet: 'Витрати', last: 3001, keyCol: 9, cols: { date: 1, category: 3, description: 5, amount: 6, payment: 7, doctor: 8 } },
+  FSTATUS:  { sheet: 'Felgdent статуси', last: 500, keyCol: 5, cols: { month: 1, raw: 2, status: 3, count: 4 } },
+  ZAPISY:   { sheet: 'Записи Felgdent', last: 5001, keyCol: 8, cols: { date: 1, patient: 3, status: 4, raw: 5, moved: 6, changedBy: 7 } },
   STAFF:    { sheet: 'Персонал', last: 500, keyCol: 6, cols: { date: 1, name: 3, role: 4, hours: 5, rate: 6 } }
 };
 
@@ -59,28 +61,7 @@ function importujBlob(blob, forcedType, month) {
   var lock = LockService.getDocumentLock();
   lock.waitLock(60000);
   try {
-    var rows = czytajTabele(blob);
-    var cfg = wczytajKonfig();
-    var type, hdr;
-    if (forcedType && forcedType !== 'AUTO') {
-      type = forcedType;
-      hdr = findHeader(rows, cfg.fields[type]);
-      if (!hdr) throw new Error('У файлі не знайдено обов\'язкових колонок для типу «' + TYPY[type] + '». Очікувані назви: ' +
-        cfg.fields[type].filter(function (f) { return f.required !== 'ні'; }).map(function (f) { return f.aliases.slice(0, 3).join(' / '); }).join('; '));
-    } else {
-      var det = detectType(rows, cfg.fields, cfg.hints, name);
-      if (det.error) throw new Error(det.error);
-      type = det.type; hdr = det.header;
-    }
-    var res = mapRecords(type, rows, hdr, { statusRules: cfg.statuses, month: month || null });
-    var st = zapisz_(type, res.records, cfg);
-    if (type === 'BANK') { przeliczKategorie_(cfg); zestawFaktury_(); }
-    if (type === 'INVOICES') { kategorieFaktur_(cfg); zestawFaktury_(); }
-    if (type === 'ZL' || type === 'BOOKSY' || type === 'PATIENTS') uzupelnijZrodla_();
-    var warn = res.warnings.concat(st.warnings || []);
-    dziennik_(name, TYPY[type], st.added, st.updated, res.skipped, warn.join(' | '));
-    return '✅ ' + name + ' → ' + TYPY[type] + ': додано ' + st.added + ', оновлено ' + st.updated + ', пропущено ' + res.skipped +
-      (warn.length ? '\n⚠ ' + warn.join('\n⚠ ') : '');
+    return importujArkusze_(name, czytajArkusze(blob), forcedType, month);
   } catch (e) {
     dziennik_(name, '—', 0, 0, 0, 'ПОМИЛКА: ' + e.message);
     throw new Error(name + ': ' + e.message);
@@ -89,26 +70,58 @@ function importujBlob(blob, forcedType, month) {
   }
 }
 
-/** Файл → масив рядків. CSV/TXT читаємо напряму (UTF-8 або Windows-1250), XLSX/XLS/ODS конвертуємо через Drive. */
-function czytajTabele(blob) {
+/** Імпорт усіх розпізнаних аркушів файлу (у Felgdent «Koszty i wpłaty» — це аркуші «Wpłaty» і «Koszty»). */
+function importujArkusze_(name, sheets, forcedType, month) {
+  var cfg = wczytajKonfig();
+  var out = [], multi = sheets.length > 1;
+  sheets.forEach(function (sh) {
+    var rows = sh.rows, type, hdr;
+    var label = multi ? name + ' [' + sh.name + ']' : name;
+    if (forcedType && forcedType !== 'AUTO') {
+      // «Koszty i wpłaty» з Felgdent: аркуш оплат + аркуш витрат
+      var tryTypes = forcedType === 'WPLATY' ? ['WPLATY', 'FKOSZTY'] : [forcedType];
+      for (var k = 0; k < tryTypes.length && !hdr; k++) { type = tryTypes[k]; hdr = findHeader(rows, cfg.fields[type]); }
+      if (tryTypes.length > 1 && !hdr) type = forcedType;
+      if (!hdr) {
+        if (multi) return;
+        throw new Error('У файлі не знайдено обов\'язкових колонок для типу «' + TYPY[type] + '». Очікувані назви: ' +
+          cfg.fields[type].filter(function (f) { return f.required !== 'ні'; }).map(function (f) { return f.aliases.slice(0, 3).join(' / '); }).join('; '));
+      }
+    } else {
+      var det = detectType(rows, cfg.fields, cfg.hints, (multi ? sh.name + ' | ' : '') + name);
+      if (det.error) { if (multi) return; throw new Error(det.error); }
+      type = det.type; hdr = det.header;
+    }
+    var res = mapRecords(type, rows, hdr, { statusRules: cfg.statuses, month: month || null });
+    var st = zapisz_(type, res.records, cfg);
+    if (type === 'BANK') { przeliczKategorie_(cfg); zestawFaktury_(); }
+    if (type === 'INVOICES') { kategorieFaktur_(cfg); zestawFaktury_(); }
+    if (['ZL', 'BOOKSY', 'PATIENTS', 'FSOURCES'].indexOf(type) >= 0) uzupelnijZrodla_();
+    var warn = res.warnings.concat(st.warnings || []);
+    dziennik_(label, TYPY[type], st.added, st.updated, res.skipped, warn.join(' | '));
+    out.push('✅ ' + label + ' → ' + TYPY[type] + ': додано ' + st.added + ', оновлено ' + st.updated + ', пропущено ' + res.skipped +
+      (warn.length ? '\n⚠ ' + warn.join('\n⚠ ') : ''));
+  });
+  if (!out.length) throw new Error('У файлі не знайдено жодної таблиці, яку можна імпортувати.');
+  return out.join('\n');
+}
+
+/** Файл → [{name, rows}]. CSV/TXT читаємо напряму (UTF-8 або Windows-1250), XLSX/XLS/ODS конвертуємо через Drive (усі аркуші). */
+function czytajArkusze(blob) {
   var name = (blob.getName() || '').toLowerCase();
   var mime = blob.getContentType() || '';
   if (/\.pdf$/.test(name) || mime === 'application/pdf') throw new Error('PDF не підтримується. Вивантажте з банку / програми файл CSV або XLSX.');
   if (/\.(csv|txt)$/.test(name) || /text\//.test(mime)) {
     var t = blob.getDataAsString('UTF-8');
-    if (t.indexOf('�') >= 0) t = blob.getDataAsString('windows-1250');
-    return parseCsvText(t);
+    if (t.indexOf('\uFFFD') >= 0) t = blob.getDataAsString('windows-1250');
+    return [{ name: blob.getName(), rows: parseCsvText(t) }];
   }
   if (/\.(xlsx|xls|ods)$/.test(name) || /spreadsheet|excel/.test(mime)) {
     var f = Drive.Files.create({ name: 'tmp_import_' + name, mimeType: MimeType.GOOGLE_SHEETS }, blob);
     try {
-      var ss = SpreadsheetApp.openById(f.id);
-      var best = null;
-      ss.getSheets().forEach(function (sh) {
-        var v = sh.getDataRange().getValues();
-        if (!best || v.length > best.length) best = v;
+      return SpreadsheetApp.openById(f.id).getSheets().map(function (sh) {
+        return { name: sh.getName(), rows: sh.getDataRange().getValues().map(function (r) { return r.map(function (c) { return typeof c === 'string' ? c.trim() : c; }); }) };
       });
-      return best.map(function (r) { return r.map(function (c) { return typeof c === 'string' ? c.trim() : c; }); });
     } finally {
       DriveApp.getFileById(f.id).setTrashed(true);
     }
@@ -215,11 +228,61 @@ function zapisz_(type, recs, cfg) {
     recs.forEach(function (r) { count(a.upsert(r.key, r, ['date', 'campaign', 'impressions', 'clicks', 'cost', 'conversions'], ['impressions', 'clicks', 'cost', 'conversions'])); });
     a.save();
 
-  } else if (type === 'VISITS') {
+  } else if (type === 'FKOSZTY') {
+    var e = Tabela_('EXPENSES'), docs = lekarze_();
+    recs.forEach(function (r) {
+      r.doctor = znajdzLekarza_(r.doctor, docs) || r.doctor;
+      r.description = r.description + (r.doctor ? ' — ' + r.doctor : '');
+      count(e.upsert(r.key, r, ['date', 'category', 'description', 'amount', 'payment', 'doctor'], ['amount']));
+    });
+    e.save();
+
+  } else if (type === 'FSOURCES') {
+    var ps = Tabela_('PATIENTS');
+    recs.forEach(function (r) { count(ps.upsert(r.key, r, ['patient', 'source'], ['source'])); });
+    ps.save();
+
+  } else if (type === 'FSTATUS') {
+    var fs = Tabela_('FSTATUS');
+    recs.forEach(function (r) { count(fs.upsert(r.key, r, ['month', 'raw', 'status', 'count'], ['status', 'count'])); });
+    fs.save();
+
+  } else if (type === 'ZAPISY' || type === 'FZAPISY') {
+    var z = Tabela_('ZAPISY');
+    recs.forEach(function (r) { count(z.upsert(r.key, r, ['date', 'patient', 'status', 'raw', 'moved', 'changedBy'], ['date', 'status', 'raw', 'moved', 'changedBy'])); });
+    z.save();
+
+  } else if (type === 'FDUR') {
+    var shD = SpreadsheetApp.getActive().getSheetByName('Довідники');
+    var rng = shD.getRange('A4:D20'), vals = rng.getValues(), list = vals.map(function (r) { return r[0]; });
+    recs.forEach(function (r) {
+      var nm = znajdzLekarza_(r.doctor, list), i = nm ? list.indexOf(nm) : list.indexOf('');
+      if (i < 0) { warnings.push('Немає місця в «Довідниках» для ' + r.doctor); return; }
+      if (!nm) { vals[i][0] = r.doctor; list[i] = r.doctor; added++; } else updated++;
+      vals[i][3] = r.hours;
+    });
+    rng.setValues(vals);
+
+  } else if (type === 'VISITS' || type === 'WPLATY') {
     var res = zapiszWizyty_(recs);
     added = res.added; updated = res.updated; warnings = res.warnings;
   }
   return { added: added, updated: updated, warnings: warnings };
+}
+
+/** Лікарі з «Довідників» (A4:A20). */
+function lekarze_() {
+  return SpreadsheetApp.getActive().getSheetByName('Довідники').getRange('A4:A20').getValues().map(function (r) { return r[0]; });
+}
+/** «Krzysztof Dragun» ↔ «ENDODONTA Krzysztof Dragun»: точний збіг, або одна назва містить іншу. */
+function znajdzLekarza_(name, docs) {
+  var n = norm(name);
+  if (!n) return '';
+  var exact = docs.filter(function (d) { return d && norm(d) === n; })[0];
+  if (exact) return exact;
+  if (n.length < 6) return '';
+  var part = docs.filter(function (d) { var x = norm(d); return d && x.length >= 6 && (x.indexOf(n) >= 0 || n.indexOf(x) >= 0); });
+  return part.length === 1 ? part[0] : '';
 }
 
 /** Візити: напрям з «Послуг», нові лікарі/послуги в довідники, джерело та «новий пацієнт». */
@@ -232,13 +295,21 @@ function zapiszWizyty_(recs) {
   var servMap = {}, servNext = 0;
   serv.forEach(function (r, i) { if (r[0]) { servMap[norm(r[0])] = { dir: r[1], dur: r[2] }; servNext = i + 1; } });
   var newServ = [];
-  // лікарі
+  function usluga(name) {   // напрям і тривалість однієї послуги; нові послуги — на аркуш «Послуги» з підказаним напрямом
+    var k = norm(name);
+    if (!k) return {};
+    if (!servMap[k]) { servMap[k] = { dir: directionFromService(name), dur: '' }; newServ.push([name, servMap[k].dir, '']); }
+    return servMap[k];
+  }
+  // лікарі: назва, % і середня тривалість (D) з «Довідників»
   var shD = ss.getSheetByName('Довідники');
-  var docs = shD.getRange('A4:A20').getValues().map(function (r) { return r[0]; });
-  var docSet = {}; docs.forEach(function (d) { if (d) docSet[norm(d)] = d; });
+  var docRows = shD.getRange('A4:D20').getValues();
+  var docs = docRows.map(function (r) { return r[0]; });
+  var docDur = {}; docRows.forEach(function (r) { if (r[0] && Number(r[3]) > 0) docDur[r[0]] = Number(r[3]); });
   var newDocs = [];
+  var defDur = Number(ss.getSheetByName('Налаштування').getRange('B7').getValue()) || '';
   // джерела
-  var srcNames = shD.getRange('J4:J15').getValues().map(function (r) { return r[0]; }).filter(String);
+  var srcNames = shD.getRange('J4:J19').getValues().map(function (r) { return r[0]; }).filter(String);
   function mapSource(s) {
     var n = norm(s); if (!n || n === 'brak informacji' || n === 'brak') return '';
     for (var i = 0; i < srcNames.length; i++) if (norm(srcNames[i]) === n) return srcNames[i];
@@ -248,51 +319,65 @@ function zapiszWizyty_(recs) {
   }
   var ctx = kontekstPacjentow_();
   var t = Tabela_('VISITS');
-  // перший візит кожного пацієнта (з існуючих + нових)
   var first = {};
   for (var i = 0; i < t.rows(); i++) {
     var p = norm(t.get(i, 'patient')), d = t.get(i, 'date');
     if (p && d instanceof Date && (!first[p] || d < first[p])) first[p] = d;
   }
   recs.forEach(function (r) { var p = norm(r.patient); if (!first[p] || r.date < first[p]) first[p] = r.date; });
-  var usedFirstSeen = false, added = 0, updated = 0;
+  var usedFirstSeen = false, added = 0, updated = 0, noDoctor = 0;
 
   recs.forEach(function (r) {
-    var sk = norm(r.service);
-    if (r.service && !servMap[sk]) { servMap[sk] = { dir: '', dur: '' }; newServ.push([r.service, r.direction || '', '']); }
-    var sv = servMap[sk] || {};
-    if (!r.direction) r.direction = sv.dir || directionFromDoctor(r.doctor);
-    if (r.duration === null && sv.dur) r.duration = sv.dur;
-    if (r.doctor && !docSet[norm(r.doctor)]) { docSet[norm(r.doctor)] = r.doctor; newDocs.push(r.doctor); }
-    else if (r.doctor) r.doctor = docSet[norm(r.doctor)];
+    // лікар: з файлу, або (оплати Felgdent) — хто вніс оплату, якщо це лікар з довідника
+    if (r.doctor) {
+      var found = znajdzLekarza_(r.doctor, docs);
+      if (found) r.doctor = found;
+      else if (newDocs.indexOf(r.doctor) < 0) newDocs.push(r.doctor);
+    } else if (r.addedBy) {
+      r.doctor = znajdzLekarza_(r.addedBy, docs);
+    }
+    if (!r.doctor) noDoctor++;
+    // напрям і тривалість: з послуг (кілька послуг в оплаті → найважливіший напрям), потім з префікса лікаря
+    var lines = r.lines || (r.service ? [r.service] : []);
+    var dirs = lines.map(function (l) { return usluga(l).dir; }).filter(String);
+    if (!r.direction) {
+      dirs.sort(function (a, b) { return PRIORYTET_NAPRAMKU.indexOf(a) - PRIORYTET_NAPRAMKU.indexOf(b); });
+      r.direction = dirs[0] || directionFromDoctor(r.doctor);
+    }
+    if (r.duration === null) {
+      var durs = lines.map(function (l) { return Number(usluga(l).dur) || 0; });
+      var sum = durs.reduce(function (a, b) { return a + b; }, 0);
+      r.duration = sum || docDur[r.doctor] || defDur;
+    }
     var pk = norm(r.patient);
-    // новий пацієнт
     if (r.isNew === null) {
       var reg = ctx.reg[pk];
       if (reg) r.isNew = (reg.getFullYear() === r.date.getFullYear() && reg.getMonth() === r.date.getMonth()) ? 'Так' : 'Ні';
       else { r.isNew = first[pk] && first[pk].getTime() === r.date.getTime() ? 'Так' : 'Ні'; usedFirstSeen = true; }
     }
-    // джерело
-    r.source = mapSource(r.source) || ctx.src[pk] || ctx.online[pk + '|' + ymd(r.date)] || ctx.onlineAny[pk] || ctx.visitSrc[pk] || '';
+    r.source = mapSource(r.source) || mapSource(ctx.src[pk]) || ctx.online[pk + '|' + ymd(r.date)] || ctx.onlineAny[pk] || ctx.visitSrc[pk] || '';
     if (r.lab === null) delete r.lab;
     if (r.prep === null) delete r.prep;
     var res = t.upsert(r.key, r,
       ['date', 'patient', 'isNew', 'source', 'doctor', 'direction', 'service', 'amount', 'lab', 'prep', 'payment', 'status', 'duration'],
-      ['amount', 'status', 'payment', 'duration', 'lab', 'prep', 'direction']);
+      ['amount', 'status', 'payment', 'lab', 'prep']);
     if (res.isNew) added++; else updated++;
-    // джерело / «новий» не перезаписуємо, якщо вже вписано вручну
-    if (!res.isNew && !t.get(res.index, 'source') && r.source) t.set(res.index, 'source', r.source);
+    if (!res.isNew) {   // напрям / лікар / джерело дописуємо лише в порожні клітинки — ручні правки не затираються
+      ['source', 'direction', 'doctor', 'duration'].forEach(function (f) { if (!t.get(res.index, f) && r[f]) t.set(res.index, f, r[f]); });
+    }
   });
   t.save();
   if (newServ.length) {
     shS.getRange(servNext + 2, 1, newServ.length, 3).setValues(newServ);
-    warnings.push('Нові послуги додано на аркуш «Послуги» — вкажіть для них напрям (червоні): ' + newServ.length);
+    var bez = newServ.filter(function (x) { return !x[1]; }).length;
+    warnings.push('Нових послуг на аркуші «Послуги»: ' + newServ.length + (bez ? ' (без напряму — червоні: ' + bez + ')' : ' — напрям підставлено автоматично, перевірте'));
   }
   if (newDocs.length) {
     var free = docs.map(function (d, i) { return d ? -1 : i; }).filter(function (i) { return i >= 0; });
     newDocs.slice(0, free.length).forEach(function (d, k) { shD.getRange(4 + free[k], 1).setValue(d); });
     warnings.push('Нові лікарі додано в «Довідники» — впишіть їхній %: ' + newDocs.join(', '));
   }
+  if (noDoctor) warnings.push('Візитів без лікаря: ' + noDoctor + ' (в оплатах Felgdent лікар не вказаний — див. аркуш «Візити», колонка «Лікар»).');
   if (usedFirstSeen) warnings.push('«Новий пацієнт» визначено за першим візитом у таблиці. Для точності завантажте список пацієнтів з Felgdent (з датою реєстрації).');
   return { added: added, updated: updated, warnings: warnings };
 }
@@ -305,7 +390,7 @@ function kontekstPacjentow_() {
     if (!r[0]) return;
     var k = norm(r[0]);
     if (r[1] instanceof Date) reg[k] = r[1];
-    if (r[2]) src[k] = r[2];
+    if (r[2] && norm(r[2]) !== 'brak informacji') src[k] = r[2];
   });
   ss.getSheetByName('Онлайн-записи').getRange(2, 1, 3000, 4).getValues().forEach(function (r) {
     if (!r[3] || !(r[0] instanceof Date)) return;
@@ -445,10 +530,11 @@ function wyczyscDemo() {
 
 // ------------------------------------------------------------------ захист від випадкового редагування
 /** Колонки з формулами: редагувати може лише власник (адміністратор — ні). */
-var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H', 'I'], 'Фактури': ['I', 'J'], 'Витрати': ['B', 'D'],
+var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H', 'I'], 'Фактури': ['I', 'J'], 'Витрати': ['B', 'D'], 'Записи Felgdent': ['B'],
   'Персонал': ['B', 'G'], 'Онлайн-записи': ['B'], 'Google Ads': ['B'] };
 /** Колонки, які заповнює скрипт: попередження при ручній зміні (скрипт пише вільно). */
-var SKRYPT_KOLUMNY = { 'Візити': ['R'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'] };
+var SKRYPT_KOLUMNY = { 'Візити': ['R'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'],
+  'Витрати': ['I'], 'Felgdent статуси': ['E'], 'Записи Felgdent': ['H'] };
 var CALE_ARKUSZE = ['Дашборд', 'Рік', 'Інструкція'];
 
 function zabezpiecz() {

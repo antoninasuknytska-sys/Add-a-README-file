@@ -1,0 +1,313 @@
+[
+ {
+  "file": "Koszty_i_wplaty_w_gabinecie_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Koszty i wpłaty w gabinecie",
+    "rows": [
+     [
+      "Rozliczenia",
+      "Kwota",
+      "Waluta"
+     ],
+     [
+      "Wpłaty (PLN)",
+      2950,
+      "PLN"
+     ],
+     [
+      "Koszty (PLN)",
+      300,
+      "PLN"
+     ]
+    ]
+   },
+   {
+    "name": "Wpłaty",
+    "rows": [
+     [
+      "Data",
+      "Dodane przez",
+      "Opis",
+      "Pacjent",
+      "Metoda płatności",
+      "",
+      "Kwota",
+      "Waluta"
+     ],
+     [
+      {
+       "$d": "2026-11-17T00:00:00"
+      },
+      "RECEPCJA Test",
+      "Profilaktyka stomatologiczna/Higienizacja\n",
+      "Jan Testowy",
+      "Czek",
+      400,
+      360,
+      "PLN"
+     ],
+     [
+      {
+       "$d": "2026-11-17T00:00:00"
+      },
+      "RECEPCJA Test",
+      "korona cyrkonowa TEST (12)\nkorona tymczasowa PMMA (12)\nLeczenie zmian na błonie śluzowej jamy ustnej - laserowo (12)\n",
+      "Anna Próbna",
+      "Karta płatnicza/kredytowa",
+      "",
+      2000,
+      "PLN"
+     ],
+     [
+      {
+       "$d": "2026-11-17T00:00:00"
+      },
+      "Lekarz Testowy",
+      "Wypełnienie ubytku korony zęba na 2 powierzchniach (25)\n",
+      "Ewa Przykład",
+      "Gotówka",
+      "",
+      450,
+      "PLN"
+     ],
+     [
+      {
+       "$d": "2026-11-17T00:00:00"
+      },
+      "RECEPCJA Test",
+      "Wizyta z bólem- pomoc doraźna (46)\n",
+      "Adam Inny",
+      "Wpłata mieszana",
+      "",
+      140,
+      "PLN"
+     ]
+    ]
+   },
+   {
+    "name": "Podsumowanie wpłat",
+    "rows": [
+     [
+      "Metoda płatności",
+      "Kwota",
+      "Waluta"
+     ],
+     [
+      "Wpłaty (Czek PLN)",
+      360,
+      "PLN"
+     ]
+    ]
+   },
+   {
+    "name": "Koszty",
+    "rows": [
+     [
+      "Data",
+      "Dodane przez",
+      "Opis",
+      "Metoda płatności",
+      "Kwota",
+      "Waluta"
+     ],
+     [
+      {
+       "$d": "2026-11-17T00:00:00"
+      },
+      "Lekarz Testowy",
+      "technik",
+      "Gotówka",
+      300,
+      "PLN"
+     ]
+    ]
+   },
+   {
+    "name": "Podsumowanie kosztów",
+    "rows": [
+     [
+      "Metoda płatności",
+      "Kwota",
+      "Waluta"
+     ],
+     [
+      "Koszty (Gotówka PLN)",
+      300,
+      "PLN"
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "file": "Status_wizyt_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Status wizyt",
+    "rows": [
+     [
+      "Status wizyty",
+      "Ilość wizyt"
+     ],
+     [
+      "Niepotwierdzone wizyty",
+      0
+     ],
+     [
+      "Odbytych wizyt",
+      280
+     ],
+     [
+      "Odwołanych wizyt przez pacjenta",
+      20
+     ],
+     [
+      "Odwołanych wizyt przez gabinet",
+      2
+     ],
+     [
+      "Pacjentów nie przyszło",
+      12
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "file": "Srednia_dlugosc_wizyty_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Średnia długość wizyty",
+    "rows": [
+     [
+      "Lekarz",
+      "Średni czas wizyty"
+     ],
+     [
+      "Lekarz  Testowy",
+      "1:15"
+     ],
+     [
+      "Nowy Lekarz",
+      "0:45"
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "file": "Raport_pozyskania_pacjenta_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Raport pozyskania pacjenta",
+    "rows": [
+     [
+      "Imię",
+      "Nazwisko",
+      "Pozyskanie pacjenta",
+      ""
+     ],
+     [
+      "Anna",
+      "Próbna",
+      "Z sieci",
+      ""
+     ],
+     [
+      "Jan",
+      "Testowy",
+      "Brak informacji",
+      ""
+     ],
+     [
+      "ADAM",
+      "INNY",
+      "Znajomy",
+      "komentarz"
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "file": "Raport_przesuniec_wizyt_TEST.xlsx",
+  "sheets": [
+   {
+    "name": "Raport pacjentów wg wieku...",
+    "rows": [
+     [
+      "Pacjent",
+      "Data dodania wizyty",
+      "Termin wizyty (pierwotny)",
+      "Nowy termin wizyty (przy przesunięciu)",
+      "Status wizyt",
+      "Dokonał zmiany",
+      "Termin dokonania zmian",
+      "Komentarz (przy przesunięciu)"
+     ],
+     [
+      "",
+      "10:01 01/10/2026",
+      "09:35 07/10/2026",
+      "08:35 07/10/2026",
+      "Wizyta niepotwierdzona",
+      "Recepcja",
+      "18:09 06/10/2026",
+      ""
+     ],
+     [
+      "Jan Testowy",
+      "14:23 01/10/2026",
+      "10:30 08/10/2026",
+      "10:40 08/10/2026",
+      "---",
+      "Recepcja",
+      "10:16 08/10/2026",
+      ""
+     ],
+     [
+      "Jan Testowy",
+      "14:23 01/10/2026",
+      "10:40 08/10/2026",
+      "10:30 08/10/2026",
+      "Wizyta odbyła się",
+      "Recepcja",
+      "10:16 08/10/2026",
+      ""
+     ],
+     [
+      "Ewa Przykład",
+      "12:49 01/10/2026",
+      "15:30 19/10/2026",
+      "---",
+      "Pacjent odwołał",
+      "Lekarz Testowy",
+      "12:51 01/10/2026",
+      ""
+     ],
+     [
+      "Adam Inny",
+      "15:00 01/10/2026",
+      "19:00 21/10/2026",
+      "---",
+      "Pacjent nie przyszedł",
+      "Lekarz Testowy",
+      "19:12 21/10/2026",
+      ""
+     ],
+     [
+      "Anna Próbna",
+      "15:04 01/10/2026",
+      "14:00 19/11/2026",
+      "---",
+      "Wizyta usunięta",
+      "Recepcja",
+      "15:04 01/10/2026",
+      ""
+     ]
+    ]
+   }
+  ]
+ }
+]

@@ -85,4 +85,30 @@ ok(r.records[0].source === 'ZnanyLekarz' && r.records[1].source === 'Brak inform
 ok(I.directionFromDoctor('ENDODONTA Jan Testowy') === 'Endodoncja' && I.directionFromDoctor('HIGIENA Anna Testowa') === 'Profilaktyka', 'prefix single');
 ok(I.directionFromDoctor('Ortodonta Ola Testowa') === 'Ortodoncja' && I.directionFromDoctor('ZACH/PROT/CHIR Piotr Testowy') === '' && I.directionFromDoctor('Лікар 1') === '', 'prefix multi/none');
 
+// Справжні формати звітів Felgdent (знеособлені копії): tests/samples/felgdent_raporty.json
+const rep = JSON.parse(fs.readFileSync(path.join(__dirname, 'samples', 'felgdent_raporty.json'), 'utf8'));
+const rv = v => v && v.$d ? new Date(v.$d) : v;
+const got = {};
+rep.forEach(f => f.sheets.forEach(sh => {
+  const rows = sh.rows.map(r => r.map(rv));
+  const det = I.detectType(rows, cfg.fields, cfg.hints, (f.sheets.length > 1 ? sh.name + ' | ' : '') + f.file);
+  if (det.error) return;
+  got[det.type] = I.mapRecords(det.type, rows, det.header, { statusRules: cfg.statuses, month: new Date(2026, 9, 1) });
+}));
+ok(Object.keys(got).sort().join() === 'FDUR,FKOSZTY,FSOURCES,FSTATUS,FZAPISY,WPLATY', 'felgdent types ' + Object.keys(got));
+const w = got.WPLATY.records;
+ok(w.length === 4 && w[0].payment === 'Czek' && w[1].payment === 'Karta' && w[3].payment === 'Wpłata mieszana' && w[1].amount === 2000, 'wplaty');
+ok(w[1].lines.length === 3 && w[1].lines[0] === 'korona cyrkonowa TEST', 'wplaty lines ' + w[1].lines);
+ok(I.directionFromService(w[0].lines[0]) === 'Profilaktyka' && I.directionFromService(w[1].lines[0]) === 'Protetyka' &&
+   I.directionFromService(w[2].lines[0]) === 'Zachowawcza' && I.directionFromService(w[3].lines[0]) === 'Zachowawcza', 'service directions');
+ok(got.FKOSZTY.records[0].category === 'Technik / laboratorium (koszt z Felgdent)' && got.FKOSZTY.records[0].doctor === 'Lekarz Testowy', 'koszty');
+ok(got.FSOURCES.records.length === 3 && got.FSOURCES.records[2].patient === 'ADAM INNY' && got.FSOURCES.records[0].source === 'Z sieci', 'sources');
+ok(got.FSTATUS.records.find(r => r.raw === 'Pacjentów nie przyszło').status === 'Неявка' && got.FSTATUS.records.find(r => r.raw === 'Odbytych wizyt').status === 'Виконано' &&
+   got.FSTATUS.records.find(r => r.raw === 'Odwołanych wizyt przez gabinet').status === 'Скасовано', 'fstatus');
+ok(got.FDUR.records[0].hours === 1.25 && got.FDUR.records[1].hours === 0.75, 'fdur');
+const z = got.FZAPISY.records;
+ok(z.length === 5 && got.FZAPISY.skipped === 1, 'zapisy rows ' + z.length);
+ok(z.map(x => x.status).join() === 'Перенесено,Виконано,Скасовано,Неявка,Видалено' && +z[1].date === +new Date(2026, 9, 8), 'zapisy statuses ' + z.map(x => x.status));
+ok(+I.parseDate('09:35 07/10/2026') === +new Date(2026, 9, 7), 'felgdent datetime');
+
 console.log('OK — ' + n + ' перевірок пройдено');

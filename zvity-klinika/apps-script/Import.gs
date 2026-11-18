@@ -11,7 +11,13 @@ var TYPY = {
   PATIENTS: 'Felgdent – пацієнти',
   ZL: 'ZnanyLekarz – записи',
   BOOKSY: 'Booksy – записи',
-  ADS: 'Google Ads – звіт'
+  ADS: 'Google Ads – звіт',
+  WPLATY: 'Felgdent – wpłaty (оплати)',
+  FKOSZTY: 'Felgdent – koszty (технік)',
+  FSOURCES: 'Felgdent – pozyskanie pacjenta',
+  FSTATUS: 'Felgdent – status wizyt',
+  FDUR: 'Felgdent – średnia długość wizyty',
+  FZAPISY: 'Felgdent – przesunięcia wizyt'
 };
 
 /** Нормалізація тексту: малі літери, без польських діакритиків, без зайвих пробілів. */
@@ -116,6 +122,9 @@ function parseDate(v) {
   if ((m = s.match(/^(\d{1,2})\s+([a-z]+)\.?,?\s+(\d{4})/)) && MIESIACE[m[2].slice(0, 3)]) return mkDate(m[3], MIESIACE[m[2].slice(0, 3)], m[1]);
   if ((m = s.match(/^([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})/)) && MIESIACE[m[1].slice(0, 3)]) return mkDate(m[3], MIESIACE[m[1].slice(0, 3)], m[2]);
   if ((m = s.match(/^([a-z]+)\s+(\d{4})$/)) && MIESIACE[m[1].slice(0, 3)]) return mkDate(m[2], MIESIACE[m[1].slice(0, 3)], 1);
+  // «09:35 07/10/2026» (Felgdent): дата не на початку
+  if ((m = s.match(/(?:^|\s)(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{4})(?!\d)/))) return mkDate(m[3], m[2], m[1]);
+  if ((m = s.match(/(?:^|\s)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/))) return mkDate(m[1], m[2], m[3]);
   return null;
 }
 
@@ -221,7 +230,7 @@ function mapPayment(raw) {
   var s = norm(raw);
   if (!s) return '';
   var t = [['payu', 'Raty PayU'], ['medirat', 'Mediraty'], ['medi rat', 'Mediraty'], ['rat', 'Raty PayU'], ['blik', 'BLIK'],
-    ['kart', 'Karta'], ['terminal', 'Karta'], ['gotow', 'Gotówka'], ['przelew', 'Przelew'], ['bon', 'Bon podarunkowy'],
+    ['czek', 'Czek'], ['mieszan', 'Wpłata mieszana'], ['kart', 'Karta'], ['terminal', 'Karta'], ['gotow', 'Gotówka'], ['przelew', 'Przelew'], ['bon', 'Bon podarunkowy'],
     ['voucher', 'Bon podarunkowy'], ['przedplat', 'Przedpłata (wcześniej)'], ['zaliczk', 'Przedpłata (wcześniej)']];
   for (var i = 0; i < t.length; i++) if (s.indexOf(t[i][0]) >= 0) return t[i][1];
   return String(raw).trim();
@@ -240,6 +249,49 @@ function directionFromDoctor(name) {
     for (var i = 0; i < PREFIKSY.length; i++) if (p.indexOf(PREFIKSY[i][0]) === 0) { if (found.indexOf(PREFIKSY[i][1]) < 0) found.push(PREFIKSY[i][1]); break; }
   });
   return found.length === 1 ? found[0] : '';
+}
+
+/** Напрям за назвою послуги Felgdent (ключові слова). Порядок = пріоритет, якщо в оплаті кілька послуг. */
+var SLOWA_NAPRAMKU = [
+  ['Implantologia', ['implant', 'augmentac', 'sinus lift', 'podniesienie dna zatoki', 'membran', 'kosc']],
+  ['Ortodoncja', ['ortodon', 'aparat', 'zamek', 'luk ortod', 'retencj', 'nakladk', 'aligner']],
+  ['Protetyka', ['koron', 'most', 'protez', 'licowk', 'wklad', 'onlay', 'inlay', 'overlay', 'tymczasow', 'wycisk', 'cyrkon', 'pmma']],
+  ['Endodoncja', ['kanal', 'endo', 'dewital', 'ekstyrpac', 'mikroskop', 'rewizj', 'opracowanie kanal', 'wypelnienie kanal']],
+  ['Chirurgia', ['ekstrakc', 'usuniecie zeba', 'usuniecie korzen', 'chirurg', 'resekc', 'nacieci', 'szwy', 'osemk', 'dluto']],
+  ['Dziecięca', ['mleczn', 'dzieci', 'lakow', 'lapis', 'adaptac']],
+  ['Profilaktyka', ['higieniz', 'skaling', 'scaling', 'piaskow', 'polerow', 'fluoryz', 'profilakty', 'kamien']],
+  ['Zachowawcza', ['wypelnien', 'ubyt', 'odbudow', 'bol', 'doraz', 'konsultac', 'przeglad', 'leczenie zmian', 'laser', 'rtg', 'pantomogr', 'znieczul', 'wizyta']]
+];
+/** Однозначні слова, які перевіряються першими: «Wypełnienie ubytku korony zęba» — це пломба, а не коронка. */
+var SLOWA_PEWNE = [['Endodoncja', ['kanal', 'endodont']], ['Zachowawcza', ['ubyt', 'wypelnienie ubytk']], ['Profilaktyka', ['higieniz', 'skaling']]];
+function directionFromService(text) {
+  var t = ' ' + norm(text) + ' ';
+  for (var j = 0; j < SLOWA_PEWNE.length; j++) {
+    if (SLOWA_PEWNE[j][1].some(function (w) { return t.indexOf(w) >= 0; })) return SLOWA_PEWNE[j][0];
+  }
+  for (var i = 0; i < SLOWA_NAPRAMKU.length; i++) {
+    if (SLOWA_NAPRAMKU[i][1].some(function (w) { return t.indexOf(w) >= 0; })) return SLOWA_NAPRAMKU[i][0];
+  }
+  return '';
+}
+var PRIORYTET_NAPRAMKU = SLOWA_NAPRAMKU.map(function (x) { return x[0]; });
+
+/** Рядки послуг з поля «Opis» Felgdent: «Wypełnienie … (25)\nKorona … (12)» → без номерів зубів. */
+function splitServices(opis) {
+  return String(opis || '').split(/\r?\n|;/).map(function (x) { return x.replace(/\s*\([\d,\s\-]+\)\s*$/, '').trim(); }).filter(String);
+}
+
+/** Статус з «Raport przesunięć wizyt» Felgdent → статус у звіті. */
+function felgdentStatus(raw) {
+  var s = norm(raw);
+  if (!s) return '';
+  if (s === '---' || s === '-') return 'Перенесено';
+  if (s.indexOf('odbyla') >= 0 || s.indexOf('poczekalni') >= 0 || s.indexOf('odbyt') >= 0) return 'Виконано';
+  if (s.indexOf('nie przysz') >= 0) return 'Неявка';
+  if (s.indexOf('odwol') >= 0) return 'Скасовано';
+  if (s.indexOf('usunieta') >= 0 || s.indexOf('usunie') >= 0) return 'Видалено';
+  if (s.indexOf('niepotwierdz') >= 0 || s.indexOf('nie odpowiada') >= 0 || s.indexOf('potwierdz') >= 0) return 'Заплановано';
+  return String(raw).trim();
 }
 
 function ymd(d) {
@@ -263,7 +315,7 @@ function mapRecords(type, rows, header, opts) {
   var recs = [], warnings = [], skipped = 0, seen = {};
   var m = header.map;
   function g(row, f) { return m[f] === undefined ? undefined : row[m[f]]; }
-  function str(v) { return v === undefined || v === null ? '' : String(v).trim(); }
+  function str(v) { return v === undefined || v === null ? '' : String(v).replace(/[ \u00a0]{2,}/g, ' ').trim(); }
   function uniq(key) { seen[key] = (seen[key] || 0) + 1; return key + '#' + seen[key]; }
   var unknownStatuses = {};
   if (type === 'BANK') {
@@ -349,6 +401,53 @@ function mapRecords(type, rows, header, opts) {
       rec = { date: d5, campaign: camp || '(усі кампанії)', impressions: parseNumber(g(row, 'impressions')) || 0,
         clicks: parseNumber(g(row, 'clicks')) || 0, cost: cost, conversions: parseNumber(g(row, 'conversions')) || 0 };
       rec.key = 'A|' + ymd(d5) + '|' + norm(rec.campaign);
+
+    } else if (type === 'WPLATY') {
+      var d6 = parseDate(g(row, 'date')), p6 = str(g(row, 'patient')), a6 = parseNumber(g(row, 'amount'));
+      if (!d6 || a6 === null) { skipped++; continue; }
+      var lines = splitServices(g(row, 'description'));
+      rec = { date: d6, patient: p6 || '(без пацієнта)', doctor: '', addedBy: str(g(row, 'addedBy')), service: lines.join('; '), lines: lines,
+        amount: a6, status: 'Виконано', duration: null, lab: null, prep: null, payment: mapPayment(g(row, 'payment')),
+        direction: '', isNew: null, source: '' };
+      rec.key = uniq(['W', ymd(d6), norm(p6), a6.toFixed(2), norm(rec.service).slice(0, 60)].join('|'));
+
+    } else if (type === 'FKOSZTY') {
+      var d7 = parseDate(g(row, 'date')), a7 = parseNumber(g(row, 'amount'));
+      if (!d7 || a7 === null) { skipped++; continue; }
+      var opis7 = str(g(row, 'description'));
+      rec = { date: d7, doctor: str(g(row, 'addedBy')), description: opis7, amount: Math.abs(a7), payment: mapPayment(g(row, 'payment')),
+        category: /techn|labor|protet|pracowni/i.test(norm(opis7)) ? 'Technik / laboratorium (koszt z Felgdent)' : 'Inne koszty gabinetu (Felgdent)' };
+      rec.key = uniq(['K', ymd(d7), norm(rec.doctor), rec.amount.toFixed(2), norm(opis7).slice(0, 40)].join('|'));
+
+    } else if (type === 'FSOURCES') {
+      var p8 = (str(g(row, 'firstName')) + ' ' + str(g(row, 'lastName'))).trim();
+      if (!p8) { skipped++; continue; }
+      rec = { patient: p8, source: str(g(row, 'source')), regDate: undefined };
+      rec.key = 'P|' + norm(p8);
+
+    } else if (type === 'FSTATUS') {
+      var raw9 = str(g(row, 'status')), c9 = parseNumber(g(row, 'count'));
+      if (!raw9 || c9 === null) { skipped++; continue; }
+      if (!opts.month) { skipped++; warnings.push('Status wizyt: у файлі немає місяця — вкажіть «Місяць звіту» при завантаженні.'); continue; }
+      var st9 = mapStatus(raw9, opts.statusRules || []);
+      if (st9 === 'Пропустити') st9 = 'Заплановано';
+      rec = { month: opts.month, raw: raw9, status: st9 || raw9, count: c9 };
+      rec.key = 'S|' + ymd(opts.month).slice(0, 7) + '|' + norm(raw9);
+
+    } else if (type === 'FDUR') {
+      var doc10 = str(g(row, 'doctor')), h10 = parseDuration(g(row, 'avg'));
+      if (!doc10 || h10 === null) { skipped++; continue; }
+      rec = { doctor: doc10, hours: Math.round(h10 * 100) / 100 };
+
+    } else if (type === 'FZAPISY') {
+      var p11 = str(g(row, 'patient'));
+      if (!p11) { skipped++; continue; }   // порожні рядки = блокування часу в графіку
+      var orig = parseDate(g(row, 'orig')), nw = parseDate(g(row, 'newTerm'));
+      var term = nw || orig;
+      if (!term) { skipped++; continue; }
+      var raw11 = str(g(row, 'status'));
+      rec = { date: term, patient: p11, status: felgdentStatus(raw11), raw: raw11, moved: nw ? 'Так' : 'Ні', changedBy: str(g(row, 'changedBy')) };
+      rec.key = uniq(['Z', str(g(row, 'added')), str(g(row, 'orig')), norm(p11)].join('|'));
     }
     if (rec) recs.push(rec);
   }
@@ -428,5 +527,6 @@ function matchInvoices(invoices, bank, usedBank) {
 if (typeof module !== 'undefined') {
   module.exports = { norm: norm, parseCsvText: parseCsvText, parseNumber: parseNumber, parseDate: parseDate, parseDuration: parseDuration,
     findHeader: findHeader, detectType: detectType, mapRecords: mapRecords, categorize: categorize, dirFromText: dirFromText,
-    matchInvoices: matchInvoices, mapStatus: mapStatus, mapPayment: mapPayment, directionFromDoctor: directionFromDoctor };
+    matchInvoices: matchInvoices, mapStatus: mapStatus, mapPayment: mapPayment, directionFromDoctor: directionFromDoctor,
+    directionFromService: directionFromService, splitServices: splitServices, felgdentStatus: felgdentStatus, PRIORYTET_NAPRAMKU: PRIORYTET_NAPRAMKU };
 }
