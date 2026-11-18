@@ -804,7 +804,7 @@ function monthlyReport() {
     const l = inbox.filter(i => i.source === k);
     if (!l.length) return null;
     const h = l.filter(i => i.status !== 'new' && i.handledAt);
-    return [SRC[k], l.length, h.length, l.filter(i => i.taskId).length, avg(h.map(i => i.handledAt - i.receivedAt), 6e4) + ' min'];
+    return [SRC[k], l.length, h.length, l.filter(i => i.taskId).length, (h.length ? avg(h.map(i => i.handledAt - i.receivedAt), 6e4) + ' min' : '—')];
   }).filter(Boolean);
   const handledBy = {};
   inbox.forEach(i => { if (i.handledBy) handledBy[i.handledBy] = (handledBy[i.handledBy] || 0) + 1; });
@@ -817,7 +817,7 @@ function monthlyReport() {
     '<h3>Sprawy według typów</h3>' + tbl(['Typ', 'Nowe', 'Zrobione', 'Bez realizacji', 'Otwarte teraz', 'Śr. dni'], typeRows) +
     '<h3>📥 Skrzynka: ' + inbox.length + ' wiadomości</h3>' + tbl(['Źródło', 'Wiadomości', 'Obsłużone', 'Zrobiono sprawę', 'Śr. czas reakcji'], inboxRows) +
     '<h3>👩‍💼 Praca recepcji</h3>' + tbl(['Kto', 'Działań', 'Utworzone sprawy', 'Zamknięte', 'Nieodebrane telefony', 'Przypomnienia lekarzom', 'Odpowiedzi na pytania'],
-      peopleRows.map(r => r.concat([])).map((r, i) => r)) +
+      peopleRows) +
     (Object.keys(handledBy).length ? '<p>Obsłużone wiadomości w skrzynce: ' + Object.keys(handledBy).map(n => esc_(n) + ' — ' + handledBy[n]).join(', ') + '</p>' : '') +
     '<h3>👨‍⚕️ Przypomnienia lekarzom (ile razy recepcja musiała przypominać)</h3>' +
     tbl(['Lekarz', 'Przypomnień'], Object.keys(nagsByDoctor).sort((a, b) => nagsByDoctor[b] - nagsByDoctor[a]).map(k => [esc_(k), nagsByDoctor[k]])) +

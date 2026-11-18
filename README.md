@@ -50,7 +50,7 @@ Wszystko rób na koncie **PolishDent.pl@gmail.com**: tablica czyta pocztę tego 
 4. Kliknij **＋ → HTML**, nazwij plik `Index` (dokładnie tak) i wklej zawartość [`apps-script/Index.html`](apps-script/Index.html).
 5. Kliknij 💾 **Zapisz**. Na liście funkcji u góry wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Jeśli pojawi się „Aplikacja niezweryfikowana”, kliknij **Zaawansowane → Przejdź do projektu** (to Twój własny skrypt).
 6. Wróć do arkusza. Pojawią się arkusze:
-   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). E-mail właściciela `ownerEmail` jest ustawiony na **dentonia.pl@gmail.com**: tam przychodzą poranne raporty, odpowiedzi recepcji na pytania i 1. dnia miesiąca podsumowanie potrąceń (recepcja nie ma dostępu do tej skrzynki). Ustaw też `ownerPin` (PIN do zakładki „Potrącenia”). Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
+   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). **PolishDent.pl@gmail.com** to poczta recepcji (wszystkie maile przychodzą tutaj, na tym koncie działa tablica). **dentonia.pl@gmail.com** to poczta właściciela (`ownerEmail`), do której recepcja nie ma dostępu. Tam przychodzą tylko: **codziennie rano raport dzienny** oraz **1. dnia miesiąca raport miesięczny** (patrz niżej). Ustaw też `ownerPin` (PIN do zakładki „Potrącenia”) i `staff`, czyli pozostałych pracowników do potrąceń (asystentki, higienistki), po przecinku. Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
    - **Lekarze**: wpisz wszystkich 6 lekarzy (i higienistki). Kolumna A to nazwa widoczna na tablicy (np. *dr Nowak*), kolumna B to WhatsApp w formacie `48XXXXXXXXX`, a kolumna C to **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, lek. dent. Oliwia Kowalska*). Dzięki kolumnie C tablica sama rozpoznaje, do kogo jest wizyta, i podstawia lekarza w nowej sprawie.
 7. W Apps Script: **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**.
    - *Wykonaj jako*: **Ja**
@@ -89,10 +89,25 @@ Zakładka **💰 Potrącenia** zbiera wszystko, co na koniec miesiąca trzeba po
 - **Dodawanie**: przycisk „➕ Dodaj potrącenie” albo „💰 Potrącenie” w karcie sprawy (pacjent i lekarz wpiszą się same). Pola: kogo dotyczy, kwota (np. `450,50`), data, kategoria, pacjent, opis. **Recepcja może dodawać wpisy**, ale nie widzi listy ani sum.
 - **Widok właściciela** (po wpisaniu PIN-u): wybór miesiąca, **podsumowanie na osobę** (razem / już potrącono / do potrącenia), lista wpisów z datą, pacjentem i opisem oraz osobna lista nierozliczonych z wcześniejszych miesięcy.
 - Po potrąceniu z wypłaty kliknij **✅ Potrącono**. Wpis zostaje w historii, ale nie liczy się już „do potrącenia”.
-- 1. dnia miesiąca do porannego raportu na dentonia.pl dochodzi podsumowanie za poprzedni miesiąc.
+- Osoby do wyboru: lekarze z arkusza „Lekarze” + pracownicy z `staff` + recepcja.
+- 1. dnia miesiąca podsumowanie potrąceń (na osobę i ze szczegółami) jest w raporcie miesięcznym na dentonia.pl.
 - Zmiana osoby w „Na zmianie” od razu blokuje zakładkę z powrotem.
 
 > ⚠️ PIN ukrywa potrącenia na tablicy, ale dane leżą w arkuszu „Potrącenia” na koncie PolishDent.pl, do którego recepcja ma dostęp. Kto otworzy sam arkusz w Google Drive, zobaczy wpisy. Pełne ukrycie wymagałoby przeniesienia potrąceń na konto dentonia.pl. Można to zrobić w następnym kroku.
+
+## 📧 Raporty na e-mail właściciela (dentonia.pl)
+
+**Codziennie rano (raport dzienny):** ile spraw otwartych, zaległych i zawieszonych, lista zaległych i zawieszonych z ostatnim ruchem i osobą, pytania bez odpowiedzi.
+
+**1. dnia miesiąca (raport miesięczny za poprzedni miesiąc):**
+- sprawy: nowe, zrobione, zamknięte bez realizacji, średni czas realizacji, podział na typy;
+- skrzynka: ile wiadomości z każdego źródła (Booksy, ZnanyLekarz, strona, maile, SMS, telefony, WeTransfer), ile obsłużono i jak szybko;
+- praca recepcji na osobę: działania, utworzone i zamknięte sprawy, nieodebrane telefony, przypomnienia lekarzom, odpowiedzi na pytania;
+- ile razy recepcja musiała przypominać każdemu lekarzowi;
+- pytania: zadane, odpowiedziane, średni czas odpowiedzi;
+- 💰 potrącenia: suma na osobę (razem / do potrącenia) i lista szczegółowa.
+
+Raporty można wysłać ręcznie z menu „🦷 Tablica spraw” w arkuszu.
 
 ## 💬 Komentarze i ❓ pytania właściciela
 
@@ -100,7 +115,7 @@ Zakładka **💰 Potrącenia** zbiera wszystko, co na koniec miesiąca trzeba po
 - **❓ Pytanie**: właściciel (lub ktokolwiek) wybiera na karcie „❓ Pytanie”, pisze np. *„Dlaczego p. Kowalska jeszcze nieumówiona?”* i wybiera adresata: cała recepcja albo konkretna osoba.
   - U recepcji pytanie pojawia się na samej górze zakładki „⏰ Teraz” (żółty blok z przyciskiem **✍️ Odpowiedz**), a na innych zakładkach jako baner.
   - Przed przekazaniem zmiany tablica przypomina o pytaniach bez odpowiedzi.
-  - Gdy recepcja odpowie, odpowiedź jest pod pytaniem w historii karty i w „📊 Statystyki → Pytania i odpowiedzi” (z czasem odpowiedzi), a **właściciel dostaje e-mail**. Właściciel musi wybrać w „Na zmianie” imię z ustawienia `ownerName` (domyślnie „Właściciel”).
+  - Gdy recepcja odpowie, odpowiedź jest pod pytaniem w historii karty i w „📊 Statystyki → Pytania i odpowiedzi” (z czasem odpowiedzi). Żeby nie zaśmiecać poczty, e-maili o odpowiedziach domyślnie **nie ma** (można włączyć: „Ustawienia” → `notifyAnswers` = `tak`).
   - Pytania bez odpowiedzi trafiają też do porannego raportu.
 
 ## WhatsApp i Instagram
