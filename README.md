@@ -96,16 +96,18 @@ Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca Arl
 3. **Makro 2 — „Nieodebrane do tablicy”**
    - Wyzwalacz: **Połączenie nieodebrane** → Dowolny numer.
    - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM NIEODEBRANE ` + (*Magiczny tekst*) **numer dzwoniącego** + spacja + **nazwa kontaktu**. Treść może być pusta.
-4. **Makro 3 — „Odebrane do tablicy”**
-   - Wyzwalacz: **Połączenie zakończone** → **Przychodzące** → Dowolny numer.
-   - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM ODEBRANE ` + (*Magiczny tekst*) **numer dzwoniącego** + spacja + **nazwa kontaktu**.
-5. **Makro 4 — „Wychodzące do tablicy”**
-   - Wyzwalacz: **Połączenie zakończone** → **Wychodzące** → Dowolny numer.
-   - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM WYCHODZĄCE ` + (*Magiczny tekst*) **numer** + spacja + **nazwa kontaktu**.
+4. **Makro 3 — „CRM Rozmowa”**
+   - Wyzwalacz: **Rozmowy/SMS → Koniec rozmowy** → Dowolny numer.
+   - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM ROZMOWA ` + (*Magiczny tekst*) **Numer telefonu** + spacja + **Nazwa dzwoniącego**.
+5. **Makro 4 — „CRM Wychodzące”**
+   - Wyzwalacz: **Rozmowy/SMS → Połączenie wychodzące** → Dowolny numer.
+   - Akcja: **Wyślij e-mail** → Temat: `CRM WYCHODZĄCE ` + **Numer telefonu** + spacja + **Nazwa dzwoniącego**.
+
+   „Koniec rozmowy” w MacroDroid nie mówi, czy rozmowa była przychodząca, czy wychodząca. Tablica rozpoznaje to sama: koniec rozmowy po „wychodzącym” na ten sam numer = koniec tego telefonu, każdy inny = odebrana rozmowa przychodząca. Każde makro: jeden wyzwalacz + jedna akcja, nazwa zaczynająca się od „CRM”.
 6. W ustawieniach Androida wyłącz **optymalizację baterii** dla MacroDroid, inaczej telefon może go usypiać.
 7. Test: wyślij SMS na numer gabinetu, zadzwoń bez odbierania, potem odbierz drugi telefon i sama zadzwoń na dowolny numer. Po maks. 5 min wszystko będzie w „📥 Skrzynce”.
 
-Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ODEBRANE` lub `CRM WYCHODZĄCE`. Po tym tablica je rozpoznaje.
+Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ROZMOWA` lub `CRM WYCHODZĄCE` (działa też `CRM ODEBRANE`). Po tym tablica je rozpoznaje.
 
 **Co tablica robi z telefonami i SMS-ami:**
 - Wszystko z telefonu gabinetu trafia do **„📞 Rejestr telefonu: rozmowy i SMS”** w „📥 Skrzynce” (dziś i wczoraj): nieodebrane, odebrane, wychodzące i SMS-y, z godziną, numerem i nazwą z kontaktów.

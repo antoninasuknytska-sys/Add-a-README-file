@@ -567,12 +567,26 @@ function checkInbox() {
  */
 function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
-  if (!fresh.some(i => i.source === 'call_in' || i.source === 'call_out')) return out;
+  if (!fresh.some(i => i.source === 'call_in' || i.source === 'call_out' || i.source === 'call_end')) return out;
   const old = readInbox_();
   const open = readTasks_().filter(t => t.status === 'open');
   const hm = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'HH:mm');
   const taskMap = {};
   fresh.forEach(i => {
+    if (i.source === 'call_end') {
+      // Koniec rozmowy: jeśli wcześniej (do 3 godz.) było „wychodzące” na ten numer bez zakończenia — to jego koniec
+      const e9 = digits_(i.phone).slice(-9);
+      const outOpen = e9.length !== 9 ? null : old.concat(fresh).filter(x => x !== i && !x.drop && x.source === 'call_out' &&
+        digits_(x.phone).slice(-9) === e9 && x.receivedAt <= i.receivedAt && x.receivedAt > i.receivedAt - 3 * 36e5 &&
+        !/zakończon/i.test(x.text || '')).sort((a, b) => b.receivedAt - a.receivedAt)[0];
+      if (outOpen) {
+        outOpen.text = 'Połączenie zakończone o ' + hm(i.receivedAt);
+        if (old.indexOf(outOpen) >= 0 && out.inbox.indexOf(outOpen) < 0) out.inbox.push(outOpen);
+        i.drop = true;
+        return;
+      }
+      i.source = 'call_in'; i.kind = 'Rozmowa przychodząca'; // w przeciwnym razie: odebrana rozmowa przychodząca
+    }
     if (i.source !== 'call_in' && i.source !== 'call_out') return;
     i.status = 'log'; i.handledBy = BOT; i.handledAt = i.receivedAt;
     const p9 = digits_(i.phone).slice(-9);
@@ -646,7 +660,7 @@ function classifyRaw_(msg, boxes, ignore) {
   };
 
   // SMS i połączenia z telefonu (MacroDroid)
-  let m = subject.match(/^CRM\s+(SMS|NIEODEBRANE|ODEBRANE|WYCHODZ\S*)\s*(.*)$/i);
+  let m = subject.match(/^CRM\s+(SMS|NIEODEBRANE|ODEBRANE|ROZMOWA|KONIEC|WYCHODZ\S*)\s*(.*)$/i);
   if (m) {
     const rest = m[2].trim();
     const ph = rest.match(/\+?[\d\s-]{6,}/);
@@ -656,6 +670,9 @@ function classifyRaw_(msg, boxes, ignore) {
     if (kind === 'SMS') {
       if (digits_(it.phone).length < 9) return null; // SMS-y serwisowe (Play, kody, reklamy)
       it.source = 'sms'; it.kind = 'SMS od pacjenta'; it.text = flat.slice(0, 1000);
+    } else if (kind === 'ROZMOWA' || kind === 'KONIEC') {
+      // „Koniec rozmowy” bez kierunku — processCalls_ rozpozna: koniec wychodzącego albo rozmowa przychodząca
+      it.source = 'call_end'; it.kind = 'Koniec rozmowy';
     } else if (kind === 'ODEBRANE') {
       it.source = 'call_in'; it.kind = 'Rozmowa przychodząca';
     } else if (kind.indexOf('WYCHODZ') === 0) {
