@@ -563,12 +563,22 @@
   const isTalk = i => i.source === 'call_in' || i.source === 'call_out';
   const last9 = i => digits(i.phone).slice(-9);
   const hhmm = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
-  /** Rozmowa, która zamknęła nieodebrane (oddzwonienie albo ponowne dodzwonienie pacjenta). */
-  function callbackOf(m) {
-    if (m.source !== 'call' || m.status === 'new' || !/oddzwoniono|dodzwoni/i.test(m.note || '') || last9(m).length !== 9) return null;
-    return inbox().find(x => isTalk(x) && last9(x) === last9(m) && x.receivedAt === m.handledAt) || null;
+  /** Pary „nieodebrane → oddzwonienie” liczone raz na każde dane z serwera (szybko także przy setkach wpisów). */
+  function callPairs() {
+    if (S.data._pairs) return S.data._pairs;
+    const talks = {}, cb = {}, ms = {};
+    inbox().forEach(x => { if (isTalk(x) && last9(x).length === 9) talks[last9(x) + '|' + x.receivedAt] = x; });
+    inbox().forEach(m => {
+      if (m.source !== 'call' || m.status === 'new' || !/oddzwoniono|dodzwoni/i.test(m.note || '') || last9(m).length !== 9) return;
+      const c = talks[last9(m) + '|' + m.handledAt];
+      if (c) { cb[m.id] = c; ms[c.id] = m; }
+    });
+    S.data._pairs = { cb: cb, ms: ms };
+    return S.data._pairs;
   }
-  function missedOf(c) { return isTalk(c) ? inbox().find(m => m.source === 'call' && callbackOf(m) === c) || null : null; }
+  /** Rozmowa, która zamknęła nieodebrane (oddzwonienie albo ponowne dodzwonienie pacjenta). */
+  function callbackOf(m) { return callPairs().cb[m.id] || null; }
+  function missedOf(c) { return callPairs().ms[c.id] || null; }
   const undescribed = () => inbox().filter(i => isTalk(i) && !i.tags).sort((a, b) => a.receivedAt - b.receivedAt);
   const tagChips = i => i.tags ? String(i.tags).split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="chip tag">' + esc(t) + '</span>').join(' ') : '';
   const REMIND_TAGS = /oddzwoni|zastanowi/i;

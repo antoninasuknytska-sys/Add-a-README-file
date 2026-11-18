@@ -197,6 +197,7 @@ function onOpen() {
     .addItem('Sprawdź teraz pocztę (skrzynka + tomografie)', 'checkMail')
     .addItem('Wyślij teraz raport dzienny', 'dailyReport')
     .addItem('🧹 Porządki: zamknij stare tomografie z maili', 'cleanupOldKt')
+    .addItem('🔎 Diagnostyka telefonów', 'diagnoseCalls')
     .addItem('Wyślij teraz raport miesięczny (poprzedni miesiąc)', 'monthlyReport')
     .addToUi();
 }
@@ -532,7 +533,9 @@ function checkInbox() {
     if (seen[id]) return;
     seen[id] = 1;
     if (msg.getDate().getTime() < since) return;
-    const item = classifyMail_(msg, boxes, ignore, doctors);
+    let item = null;
+    try { item = classifyMail_(msg, boxes, ignore, doctors); }
+    catch (e) { logError_('classify ' + (msg.getSubject() || ''), e); return; } // jeden dziwny mail nie zatrzymuje reszty
     if (!item) return;
     item.id = newId_();
     item.msgId = id;
@@ -543,7 +546,16 @@ function checkInbox() {
   })));
 
   fresh.sort((a, b) => a.receivedAt - b.receivedAt);
-  const changed = processCalls_(fresh);
+  let changed = { inbox: [], tasks: [] };
+  try { changed = processCalls_(fresh); }
+  catch (e) {
+    // błąd w łączeniu połączeń nie może zablokować zapisu: zapisujemy surowe wpisy
+    logError_('processCalls', e);
+    fresh.forEach(i => {
+      if (i.source === 'call_end') { i.source = 'call_in'; i.kind = 'Rozmowa przychodząca'; }
+      if (i.source === 'call_in' || i.source === 'call_out') { i.status = 'log'; i.handledBy = BOT; i.handledAt = i.receivedAt; }
+    });
+  }
 
   if (fresh.length || changed.inbox.length || changed.tasks.length) {
     const lock = LockService.getScriptLock();
@@ -552,7 +564,8 @@ function checkInbox() {
       const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
       ensureHeaders_(sh, INBOX_HEADERS);
       changed.inbox.forEach(i => { const r = findRow_(sh, i.id); if (r > 0) sh.getRange(r, 1, 1, INBOX_COLS.length).setValues([inboxToRow_(i)]); });
-      fresh.filter(i => !i.drop).forEach(i => sh.appendRow(inboxToRow_(i)));
+      // pominięte (duplikaty / koniec naszego wychodzącego) zapisujemy jako „dup” — ukryte, ale już nigdy nie przetwarzane ponownie
+      fresh.forEach(i => { if (i.drop) i.status = 'dup'; sh.appendRow(inboxToRow_(i)); });
       changed.tasks.forEach(t => upsertTask_(t));
     } finally { lock.releaseLock(); }
   }
@@ -618,6 +631,48 @@ function processCalls_(fresh) {
   });
   out.tasks = Object.keys(taskMap).map(k => taskMap[k]);
   return out;
+}
+
+function logError_(where, e) {
+  const msg = new Date().toISOString() + ' ' + where + ': ' + (e && e.message ? e.message : e);
+  try { PropertiesService.getScriptProperties().setProperty('lastError', msg.slice(0, 500)); } catch (x) { /* brak */ }
+  try { console.error(msg); } catch (x) { /* brak */ }
+}
+
+/**
+ * Menu „🔎 Diagnostyka telefonów”: czy maile CRM z MacroDroid docierają i czy tablica je zapisała.
+ * Wynik (okienko) można sfotografować i wysłać.
+ */
+function diagnoseCalls() {
+  const props = PropertiesService.getScriptProperties();
+  const last = Number(props.getProperty('inboxLastCheck')) || 0;
+  const fmtD = ts => ts ? Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'dd.MM HH:mm:ss') : '—';
+  const lines = [];
+  let runner = '';
+  try { runner = Session.getEffectiveUser().getEmail(); } catch (e) { /* brak */ }
+  lines.push('Konto: ' + runner + (runningAsReception_() ? ' (OK, recepcja)' : ' (UWAGA: to nie konto recepcji!)'));
+  lines.push('Ostatnie sprawdzenie poczty: ' + fmtD(last));
+  const trig = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
+  lines.push('Wyzwalacze tego konta: ' + (trig.length ? trig.join(', ') : 'BRAK — uruchom setup z konta recepcji'));
+  lines.push('Ostatni błąd: ' + (props.getProperty('lastError') || 'brak'));
+  const saved = {};
+  readInbox_().forEach(i => { saved[i.msgId] = i; });
+  const msgs = [];
+  GmailApp.search('subject:CRM newer_than:2d', 0, 30).forEach(th => th.getMessages().forEach(m => {
+    if (/^CRM\s/i.test(m.getSubject() || '')) msgs.push(m);
+  }));
+  msgs.sort((a, b) => b.getDate() - a.getDate());
+  lines.push('');
+  lines.push('Maile CRM z telefonu (2 dni): ' + msgs.length);
+  msgs.slice(0, 8).forEach(m => {
+    const it = saved[m.getId()];
+    lines.push('• ' + fmtD(m.getDate().getTime()) + '  ' + m.getSubject() + '  →  ' +
+      (it ? (it.status === 'dup' ? 'pominięty (duplikat / połączony z innym)' : 'na tablicy (' + it.source + ', ' + it.status + ')') : (m.getDate().getTime() > last ? 'czeka na następne sprawdzenie' : 'pominięty (duplikat / połączony)')));
+  });
+  if (!msgs.length) lines.push('Brak maili „CRM” w Gmailu → problem po stronie telefonu (MacroDroid, bateria, konto e-mail).');
+  const msg = lines.join('\n');
+  try { SpreadsheetApp.getUi().alert('Diagnostyka telefonów', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { Logger.log(msg); }
+  return msg;
 }
 
 /** Rozpoznaj, skąd jest wiadomość, i wyciągnij pacjenta, telefon i najważniejsze informacje. null = pomiń. */
