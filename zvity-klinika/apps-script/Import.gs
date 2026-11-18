@@ -227,6 +227,21 @@ function mapPayment(raw) {
   return String(raw).trim();
 }
 
+/**
+ * Напрям з назви лікаря у Felgdent: «ENDODONTA Ім'я Прізвище» → Endodoncja.
+ * Якщо в назві кілька спеціалізацій («ZACH/PROT/CHIR …»), повертає '' — тоді напрям береться з аркуша «Послуги».
+ */
+var PREFIKSY = [['endo', 'Endodoncja'], ['higien', 'Profilaktyka'], ['profil', 'Profilaktyka'], ['orto', 'Ortodoncja'],
+  ['implant', 'Implantologia'], ['chir', 'Chirurgia'], ['prot', 'Protetyka'], ['pedo', 'Dziecięca'], ['dziec', 'Dziecięca'], ['zach', 'Zachowawcza']];
+function directionFromDoctor(name) {
+  var first = norm(name).split(' ')[0] || '';
+  var parts = first.split('/').filter(String), found = [];
+  parts.forEach(function (p) {
+    for (var i = 0; i < PREFIKSY.length; i++) if (p.indexOf(PREFIKSY[i][0]) === 0) { if (found.indexOf(PREFIKSY[i][1]) < 0) found.push(PREFIKSY[i][1]); break; }
+  });
+  return found.length === 1 ? found[0] : '';
+}
+
 function ymd(d) {
   return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
 }
@@ -413,5 +428,5 @@ function matchInvoices(invoices, bank, usedBank) {
 if (typeof module !== 'undefined') {
   module.exports = { norm: norm, parseCsvText: parseCsvText, parseNumber: parseNumber, parseDate: parseDate, parseDuration: parseDuration,
     findHeader: findHeader, detectType: detectType, mapRecords: mapRecords, categorize: categorize, dirFromText: dirFromText,
-    matchInvoices: matchInvoices, mapStatus: mapStatus, mapPayment: mapPayment };
+    matchInvoices: matchInvoices, mapStatus: mapStatus, mapPayment: mapPayment, directionFromDoctor: directionFromDoctor };
 }

@@ -74,4 +74,13 @@ ok(hs && hs[7] instanceof Date && hs[6] === 'Materiały i narzędzia (zakupy)', 
 console.log(ctx.importujBlob(blob('google_ads_kampanie.csv'), 'AUTO', null));
 ok(sheets['Google Ads'].data.filter(r => r[2] === 'Implanty').length >= 3, 'ads rows');
 ok(sheets['Журнал імпорту'].data.length >= 7, 'journal rows');
+
+// Felgdent з реальними статусами: «Brak informacji» → без джерела, напрям з префікса лікаря
+const v1 = lastRow(V);
+console.log(ctx.importujBlob(blob('felgdent_wizyty_pl.csv'), 'VISITS', null));
+const endo = V.slice(v1 + 1).find(r => r[2] === 'Testowa Maria'), hig = V.slice(v1 + 1).find(r => r[2] === 'Próbna Ewa');
+ok(endo[6] === 'Endodoncja' && endo[4] === 'ZnanyLekarz' && endo[12] === 'Виконано', 'endo row ' + JSON.stringify(endo.slice(0, 14)));
+ok(hig[4] === '' && hig[6] === 'Profilaktyka' && hig[12] === 'Неявка', 'brak informacji -> empty source');
+ok(lastRow(V) === v1 + 3, 'przesunieta/niepotwierdzona skipped');
+
 console.log('OK — ' + n + ' перевірок Kod.gs на імітації пройдено');

@@ -1,0 +1,6 @@
+Data wizyty;Godzina od;Godzina do;Pacjent;Lekarz;Usługa;Wartość;Status;Skąd pacjent
+03.11.2026;09:00;09:56;Testowa Maria;ENDODONTA Jan Testowy;Leczenie kanałowe;1 400,00;Odbyta;ZnanyLekarz
+03.11.2026;10:00;10:45;Próbna Ewa;HIGIENA Anna Testowa;Skaling;350;Pacjent nie przyszło;Brak informacji
+04.11.2026;11:00;11:30;Przykład Jan;ZACH/PROT/CHIR Piotr Testowy;Wypełnienie;450;Odwołana przez gabinet;Z ulicy
+05.11.2026;12:00;12:30;Inny Adam;Ortodonta Ola Testowa;Kontrola aparatu;300;Wizyta przesunięta;
+06.11.2026;13:00;13:20;Inny Adam;Ortodonta Ola Testowa;Kontrola aparatu;300;Niepotwierdzona;

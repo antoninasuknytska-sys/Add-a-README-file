@@ -75,4 +75,14 @@ ok(r.records[2].status === 'W trakcie' && r.warnings.some(w => w.includes('W tra
 r = run('booksy_rezerwacje.csv');
 ok(r.type === 'BOOKSY' && r.records[0].platform === 'Booksy' && r.records[0].status === 'Виконано' && r.records[1].status === 'Скасовано', 'booksy');
 
+
+// Felgdent: реальні статуси й лікарі з префіксом спеціалізації
+r = run('felgdent_wizyty_pl.csv', 'VISITS');
+ok(r.records.length === 3 && r.skipped === 2, 'felg pl rows ' + r.records.length + '/' + r.skipped);
+ok(r.records[0].status === 'Виконано' && Math.abs(r.records[0].duration - 56 / 60) < 0.01, 'odbyta');
+ok(r.records[1].status === 'Неявка' && r.records[2].status === 'Скасовано', 'nie przyszlo / odwolana przez gabinet');
+ok(r.records[0].source === 'ZnanyLekarz' && r.records[1].source === 'Brak informacji', 'source column');
+ok(I.directionFromDoctor('ENDODONTA Jan Testowy') === 'Endodoncja' && I.directionFromDoctor('HIGIENA Anna Testowa') === 'Profilaktyka', 'prefix single');
+ok(I.directionFromDoctor('Ortodonta Ola Testowa') === 'Ortodoncja' && I.directionFromDoctor('ZACH/PROT/CHIR Piotr Testowy') === '' && I.directionFromDoctor('Лікар 1') === '', 'prefix multi/none');
+
 console.log('OK — ' + n + ' перевірок пройдено');

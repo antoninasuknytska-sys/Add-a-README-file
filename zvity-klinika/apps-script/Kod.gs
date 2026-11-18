@@ -34,6 +34,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Надіслати звіт зараз', 'wyslijRaport')
     .addItem('Увімкнути автоматику (імпорт щоночі, звіт 15-го о 21:00)', 'ustawHarmonogram')
+    .addItem('Захистити автоматичні клітинки', 'zabezpieczMenu')
     .addSeparator()
     .addItem('Очистити демо-дані', 'wyczyscDemo')
     .addToUi();
@@ -239,10 +240,10 @@ function zapiszWizyty_(recs) {
   // джерела
   var srcNames = shD.getRange('J4:J15').getValues().map(function (r) { return r[0]; }).filter(String);
   function mapSource(s) {
-    var n = norm(s); if (!n) return '';
+    var n = norm(s); if (!n || n === 'brak informacji' || n === 'brak') return '';
     for (var i = 0; i < srcNames.length; i++) if (norm(srcNames[i]) === n) return srcNames[i];
     for (i = 0; i < srcNames.length; i++) { var sn = norm(srcNames[i]).split(/[ /(]/)[0]; if (sn.length >= 4 && n.indexOf(sn) >= 0) return srcNames[i]; }
-    if (/polec|znajom|rodzin/.test(n)) return srcNames.filter(function (x) { return /polecenie/i.test(x); })[0] || s;
+    if (/polec|znajom|rodzin/.test(n)) return srcNames.filter(function (x) { return /znajom/i.test(x); })[0] || s;
     return s;
   }
   var ctx = kontekstPacjentow_();
@@ -260,7 +261,7 @@ function zapiszWizyty_(recs) {
     var sk = norm(r.service);
     if (r.service && !servMap[sk]) { servMap[sk] = { dir: '', dur: '' }; newServ.push([r.service, r.direction || '', '']); }
     var sv = servMap[sk] || {};
-    if (!r.direction) r.direction = sv.dir || '';
+    if (!r.direction) r.direction = sv.dir || directionFromDoctor(r.doctor);
     if (r.duration === null && sv.dur) r.duration = sv.dur;
     if (r.doctor && !docSet[norm(r.doctor)]) { docSet[norm(r.doctor)] = r.doctor; newDocs.push(r.doctor); }
     else if (r.doctor) r.doctor = docSet[norm(r.doctor)];
@@ -422,7 +423,8 @@ function ustawHarmonogram() {
   });
   ScriptApp.newTrigger('importZFolderu').timeBased().everyDays(1).atHour(5).inTimezone('Europe/Warsaw').create();
   ScriptApp.newTrigger('wyslijRaport').timeBased().onMonthDay(15).atHour(21).inTimezone('Europe/Warsaw').create();
-  alert_('Готово: імпорт з папки «' + FOLDER_IMPORT + '» щоночі о 5:00, звіт на пошту 15-го числа між 21:00 і 22:00.');
+  zabezpiecz();
+  alert_('Готово: імпорт з папки «' + FOLDER_IMPORT + '» щоночі о 5:00, звіт на пошту 15-го числа між 21:00 і 22:00. Автоматичні клітинки захищено.');
 }
 
 /** Очищення демо-даних: лише колонки вводу, формули залишаються. */
@@ -439,4 +441,48 @@ function wyczyscDemo() {
   var j = SpreadsheetApp.getActive().getSheetByName('Журнал імпорту');
   if (j.getLastRow() > 1) j.getRange(2, 1, j.getLastRow() - 1, 7).clearContent();
   ui.alert('Демо-дані видалено. Тепер завантажте свої файли: меню 🦷 → «Завантажити файли…».');
+}
+
+// ------------------------------------------------------------------ захист від випадкового редагування
+/** Колонки з формулами: редагувати може лише власник (адміністратор — ні). */
+var AUTO_KOLUMNY = { 'Візити': ['B', 'O', 'P', 'Q'], 'Банк': ['B', 'H', 'I'], 'Фактури': ['I', 'J'], 'Витрати': ['B', 'D'],
+  'Персонал': ['B', 'G'], 'Онлайн-записи': ['B'], 'Google Ads': ['B'] };
+/** Колонки, які заповнює скрипт: попередження при ручній зміні (скрипт пише вільно). */
+var SKRYPT_KOLUMNY = { 'Візити': ['R'], 'Банк': ['F', 'K'], 'Фактури': ['K'], 'Онлайн-записи': ['H'], 'Google Ads': ['H'], 'Пацієнти': ['D'] };
+var CALE_ARKUSZE = ['Дашборд', 'Рік', 'Інструкція'];
+
+function zabezpiecz() {
+  var ss = SpreadsheetApp.getActive();
+  var me = Session.getEffectiveUser();
+  var nasze = CALE_ARKUSZE.concat(Object.keys(AUTO_KOLUMNY), Object.keys(SKRYPT_KOLUMNY), ['Налаштування', 'Журнал імпорту']);
+  // прибрати старий захист (зокрема перенесений з Excel), щоб не було конфліктів
+  ss.getProtections(SpreadsheetApp.ProtectionType.SHEET).concat(ss.getProtections(SpreadsheetApp.ProtectionType.RANGE)).forEach(function (p) {
+    var r = p.getRange();
+    if (r && nasze.indexOf(r.getSheet().getName()) >= 0 && p.canEdit()) p.remove();
+  });
+  function strict(p, opis) {
+    p.setDescription('АВТО: ' + opis);
+    p.addEditor(me);
+    p.removeEditors(p.getEditors().filter(function (e) { return e.getEmail() !== me.getEmail(); }));
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+  }
+  CALE_ARKUSZE.forEach(function (n) { strict(ss.getSheetByName(n).protect(), 'аркуш рахується сам'); });
+  Object.keys(AUTO_KOLUMNY).forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    strict(sh.getRange('1:1').protect(), 'заголовки');
+    AUTO_KOLUMNY[n].forEach(function (c) { strict(sh.getRange(c + '2:' + c).protect(), 'формули'); });
+  });
+  Object.keys(SKRYPT_KOLUMNY).forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    SKRYPT_KOLUMNY[n].forEach(function (c) { sh.getRange(c + '2:' + c).protect().setDescription('АВТО: заповнює скрипт').setWarningOnly(true); });
+  });
+  var st = ss.getSheetByName('Налаштування');
+  strict(st.getRange('A1:A40').protect(), 'підписи');
+  strict(st.getRange('B8:B9').protect(), 'формули');
+  ss.getSheetByName('Журнал імпорту').protect().setDescription('АВТО: журнал').setWarningOnly(true);
+}
+
+function zabezpieczMenu() {
+  zabezpiecz();
+  alert_('Готово. Сірі клітинки з формулами та Дашборд захищено: змінювати їх може лише власник таблиці. Жовті клітинки — вільні для введення.');
 }

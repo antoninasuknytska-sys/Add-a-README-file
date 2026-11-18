@@ -1,7 +1,7 @@
 """Збирає шаблон Zvity_kliniki.xlsx (з демо-даними).  python3 build_template.py <out.xlsx> [defaults.json]"""
 import random, datetime as dt, sys, json, unicodedata, re
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
 from openpyxl.chart import BarChart, Reference
@@ -16,8 +16,8 @@ F = "Arial"
 def font(**k): return Font(name=F, size=k.pop("size", 10), **k)
 HDR = PatternFill("solid", fgColor="1F4E5A")
 SUB = PatternFill("solid", fgColor="D9E7EA")
-INP = PatternFill("solid", fgColor="FFF6C8")
-CALC = PatternFill("solid", fgColor="EFEFEF")
+INP = PatternFill("solid", fgColor="FFF7CC")   # блідо-жовтий: вписувати
+CALC = PatternFill("solid", fgColor="E7E7E7")  # світло-сірий: рахується само
 TOT = PatternFill("solid", fgColor="E7EEF0")
 # світлофор
 GOOD_F, GOOD_T = "9FD8A6", "0B4A17"
@@ -183,11 +183,11 @@ NONCASH = ["Karta", "Przelew", "BLIK", "Raty PayU", "Mediraty"]
 header(dv, 3, ["Спосіб оплати"], 8)
 for i in range(10):
     c = dv.cell(row=4 + i, column=8, value=pays[i] if i < len(pays) else None); c.fill = INP; c.border = BOX; c.font = font(color="0000FF")
-srcs = [("Google", "Google Ads"), ("Instagram/Facebook", "Meta Ads (Instagram/Facebook)"), ("ZnanyLekarz", "ZnanyLekarz"),
-        ("Booksy", "Booksy"), ("Voucher (spotkania)", "Vouchery i materiały promocyjne"), ("Polecenie (сарафан)", None),
-        ("Pacjent lekarza", None), ("Z ulicy", None), ("Inne", None)]
-header(dv, 3, ["Джерело пацієнта", "Рекламна категорія витрат для джерела"], 10)
-for i in range(12):
+srcs = [("Google", "Google Ads"), ("Instagram/Facebook", "Meta Ads (Instagram/Facebook)"), ("Z sieci", "Inny marketing (strona, foto, SMM)"),
+        ("ZnanyLekarz", "ZnanyLekarz"), ("Booksy", "Booksy"), ("Ulotka (promocja)", "Vouchery i materiały promocyjne"),
+        ("Znajomy", None), ("Inny pacjent", None), ("Mailing", None), ("Z ulicy", None), ("Inne", None)]
+header(dv, 3, ["Джерело пацієнта (як «Skąd pacjent» у Felgdent)", "Рекламна категорія витрат для джерела"], 10)
+for i in range(16):
     s = srcs[i] if i < len(srcs) else (None, None)
     for j in range(2):
         c = dv.cell(row=4 + i, column=10 + j, value=s[j]); c.fill = INP; c.border = BOX; c.font = font(color="0000FF")
@@ -349,10 +349,10 @@ FIELDS = {
 }
 TYPE_LBL = {"BANK": "Виписка з банку", "INVOICES": "Фактури (реєстр)", "VISITS": "Felgdent – візити", "PATIENTS": "Felgdent – пацієнти",
             "ZL": "ZnanyLekarz – записи", "BOOKSY": "Booksy – записи", "ADS": "Google Ads – звіт"}
-STATUSES = [("nieobecn; nie przyszed; nie stawil; niestawien; no-show; no show; noshow", "Неявка"),
+STATUSES = [("nieobecn; nie przysz; nie stawil; niestawien; no-show; no show; noshow", "Неявка"),
             ("odwolan; anulowan; rezygnac; cancel", "Скасовано"),
-            ("zaplanowan; potwierdzon; umowion; oczekuj; planned; confirmed; booked; nowa", "Пропустити"),
-            ("zrealizowan; odbyta; wykonan; zakonczon; obecny; obecna; przyszedl; completed; done; finished", "Виконано")]
+            ("przesuni; zaplanowan; potwierdzon; umowion; oczekuj; planned; confirmed; booked; nowa", "Пропустити"),
+            ("zrealizowan; odbyt; wykonan; zakonczon; obecny; obecna; przyszedl; completed; done; finished", "Виконано")]
 HINTS = [("BOOKSY", "booksy"), ("ZL", "znany; docplanner"), ("ADS", "google ads; googleads; adwords; kampani; campaign"),
          ("INVOICES", "faktur; ksef; invoice"), ("PATIENTS", "pacjenci; pacjentow; patients"),
          ("VISITS", "felg; wizyty; wizyt; zabiegi"), ("BANK", "wyciag; historia; pko; mbank; santander; ing; pekao; millennium; alior; bnp; credit agricole; bank; operacj")]
@@ -419,8 +419,8 @@ doc_dirs = {"Лікар 1": ["Zachowawcza", "Endodoncja"], "Лікар 2": ["Zac
             "Лікар 4": ["Chirurgia", "Implantologia"], "Лікар 5": ["Protetyka"], "Лікар 6": ["Ortodoncja"],
             "Лікар 7": ["Zachowawcza", "Protetyka"], "Гігієністка 1": ["Profilaktyka"], "Гігієністка 2": ["Profilaktyka"]}
 doc_weight = {"Лікар 1": 16, "Лікар 2": 14, "Лікар 3": 7, "Лікар 4": 9, "Лікар 5": 8, "Лікар 6": 12, "Лікар 7": 9, "Гігієністка 1": 13, "Гігієністка 2": 12}
-src_w = [("Google", 30), ("Instagram/Facebook", 12), ("ZnanyLekarz", 12), ("Booksy", 4), ("Voucher (spotkania)", 8),
-         ("Polecenie (сарафан)", 18), ("Pacjent lekarza", 8), ("Z ulicy", 5), ("Inne", 3)]
+src_w = [("Google", 26), ("Instagram/Facebook", 10), ("Z sieci", 6), ("ZnanyLekarz", 12), ("Booksy", 4), ("Ulotka (promocja)", 4),
+         ("Znajomy", 14), ("Inny pacjent", 10), ("Mailing", 2), ("Z ulicy", 5), ("Inne", 3)]
 pay_w = [("Karta", 45), ("BLIK", 15), ("Gotówka", 15), ("Przelew", 10), ("Raty PayU", 5), ("Mediraty", 4), ("Bon podarunkowy", 2), ("Przedpłata (wcześniej)", 4)]
 def wchoice(pairs): return random.choices([p[0] for p in pairs], weights=[p[1] for p in pairs])[0]
 def workdays(y, m):
@@ -441,7 +441,7 @@ for (y, m, nvis) in [(2026, 9, 215), (2026, 10, 225)]:
         if name.startswith("Przegląd"): new = True
         if new:
             pid += 1
-            src = "Voucher (spotkania)" if name.startswith("Przegląd") else wchoice(src_w)
+            src = "Ulotka (promocja)" if name.startswith("Przegląd") else wchoice(src_w)
             p = (f"P{pid:04d}", src); patients.append(p)
         else:
             p = random.choice(patients)
@@ -463,7 +463,7 @@ for i in range(2, N + 1):
     vs.cell(row=i, column=17, value=f'=IF(M{i}="Виконано",I{i}-J{i}-K{i}-P{i},0)').number_format = ZL
     for col in (9, 10, 11): vs.cell(row=i, column=col).number_format = ZL
     for col in (2, 15, 16, 17): vs.cell(row=i, column=col).fill = CALC
-add_list(vs, f"D2:D{N}", f"{D}$V$4:$V$5"); add_list(vs, f"E2:E{N}", f"{D}$J$4:$J$15"); add_list(vs, f"F2:F{N}", DOC_N)
+add_list(vs, f"D2:D{N}", f"{D}$V$4:$V$5"); add_list(vs, f"E2:E{N}", f"{D}$J$4:$J$19"); add_list(vs, f"F2:F{N}", DOC_N)
 add_list(vs, f"G2:G{N}", f"{D}$F$4:$F$15"); add_list(vs, f"L2:L{N}", f"{D}$H$4:$H$13"); add_list(vs, f"M2:M{N}", f"{D}$T$4:$T$6")
 cf_text(vs, f"M2:M{N}", "$M2".replace("$M2", 'IF($M2="Виконано","добре",IF($M2="Скасовано","середньо",IF($M2="Неявка","погано","")))'))
 cf_rules(vs, f"G2:G{N}", None, None, 'AND($A2<>"",$G2="")')
@@ -896,7 +896,7 @@ section(db, SO0 - 1, "6. ЗВІДКИ ПАЦІЄНТИ І ЧИ ОКУПАЄТЬ�
 header(db, SO0, ["Джерело", "Нових пацієнтів", "Візитів (усі)", "Виручка (усі візити)", "Рекламні витрати", "Вартість 1 нового пацієнта",
                  "Виручка на 1 zł реклами", "Онлайн-записів"], 1, SUB)
 db.row_dimensions[SO0].height = 32
-NSRC = 10
+NSRC = 12
 SOT = SO0 + NSRC + 1
 for i in range(NSRC):
     rr = SO0 + 1 + i; x = f",{VE},$A{rr}"
@@ -1113,9 +1113,10 @@ txt = [
     ("Щомісяця за 5 хвилин: скільки заробили, на що пішли гроші, які лікарі й послуги вигідні, чи простоюють крісла, чи окупається реклама.", ""),
     ("", ""),
     ("КОЛЬОРИ", "h2"),
-    ("ЗЕЛЕНИЙ = добре.   ОРАНЖЕВИЙ = середньо, варто придивитися.   ЧЕРВОНИЙ = погано, потрібна дія.", "legend"),
+    ("ЗЕЛЕНИЙ = добре", "c_good"), ("ОРАНЖЕВИЙ = середньо, варто придивитися", "c_mid"), ("ЧЕРВОНИЙ = погано, потрібна дія", "c_bad"),
     ("Пороги кольорів змінюються на аркуші «Налаштування» (таблиця «Пороги кольорів»).", ""),
-    ("Жовті клітинки — для введення. Сірі колонки «(авто)» — формули, не чіпати.", ""),
+    ("БЛІДО-ЖОВТІ клітинки — сюди вписуємо дані", "c_inp"), ("СВІТЛО-СІРІ клітинки — рахуються самі, захищені від випадкового стирання", "c_calc"),
+    ("Захист: у Excel — Рецензування → Зняти захист аркуша (без пароля). У Google Таблицях сірі клітинки може змінювати лише власник; адміністратор їх не зітре.", ""),
     ("", ""),
     ("ЯК ЗАВАНТАЖУВАТИ ДАНІ (Google Таблиці, меню «🦷 Звіти клініки»)", "h2"),
     ("Варіант А: меню 🦷 Звіти клініки → «Завантажити файли…» → виберіть один або кілька файлів (CSV, XLSX) → «Імпортувати». Тип файлу визначається автоматично.", ""),
@@ -1126,6 +1127,7 @@ txt = [
     ("ЯКІ ФАЙЛИ ЗАВАНТАЖУВАТИ", "h2"),
     ("1. Felgdent – візити (раз на тиждень): дата, пацієнт, лікар, послуга, сума, статус, час / тривалість → аркуш «Візити». Напрям береться з аркуша «Послуги».", ""),
     ("2. Felgdent – список пацієнтів з датою реєстрації та джерелом (раз на місяць, необов'язково) → точно видно нових пацієнтів.", ""),
+    ("ВАЖЛИВО у Felgdent: при записі НОВОГО пацієнта завжди заповнювати «Skąd pacjent». «Brak informacji» = невідомо, чи окупається реклама.", "warn"),
     ("3. Виписка з банку CSV/XLSX (раз на тиждень) → аркуш «Банк». Категорії підставляються за «Правилами банку»; невпізнані — червоні, їх вибирають вручну один раз.", ""),
     ("4. Реєстр фактур (з KSeF або програми бухгалтерії): номер, дата, продавець, NIP, сума, термін → аркуш «Фактури». Скрипт сам знаходить оплату в банку й ставить «Оплачено».", ""),
     ("5. ZnanyLekarz і Booksy – список записів → аркуш «Онлайн-записи». Пацієнтам з цих записів автоматично ставиться джерело.", ""),
@@ -1157,13 +1159,56 @@ txt = [
 ]
 for i, (t, kind) in enumerate(txt):
     c = ins.cell(row=1 + i, column=2, value=t)
-    c.font = {"h1": font(bold=True, size=16, color="1F4E5A"), "h2": font(bold=True, size=11, color="1F4E5A")}.get(kind, font())
+    c.font = {"h1": font(bold=True, size=16, color="1F4E5A"), "h2": font(bold=True, size=11, color="1F4E5A"), "warn": font(bold=True, color=BAD_T)}.get(kind, font())
+    if kind == "warn": c.fill = fill(BAD_F)
     c.alignment = Alignment(wrap_text=True, vertical="top")
-    if kind == "legend":
-        c.font = font(bold=True)
-        for col, (bg, tx, w) in zip("CDE", ((GOOD_F, GOOD_T, "ДОБРЕ"), (MID_F, MID_T, "СЕРЕДНЬО"), (BAD_F, BAD_T, "ПОГАНО"))):
-            cc = ins[f"{col}{1+i}"]; cc.value = w; cc.fill = fill(bg); cc.font = font(bold=True, color=tx)
-            cc.alignment = Alignment(horizontal="center"); ins.column_dimensions[col].width = 12
+    sw = {"c_good": (GOOD_F, GOOD_T), "c_mid": (MID_F, MID_T), "c_bad": (BAD_F, BAD_T), "c_inp": ("FFF7CC", "000000"), "c_calc": ("E7E7E7", "000000")}
+    if kind in sw:
+        c.fill = fill(sw[kind][0]); c.font = font(bold=True, color=sw[kind][1], size=11); c.border = BOX
+ins.page_setup.fitToWidth = 1; ins.page_setup.fitToHeight = 0; ins.sheet_properties.pageSetUpPr.fitToPage = True
+
+# ========================= ЖОВТЕ / СІРЕ + ЗАХИСТ =========================
+UNLOCK = Protection(locked=False)
+INPUT_COLS = {"Візити": ("ACDEFGHIJKLMN", N), "Банк": ("ACDEGJ", N), "Фактури": ("ABCDEFGH", N), "Витрати": ("ACEFG", N),
+              "Персонал": ("ACDEF", 500), "Онлайн-записи": ("ACDEFG", N), "Google Ads": ("ACDEFG", N), "Пацієнти": ("ABC", N), "Послуги": ("ABC", 500)}
+CALC_COLS = {"Візити": ("BOPQ", "R"), "Банк": ("BHI", "FK"), "Фактури": ("IJ", "K"), "Витрати": ("BD", ""), "Персонал": ("BG", ""),
+             "Онлайн-записи": ("B", "H"), "Google Ads": ("B", "H"), "Пацієнти": ("", "D")}
+def protect(ws):
+    pr = ws.protection
+    pr.sheet = True
+    pr.formatColumns = pr.formatRows = pr.formatCells = pr.autoFilter = pr.sort = False
+for name, (cols, last) in INPUT_COLS.items():
+    ws = wb[name]
+    calc, script = CALC_COLS.get(name, ("", ""))
+    for r in range(2, last + 1):
+        for col in cols:
+            c = ws[f"{col}{r}"]; c.fill = INP; c.protection = UNLOCK
+        for col in calc:
+            ws[f"{col}{r}"].fill = CALC
+        for col in script:   # заповнює скрипт: сіре, але не заблоковане (інакше імпорт від імені адміністратора не спрацює)
+            c = ws[f"{col}{r}"]; c.fill = CALC; c.protection = UNLOCK
+    protect(ws)
+for name in ("Довідники", "Правила банку", "Імпорт-налаштування", "Налаштування"):
+    ws = wb[name]
+    for row in ws.iter_rows():
+        for c in row:
+            if c.fill is not None and c.fill.fgColor is not None and c.fill.fgColor.rgb in ("00FFF7CC", "FFFFF7CC", "00" + GOOD_F, "00" + MID_F):
+                c.protection = UNLOCK
+    protect(ws)
+for row in wb["Налаштування"].iter_rows(min_row=13, max_row=12 + len(TH_DEF), min_col=2, max_col=3):
+    for c in row: c.protection = UNLOCK
+# Дашборд і Рік: усі розрахункові клітинки світло-сірі (кольори світлофора лягають поверх), аркуш повністю захищений
+GREY_DASH = PatternFill("solid", fgColor="F0F0F0")
+for ws in (wb["Дашборд"], wb["Рік"]):
+    for row in ws.iter_rows(min_row=4, max_col=14):
+        for c in row:
+            v = c.value
+            if v is None or c.coordinate in ws.merged_cells: continue
+            if (isinstance(v, str) and v.startswith("=")) or isinstance(v, (int, float)):
+                if (c.fill is None or c.fill.fgColor.rgb in ("00000000", None)) and not (c.font and c.font.color and c.font.color.rgb == "00FFFFFF"):
+                    c.fill = GREY_DASH
+    protect(ws)
+protect(wb["Інструкція"])
 
 # порядок аркушів
 order = ["Інструкція", "Дашборд", "Рік", "Візити", "Банк", "Фактури", "Витрати", "Персонал", "Онлайн-записи", "Google Ads",
