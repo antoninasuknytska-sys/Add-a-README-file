@@ -137,6 +137,13 @@ const TYPES = {
   }
 };
 
+/**
+ * Zawsze pomijane w „Skrzynce” (nadawca lub temat zawiera): powiadomienia systemów, nie pacjenci.
+ * Własne dopiski: „Ustawienia” → inboxIgnore albo przycisk „🚫 Ignoruj nadawcę” na tablicy.
+ */
+const BUILTIN_IGNORE = ['wordpress@', 'drive-shares', 'udostępniono ci', 'openai.com', 'felg', 'mailer-daemon',
+  'accounts.google.com', 'no-reply@google', 'noreply@google', 'diagdent', 'portal lekarza', 'alert bezpieczeństwa', 'security alert'];
+
 /** Sekcje raportu miesięcznego (listy pacjentów). */
 const REPORT_GROUPS = [
   { title: '🦷 Tomografia i 🩻 RTG', types: ['kt', 'rtg'] },
@@ -668,7 +675,8 @@ function classifyRaw_(msg, boxes, ignore) {
 
   // WeTransfer: pacjent przesyła zdjęcia RTG / tomografię (link wygasa po kilku dniach!)
   if (/wetransfer/i.test(fromL) || /we\.tl\//i.test(flat)) {
-    if (/pobran|downloaded|został[oa]? pobrane|wygas(a|ł) (jutro|dziś)|expire[sd]? (soon|today)/i.test(subjL)) return null; // potwierdzenia pobrania
+    // potwierdzenia pobrania i przypomnienia o NASZYCH wysłanych transferach — pomijamy
+    if (/pobran|downloaded|został[oa]? pobrane|wygas|expire|you sent|wysłan[ey] przez ciebie|twój transfer/i.test(subjL)) return null;
     it.source = 'wetransfer'; it.urgent = '1';
     it.kind = 'WeTransfer: pacjent przesłał pliki (RTG / tomografia) — pobrać';
     const title = subject.replace(/\s+(sent successfully to|sent you|przesłał\(a\)|przesłał|przesłała|wysłał|wysłała).*$/i, '').replace(/^\W+/, '').trim();
@@ -683,7 +691,12 @@ function classifyRaw_(msg, boxes, ignore) {
     return it;
   }
 
-  // Zwykły mail (pacjent pisze bezpośrednio)
+  // Zwykły mail (pacjent pisze bezpośrednio). Pomijamy newslettery, reklamy i powiadomienia systemów.
+  if (BUILTIN_IGNORE.some(w => fromL.indexOf(w) >= 0 || subjL.indexOf(w) >= 0)) return null;
+  let unsub = '';
+  try { unsub = msg.getHeader('List-Unsubscribe') || ''; } catch (e) { /* brak nagłówka */ }
+  if (unsub) return null; // ma link „wypisz się” = mailing / reklama, nie pacjent
+
   it.kind = 'E-mail: ' + (subject || '(bez tematu)');
   it.name = displayName_(from);
   it.email = (from.match(/[^\s<>"]+@[^\s<>"]+/) || [''])[0].toLowerCase();

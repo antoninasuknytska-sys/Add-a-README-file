@@ -53,7 +53,7 @@ ctx.GmailApp = {
     getId: () => t.id, getMessageCount: () => 1,
     getMessages: () => [{
       getId: () => 'm' + t.id, getSubject: () => t.subject, getPlainBody: () => t.body, getBody: () => t.body,
-      getFrom: () => t.from || '', getTo: () => t.to || 'polishdent.pl@gmail.com', getCc: () => '', getDate: () => new Date(t.date || Date.now())
+      getFrom: () => t.from || '', getTo: () => t.to || 'polishdent.pl@gmail.com', getCc: () => '', getDate: () => new Date(t.date || Date.now()), getHeader: h => (t.headers || {})[h] || ''
     }],
     addLabel() { t.done = true; }
   }))
