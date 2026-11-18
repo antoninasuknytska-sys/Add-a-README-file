@@ -194,7 +194,7 @@ function onOpen() {
 function setup() {
   const ss = SpreadsheetApp.getActive();
   // Wyzwalacze czytają pocztę konta, które uruchomiło setup — musi to być skrzynka recepcji
-  const box = (mailboxes_(getSettings_())[0] || {}).email;
+  const box = receptionEmail_();
   const runner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   if (box && runner && runner !== box) {
     throw new Error('Uruchom „setup” zalogowana na koncie ' + box + ' (teraz: ' + runner + '). Wyzwalacze czytają pocztę konta, które je utworzyło.');
@@ -358,6 +358,22 @@ function activeEmail_() {
   try { return String(Session.getActiveUser().getEmail() || '').toLowerCase().trim(); } catch (e) { return ''; }
 }
 
+/** Adres skrzynki recepcji: z „Ustawień” (mailboxes), a przed pierwszym setup — wartość domyślna. */
+function receptionEmail_() {
+  const s = getSettings_();
+  const def = DEFAULT_SETTINGS.filter(r => r[0] === 'mailboxes')[0][1];
+  const first = mailboxes_({ mailboxes: s.mailboxes || def })[0];
+  return first ? first.email : '';
+}
+
+/** Czy skrypt działa na koncie recepcji. Uruchomienie ręczne z menu też musi być z tego konta. */
+function runningAsReception_() {
+  const box = receptionEmail_();
+  let runner = '';
+  try { runner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); } catch (e) { /* brak */ }
+  return !box || !runner || runner === box;
+}
+
 function checkPin_(pin) {
   const p = String(getSettings_().ownerPin || '').trim();
   if (p && String(pin || '').trim() !== p) throw new Error('Nieprawidłowy PIN');
@@ -463,6 +479,7 @@ function debtsMonthHtml_() {
 
 /** Wyzwalacz co 5 min: najpierw tomografie (Diagdent), potem skrzynka. */
 function checkMail() {
+  if (!runningAsReception_()) return; // wyzwalacz utworzony z innego konta (np. właściciela) — nie czytamy cudzej poczty
   checkKtEmails();
   checkInbox();
 }
@@ -808,6 +825,7 @@ function matchPatientInText_(tasks, text) {
 
 /** Codziennie rano: raport dla właściciela o zaległych i „zawieszonych” sprawach. */
 function dailyReport() {
+  if (!runningAsReception_()) return; // raport wysyła tylko wyzwalacz konta recepcji (bez duplikatów)
   const s = getSettings_();
   if (!s.ownerEmail) return;
   const now = Date.now();
