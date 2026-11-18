@@ -18,12 +18,14 @@ class Sheet {
 }
 const sheets = {};
 const ss = { getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)) };
+const ownerSheets = {}; // arkusz potrąceń na koncie właściciela
+const ownerSs = { getSheetByName: n => ownerSheets[n] || null, insertSheet: n => (ownerSheets[n] = new Sheet(n)) };
 const sentMail = [];
 const ctx = {
   console, Date, JSON, Math,
-  SpreadsheetApp: { getActive: () => ss, getUi: () => ({ alert() {}, createMenu: () => ({ addItem() { return this; }, addToUi() {} }) }) },
+  SpreadsheetApp: { getActive: () => ss, openByUrl: u => { if (!/owner/.test(u)) throw new Error('no access'); return ownerSs; }, getUi: () => ({ alert() {}, createMenu: () => ({ addItem() { return this; }, addToUi() {} }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
+  ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, nearMinute() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
   MailApp: { sendEmail: m => sentMail.push(m) },
   Utilities: { formatDate: (d, tz, f) => f === 'MM.yyyy' ? (d.getMonth() + 1) + '.' + d.getFullYear() : d.toLocaleDateString('pl-PL') },
   GmailApp: null,
@@ -34,8 +36,9 @@ vm.runInContext(fs.readFileSync(path.join(root, 'Code.gs'), 'utf8'), ctx);
 ctx.setup();
 // ustawienia demo
 sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerEmail') r[1] = 'owner@example.com'; });
-sheets['Lekarze'].rows = [sheets['Lekarze'].rows[0], ['dr Nowak', '48501112233', 'lek. dent. Anna Nowak, Anna Nowak'], ['dr Wiśniewska', '48601234567', 'Karolina Wiśniewska'], ['Oliwia (higienistka)', '', 'Oliwia']];
-sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'ownerPin') r[1] = '1234'; });
+sheets['Lekarze'].rows.push(['dr Nowak', '48501112233', 'lek. dent. Anna Nowak, Anna Nowak'], ['dr Wiśniewska', '48601234567', 'Karolina Wiśniewska']);
+sheets['Ustawienia'].rows.forEach(r => { if (r[0] === 'debtsSheetUrl') r[1] = 'https://docs.google.com/spreadsheets/d/owner-debts'; });
+ctx.__ownerSheets = ownerSheets;
 
 // imitacja Gmaila do testu checkKtEmails
 const inbox = [];

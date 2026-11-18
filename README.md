@@ -48,20 +48,23 @@ Wszystko rób na koncie **PolishDent.pl@gmail.com**: tablica czyta pocztę tego 
 2. Menu **Rozszerzenia → Apps Script**.
 3. W pliku `Code.gs` wklej zawartość pliku [`apps-script/Code.gs`](apps-script/Code.gs) (zastąp wszystko, co tam jest).
 4. Kliknij **＋ → HTML**, nazwij plik `Index` (dokładnie tak) i wklej zawartość [`apps-script/Index.html`](apps-script/Index.html).
-5. Kliknij 💾 **Zapisz**. Na liście funkcji u góry wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Jeśli pojawi się „Aplikacja niezweryfikowana”, kliknij **Zaawansowane → Przejdź do projektu** (to Twój własny skrypt).
-6. Wróć do arkusza. Pojawią się arkusze:
-   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). **PolishDent.pl@gmail.com** to poczta recepcji (wszystkie maile przychodzą tutaj, na tym koncie działa tablica). **dentonia.pl@gmail.com** to poczta właściciela (`ownerEmail`), do której recepcja nie ma dostępu. Tam przychodzą tylko: **codziennie rano raport dzienny** oraz **1. dnia miesiąca raport miesięczny** (patrz niżej). Ustaw też `ownerPin` (PIN do zakładki „Potrącenia”) i `staff`, czyli pozostałych pracowników do potrąceń (asystentki, higienistki), po przecinku. Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
-   - **Lekarze**: wpisz wszystkich 6 lekarzy (i higienistki). Kolumna A to nazwa widoczna na tablicy (np. *dr Nowak*), kolumna B to WhatsApp w formacie `48XXXXXXXXX`, a kolumna C to **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, lek. dent. Oliwia Kowalska*). Dzięki kolumnie C tablica sama rozpoznaje, do kogo jest wizyta, i podstawia lekarza w nowej sprawie.
-7. W Apps Script: **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**.
+5. ⚙️ **Ustawienia projektu** (ikona zębatki po lewej) → **Strefa czasowa: (GMT+01:00) Warszawa**. Bez tego raporty o 20:30 przyjdą o złej godzinie.
+6. Kliknij 💾 **Zapisz**. Na liście funkcji u góry wybierz `setup` → **Uruchom**. Google poprosi o uprawnienia (arkusz, Gmail, wysyłanie maili, wyzwalacze): zatwierdź. Jeśli pojawi się „Aplikacja niezweryfikowana”, kliknij **Zaawansowane → Przejdź do projektu** (to Twój własny skrypt).
+7. Wróć do arkusza. Pojawią się arkusze:
+   - **Ustawienia**: osoby `admins` (domyślnie *Nadia N, Nadia R, Tosia, Właściciel*). **PolishDent.pl@gmail.com** to poczta recepcji (wszystkie maile przychodzą tutaj, na tym koncie działa tablica). **dentonia.pl@gmail.com** to poczta właściciela (`ownerEmail`), do której recepcja nie ma dostępu. Tam przychodzą tylko: **codziennie o 20:30 raport dzienny** oraz **ostatniego dnia miesiąca o 20:30 raport miesięczny** (godzina: `reportTime`). Wpisz też `debtsSheetUrl` (link do arkusza potrąceń na koncie właściciela, patrz „💰 Potrącenia”) i ewentualnie `staff`, czyli pozostałych pracowników do potrąceń (np. asystentki), po przecinku. Zapytanie `ktEmailQuery` jest już ustawione na maile Diagdent (`"Portal Lekarza" "Nowe badanie"`). Wpisz je w wyszukiwarkę Gmaila i sprawdź, że znajduje tylko te maile.
+   - **Lekarze**: lista jest już wpisana: Krzysztof Dragun, Andrzej Kulpa, Stanisław Tsydzik, Ewa Winiarska, Piotr Wereski, Vasyl Kuz, Kornelia Borska, Artur oraz higienistki Oliwia i Antonina.
+     - Kolumna A: nazwa widoczna na tablicy.
+     - Kolumna B (opcjonalnie): **prywatny numer WhatsApp lekarza** w formacie `48XXXXXXXXX`. Służy tylko do przycisku „🔔 Przypomnij lekarzowi”: otwiera czat z tym lekarzem z gotowym tekstem („Dzień dobry! Przypominam w sprawie pacjenta…”). Bez numeru przycisk tylko zapisuje, że przypomniano ustnie.
+     - Kolumna C: **jak ta osoba jest zapisana w Booksy i ZnanyLekarz**, po przecinku (np. *Oliwia, Oliwia Kowalska*). Wpisz pełne imię i nazwisko z ZnanyLekarz i nazwę z Booksy. Po tym tablica rozpoznaje, do kogo jest wizyta. Gdy w Booksy jest „Dowolny lekarz”, tablica pokaże „Dowolny lekarz”.
+8. W Apps Script: **Wdróż → Nowe wdrożenie → Typ: Aplikacja internetowa**.
    - *Wykonaj jako*: **Ja**
    - *Kto ma dostęp*: **Tylko ja** (najbezpieczniej: dane pacjentów widzi tylko osoba zalogowana na konto gabinetu)
    - **Wdróż** → skopiuj link.
-8. Otwórz link na komputerze w recepcji i **dodaj do zakładek**. Właściciel otwiera ten sam link w telefonie, zalogowany w przeglądarce na konto gabinetu. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja.
-
+9. Otwórz link na komputerze w recepcji i **dodaj do zakładek**. Właściciel otwiera ten sam link w telefonie, zalogowany w przeglądarce na konto gabinetu. Można wybrać „Dodaj do ekranu głównego”, a pojawi się ikona jak aplikacja.
 
 > Po zmianach w kodzie: **Wdróż → Zarządzaj wdrożeniami → ✏️ → Wersja: nowa → Wdróż**. Link się nie zmienia.
 
-Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić maile z tomografią albo wysłać raport do właściciela, żeby to przetestować.
+Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić pocztę albo wysłać raport dzienny / miesięczny do właściciela, żeby to przetestować.
 
 ## SMS-y i nieodebrane połączenia z telefonu (Android, karta Play)
 
@@ -86,28 +89,44 @@ Temat musi zaczynać się dokładnie od `CRM SMS` lub `CRM NIEODEBRANE`. Po tym 
 
 Zakładka **💰 Potrącenia** zbiera wszystko, co na koniec miesiąca trzeba potrącić pracownikom: reklamacje lekarzy (poprawka pracy, koszt laboratorium) i pacjentów, za których lekarz pokrywa koszty (zwrot, rabat).
 
-- **Dodawanie**: przycisk „➕ Dodaj potrącenie” albo „💰 Potrącenie” w karcie sprawy (pacjent i lekarz wpiszą się same). Pola: kogo dotyczy, kwota (np. `450,50`), data, kategoria, pacjent, opis. **Recepcja może dodawać wpisy**, ale nie widzi listy ani sum.
-- **Widok właściciela** (po wpisaniu PIN-u): wybór miesiąca, **podsumowanie na osobę** (razem / już potrącono / do potrącenia), lista wpisów z datą, pacjentem i opisem oraz osobna lista nierozliczonych z wcześniejszych miesięcy.
-- Po potrąceniu z wypłaty kliknij **✅ Potrącono**. Wpis zostaje w historii, ale nie liczy się już „do potrącenia”.
-- Osoby do wyboru: lekarze z arkusza „Lekarze” + pracownicy z `staff` + recepcja.
-- 1. dnia miesiąca podsumowanie potrąceń (na osobę i ze szczegółami) jest w raporcie miesięcznym na dentonia.pl.
-- Zmiana osoby w „Na zmianie” od razu blokuje zakładkę z powrotem.
+- **Dodawanie**: przycisk „➕ Dodaj potrącenie” albo „💰 Potrącenie” w karcie sprawy (pacjent i lekarz wpiszą się same). Pola: kogo dotyczy, kwota (np. `450,50`), data, kategoria, pacjent, opis.
+- **Kto co widzi i może:** recepcja **widzi listę i sumy** (żeby mogła przypomnieć właścicielowi), dodaje wpisy i poprawia swoje. **✅ Potrącono** i usuwanie: tylko właściciel (w „Na zmianie” wybrany „Właściciel”).
+- **Widok:** wybór miesiąca, **podsumowanie na osobę** (razem / już potrącono / do potrącenia), lista wpisów z datą, pacjentem i opisem oraz osobna lista nierozliczonych z wcześniejszych miesięcy.
+- Osoby do wyboru: lekarze i higienistki z arkusza „Lekarze” + pracownicy z `staff` + rejestratorki.
+- Ostatniego dnia miesiąca podsumowanie potrąceń (na osobę i ze szczegółami) jest w raporcie miesięcznym na dentonia.pl.
 
-> ⚠️ PIN ukrywa potrącenia na tablicy, ale dane leżą w arkuszu „Potrącenia” na koncie PolishDent.pl, do którego recepcja ma dostęp. Kto otworzy sam arkusz w Google Drive, zobaczy wpisy. Pełne ukrycie wymagałoby przeniesienia potrąceń na konto dentonia.pl. Można to zrobić w następnym kroku.
+### Arkusz potrąceń na koncie właściciela (dentonia.pl)
+
+Dane potrąceń leżą w pliku właściciela, więc właściciel nim zarządza, widzi historię zmian i w każdej chwili może odebrać dostęp. Recepcja ma dostęp przez swoje konto PolishDent.pl.
+
+1. Zaloguj się na **dentonia.pl@gmail.com** → [sheets.new](https://sheets.new) → nazwij plik np. „Potrącenia — PolishDent”.
+2. **Udostępnij** → dodaj `polishdent.pl@gmail.com` jako **Edytor** (tablica musi móc zapisywać wpisy).
+3. Skopiuj link do pliku i wklej go w arkuszu tablicy: „Ustawienia” → `debtsSheetUrl`.
+4. W Apps Script uruchom jeszcze raz `setup`: Google poprosi o zgodę na dostęp do arkuszy, a w pliku właściciela pojawi się zakładka „Potrącenia” z nagłówkami.
+5. Kto i kiedy zmienił wpis, właściciel sprawdzi w swoim pliku: **Plik → Historia wersji**.
+
+Jeśli `debtsSheetUrl` jest puste, potrącenia zapisują się w arkuszu tablicy.
 
 ## 📧 Raporty na e-mail właściciela (dentonia.pl)
 
-**Codziennie rano (raport dzienny):** ile spraw otwartych, zaległych i zawieszonych, lista zaległych i zawieszonych z ostatnim ruchem i osobą, pytania bez odpowiedzi.
+**Codziennie o 20:30 (raport dzienny):** ile spraw otwartych, zaległych i zawieszonych, lista zaległych i zawieszonych z ostatnim ruchem i osobą, pytania bez odpowiedzi.
 
-**1. dnia miesiąca (raport miesięczny za poprzedni miesiąc):**
+**Ostatniego dnia miesiąca o 20:30 (raport miesięczny za ten miesiąc):**
 - sprawy: nowe, zrobione, zamknięte bez realizacji, średni czas realizacji, podział na typy;
+- **osobno listy pacjentów: 🦷 Tomografia, 🩻 RTG, 📋 Plan leczenia, 📌 Bieżące zadania**: pacjent, lekarz, o co chodzi, status (✅ umówiony / ⏳ etap / ✖️ bez realizacji, zaległe na czerwono), data utworzenia;
 - skrzynka: ile wiadomości z każdego źródła (Booksy, ZnanyLekarz, strona, maile, SMS, telefony, WeTransfer), ile obsłużono i jak szybko;
 - praca recepcji na osobę: działania, utworzone i zamknięte sprawy, nieodebrane telefony, przypomnienia lekarzom, odpowiedzi na pytania;
 - ile razy recepcja musiała przypominać każdemu lekarzowi;
 - pytania: zadane, odpowiedziane, średni czas odpowiedzi;
 - 💰 potrącenia: suma na osobę (razem / do potrącenia) i lista szczegółowa.
 
-Raporty można wysłać ręcznie z menu „🦷 Tablica spraw” w arkuszu.
+Raporty można wysłać ręcznie z menu „🦷 Tablica spraw” w arkuszu (raport miesięczny wysłany ręcznie w inny dzień niż ostatni dotyczy poprzedniego miesiąca).
+
+## Typy spraw
+
+🙋 Nowe zapytanie · 🦷 Tomografia · 🩻 RTG · 📋 Plan leczenia · 📞 Telefon po zabiegu · 🧪 Laboratorium · ✅ Potwierdzenie wizyty · 🔁 Wizyta kontrolna · 📌 Bieżące zadania.
+
+RTG przysłane przez WeTransfer → „➕ Utwórz sprawę” zakłada sprawę 🩻 RTG (lub 🦷 Tomografia, gdy w nazwie nie ma „rtg”) od razu na etapie „pokazać lekarzowi”.
 
 ## 💬 Komentarze i ❓ pytania właściciela
 

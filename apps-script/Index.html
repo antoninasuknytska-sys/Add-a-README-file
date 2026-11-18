@@ -533,7 +533,7 @@
     if (act === 'create') {
       const cancel = /odwoła/i.test(i.kind || ''), wt = i.source === 'wetransfer', f = inboxFacts(i);
       newTaskDialog({
-        type: wt ? 'kt' : cancel ? 'revisit' : 'lead', stage: wt ? 1 : null,
+        type: wt ? (/rtg|pantomogram|zdj[eę]ci|x-?ray/i.test((i.subject || '') + ' ' + (i.name || '')) ? 'rtg' : 'kt') : cancel ? 'revisit' : 'lead', stage: wt ? 1 : null,
         patient: i.name || '', phone: i.phone || '', channel: src(i)[2], doctor: doctorFromInbox(i),
         purpose: (wt ? 'Pacjent przesłał RTG/tomografię przez WeTransfer — pobrać przed wygaśnięciem linku, zapisać w karcie, pokazać lekarzowi. ' : '') +
           (cancel ? 'Odwołał(a) wizytę — zaproponować nowy termin. ' : '') + (wt ? '' : (i.kind || '')) + (f ? ' — ' + f : '') +
@@ -565,6 +565,7 @@
   const monthKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
   const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
   const monthLabel = k => MONTHS[Number(k.slice(5)) - 1] + ' ' + k.slice(0, 4);
+  const isOwner = () => me() === cfg().ownerName;
   const debtPeople = () => cfg().doctors.map(d => d.name).concat(cfg().staff || [], cfg().admins.filter(a => a !== cfg().ownerName));
   S.pin = ''; S.debts = null; S.debtMonth = monthKey(Date.now());
 
@@ -597,7 +598,7 @@
         '<div><label>Kategoria</label><select name="category">' + DEBT_CATS.map(c => '<option' + (preset.category === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div></div>' +
         '<label>Pacjent</label><input name="patient" value="' + esc(preset.patient || '') + '">' +
         '<label>Opis: co się stało, za co potrącenie *</label><textarea name="description" required>' + esc(preset.description || '') + '</textarea>' +
-        '<p class="hint">' + (cfg().hasPin ? 'Lista i sumy są widoczne tylko dla właściciela (PIN). Recepcja może dodawać wpisy.' : 'Ustaw PIN właściciela w arkuszu „Ustawienia” → ownerPin, żeby ukryć listę przed recepcją.') + '</p>'
+        '<p class="hint">' + (cfg().hasPin ? 'Lista i sumy są widoczne tylko z PIN-em. Recepcja może dodawać wpisy.' : 'Wpis widzi recepcja i właściciel. „Potrącono” i usuwanie — tylko właściciel.') + '</p>'
     });
     if (!r) return;
     const d = Object.assign({ id: 'D' + now().toString(36) + Math.random().toString(36).slice(2, 5), status: 'open', addedBy: me(), addedAt: now(), taskId: preset.taskId || '' }, preset.id ? preset : {}, {
@@ -608,7 +609,8 @@
   }
   function viewDebts() {
     let h = '<h2>💰 Potrącenia: reklamacje i koszty do pokrycia przez pracowników</h2>' +
-      '<div class="actions" style="margin-bottom:10px"><button class="primary" id="debtAdd">➕ Dodaj potrącenie</button></div>';
+      '<div class="actions" style="margin-bottom:10px"><button class="primary" id="debtAdd">➕ Dodaj potrącenie</button>' +
+      (cfg().debtsUrl && isOwner() ? '<a class="small" style="align-self:center;margin-left:8px" target="_blank" href="' + esc(cfg().debtsUrl) + '">📄 Arkusz potrąceń (konto właściciela) ↗</a>' : '') + '</div>';
     if (!S.debts) {
       if (!cfg().hasPin && !S.debtsFailed) { setTimeout(() => loadDebts(''), 0); return h + '<div class="loading">Ładowanie…</div>'; }
       return h + '<div class="panel"><p>Lista i podsumowania są widoczne tylko dla właściciela.</p><div style="display:flex;gap:8px;max-width:320px"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN"><button class="primary" id="pinBtn">Odblokuj</button></div>' +
@@ -634,8 +636,10 @@
         : '<tr><td colspan="5" class="hint">Brak potrąceń w tym miesiącu</td></tr>') + '</table></div>';
     const row = d => '<tr><td>' + fmt(d.date).replace(/ \d\d:\d\d$/, '') + '</td><td><b>' + esc(d.person) + '</b></td><td>' + esc(d.category) + '</td><td>' + esc(d.patient) + '</td><td>' + esc(d.description) +
       '<div class="hint">dodał(a): ' + esc(d.addedBy) + (d.status === 'settled' ? ' · ✅ potrącono ' + fmt(d.settledAt) + ' (' + esc(d.settledBy) + ')' : '') + '</div></td><td style="white-space:nowrap"><b>' + zl(d.amount) + '</b></td><td style="white-space:nowrap">' +
-      (d.status === 'open' ? '<button class="small primary" data-dact="settle" data-id="' + d.id + '">✅ Potrącono</button> ' : '<button class="small" data-dact="unsettle" data-id="' + d.id + '">↩️</button> ') +
-      '<button class="small" data-dact="edit" data-id="' + d.id + '">✏️</button> <button class="small danger" data-dact="cancel" data-id="' + d.id + '">✖</button></td></tr>';
+      (isOwner() ? (d.status === 'open' ? '<button class="small primary" data-dact="settle" data-id="' + d.id + '">✅ Potrącono</button> ' : '<button class="small" data-dact="unsettle" data-id="' + d.id + '">↩️</button> ')
+        : (d.status === 'open' ? '<span class="hint">do potrącenia</span> ' : '<span class="hint">✅ potrącono</span> ')) +
+      (isOwner() || d.addedBy === me() ? '<button class="small" data-dact="edit" data-id="' + d.id + '">✏️</button> ' : '') +
+      (isOwner() ? '<button class="small danger" data-dact="cancel" data-id="' + d.id + '">✖</button>' : '') + '</td></tr>';
     const table = list => '<div class="tablewrap"><table><tr><th>Data</th><th>Kto</th><th>Kategoria</th><th>Pacjent</th><th>Opis</th><th>Kwota</th><th></th></tr>' + list.map(row).join('') + '</table></div>';
     h += '<h2>Wpisy: ' + monthLabel(mk) + ' <span class="count">' + inMonth.length + '</span></h2>' + (inMonth.length ? table(inMonth.sort((a, b) => a.date - b.date)) : '<div class="empty">Brak</div>');
     if (older.length) h += '<h2>⏳ Nierozliczone z wcześniejszych miesięcy <span class="count red">' + older.length + '</span></h2>' + table(older.sort((a, b) => a.date - b.date));

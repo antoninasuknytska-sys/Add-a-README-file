@@ -55,13 +55,33 @@ const TYPES = {
     ]
   },
   kt: {
-    label: 'Tomografia / plan leczenia', icon: '🦷',
+    label: 'Tomografia', icon: '🦷',
     stages: [
       { n: 'Skierowanie na tomografię wysłane', due: 72 },
       { n: 'Tomografia gotowa — pokazać lekarzowi', due: 2 },
       { n: 'Czekamy na odpowiedź lekarza', due: 4, nag: true },
       { n: 'Lekarz odpowiedział — umówić pacjenta', due: 4, ask: 'Co powiedział lekarz: kiedy i na ile czasu umówić?' },
       { n: 'Pacjent umówiony', done: true }
+    ]
+  },
+  rtg: {
+    label: 'RTG', icon: '🩻',
+    stages: [
+      { n: 'Czekamy na RTG od pacjenta', due: 72 },
+      { n: 'RTG otrzymane — pokazać lekarzowi', due: 2 },
+      { n: 'Czekamy na odpowiedź lekarza', due: 4, nag: true },
+      { n: 'Lekarz odpowiedział — umówić pacjenta', due: 4, ask: 'Co powiedział lekarz: kiedy i na ile czasu umówić?' },
+      { n: 'Pacjent umówiony', done: true }
+    ]
+  },
+  plan: {
+    label: 'Plan leczenia', icon: '📋',
+    stages: [
+      { n: 'Lekarz przygotowuje plan / wycenę', due: 48, nag: true },
+      { n: 'Plan gotowy — przekazać pacjentowi', due: 24, next: 3 },
+      { n: 'Nie odebrał — ponowić', due: 24, retry: true, next: 3 },
+      { n: 'Pacjent się zastanawia', due: 72, next: 4 },
+      { n: 'Pacjent zaakceptował — umówiony', done: true }
     ]
   },
   call_after: {
@@ -99,7 +119,7 @@ const TYPES = {
     ]
   },
   other: {
-    label: 'Inne', icon: '📌',
+    label: 'Bieżące zadania', icon: '📌',
     stages: [
       { n: 'Do zrobienia', due: 8 },
       { n: 'W trakcie', due: 8 },
@@ -108,17 +128,32 @@ const TYPES = {
   }
 };
 
+/** Lekarze i higienistki: [nazwa na tablicy, WhatsApp, inne nazwy w Booksy / ZnanyLekarz]. */
+const DEFAULT_DOCTORS = [
+  ['Krzysztof Dragun', '', 'Krzysztof, dr Dragun'],
+  ['Andrzej Kulpa', '', 'Andrzej, dr Kulpa'],
+  ['Stanisław Tsydzik', '', 'Stanisław, dr Tsydzik'],
+  ['Ewa Winiarska', '', 'Ewa, dr Winiarska'],
+  ['Piotr Wereski', '', 'Piotr, dr Wereski'],
+  ['Vasyl Kuz', '', 'Vasyl, dr Kuz'],
+  ['Kornelia Borska', '', 'Kornelia, dr Borska'],
+  ['Artur', '', 'Artur'],
+  ['Oliwia (higienistka)', '', 'Oliwia'],
+  ['Antonina (higienistka)', '', 'Antonina']
+];
+
 const DEFAULT_SETTINGS = [
   ['clinicName', 'Gabinet stomatologiczny', 'Nazwa wyświetlana u góry'],
-  ['admins', 'Nadia N, Nadia R, Tosia, Właściciel', 'Kto pracuje z tablicą (po przecinku)'],
+  ['admins', 'Nadia N, Nadia R, Tosia, Właściciel', 'Kto pracuje z tablicą: rejestratorki + właściciel (po przecinku)'],
   ['ownerEmail', 'dentonia.pl@gmail.com', 'E-mail właściciela (recepcja nie ma do niego dostępu): poranny raport, odpowiedzi na pytania, miesięczne podsumowanie potrąceń'],
-  ['reportHour', '8', 'O której godzinie wysyłać poranny raport (0–23)'],
+  ['reportTime', '20:30', 'Godzina raportu dziennego (codziennie) i miesięcznego (ostatniego dnia miesiąca), np. 20:30. Po zmianie uruchom ponownie „1. Konfiguracja początkowa”'],
   ['staleHours', '48', 'Po ilu godzinach bez ruchu (po terminie) sprawa jest „zawieszona”'],
   ['mailboxes', 'polishdent.pl@gmail.com=PL', 'Skrzynka recepcji (adres=znaczek). Maile wysłane z niej nie trafiają do „Skrzynki”. Przy kilku skrzynkach (po przecinku) na wiadomościach pojawia się znaczek'],
   ['ownerName', 'Właściciel', 'Imię właściciela z listy admins (nie pojawia się na liście osób do potrąceń)'],
   ['staff', '', 'Pozostali pracownicy do zakładki „Potrącenia” (asystentki, higienistki itp.), po przecinku. Lekarze i recepcja są dodawani automatycznie'],
   ['notifyAnswers', 'nie', 'tak = e-mail do właściciela, gdy recepcja odpowie na jego pytanie (domyślnie nie — odpowiedzi są na tablicy)'],
-  ['ownerPin', '', 'PIN właściciela do zakładki „Potrącenia” (np. 4–6 cyfr). Puste = zakładka otwarta dla wszystkich. Recepcja może dodawać wpisy bez PIN-u'],
+  ['debtsSheetUrl', '', 'Link do arkusza „Potrącenia” na koncie właściciela (dentonia.pl), udostępnionego dla polishdent.pl@gmail.com jako Edytor. Puste = potrącenia w tym arkuszu'],
+  ['ownerPin', '', 'Opcjonalny PIN do zakładki „Potrącenia”. Puste = recepcja też widzi listę (domyślnie)'],
   ['inboxIgnore', 'diagdent, portal lekarza, mailer-daemon, accounts.google.com', 'Pomijaj maile, których nadawca lub temat zawiera te słowa (po przecinku)'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
@@ -141,10 +176,9 @@ function setup() {
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_SHIFTS, SHIFT_HEADERS);
   ensureSheet_(ss, SHEET_INBOX, INBOX_HEADERS);
-  ensureSheet_(ss, SHEET_DEBTS, DEBT_HEADERS);
   const doctors = ensureSheet_(ss, SHEET_DOCTORS, ['Lekarz (jak ma być widoczny na tablicy)', 'WhatsApp (48XXXXXXXXX)', 'Inne nazwy: jak jest zapisany w Booksy i ZnanyLekarz (po przecinku)']);
   if (doctors.getLastRow() < 2) {
-    doctors.getRange(2, 1, 6, 3).setValues([1, 2, 3, 4, 5, 6].map(n => ['Lekarz ' + n, '', '']));
+    doctors.getRange(2, 1, DEFAULT_DOCTORS.length, 3).setValues(DEFAULT_DOCTORS);
   }
   doctors.setColumnWidth(1, 260).setColumnWidth(3, 420);
   const settings = ensureSheet_(ss, SHEET_SETTINGS, ['Klucz', 'Wartość', 'Opis']);
@@ -157,8 +191,10 @@ function setup() {
     if (['checkKtEmails', 'checkMail', 'dailyReport'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('checkMail').timeBased().everyMinutes(5).create();
-  const hour = Math.min(23, Math.max(0, parseInt(getSettings_().reportHour, 10) || 8));
-  ScriptApp.newTrigger('dailyReport').timeBased().everyDays(1).atHour(hour).create();
+  const tm = String(getSettings_().reportTime || '20:30').match(/(\d{1,2})(?::(\d{2}))?/) || [0, 20, 30];
+  ScriptApp.newTrigger('dailyReport').timeBased().everyDays(1)
+    .atHour(Math.min(23, Number(tm[1]))).nearMinute(Number(tm[2] || 0)).create(); // strefa czasowa projektu: Europe/Warsaw
+  if (getSettings_().debtsSheetUrl) debtSheet_(); // sprawdź dostęp do arkusza właściciela
 
   try {
     SpreadsheetApp.getUi().alert('Gotowe! Uzupełnij arkusze „Ustawienia” i „Lekarze”, a potem opublikuj aplikację internetową (patrz instrukcja).');
@@ -204,6 +240,7 @@ function getData() {
       ownerName: String(s.ownerName || 'Właściciel').trim(),
       staff: String(s.staff || '').split(',').map(x => x.trim()).filter(Boolean),
       hasPin: !!String(s.ownerPin || '').trim(),
+      debtsUrl: String(s.debtsSheetUrl || '').trim(),
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30
     },
     tasks: tasks,
@@ -304,7 +341,7 @@ function saveDebt(payload) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DEBTS);
+    const sh = debtSheet_();
     const rowIdx = findRow_(sh, payload.debt.id);
     const row = DEBT_COLS.map(c => {
       const v = payload.debt[c];
@@ -324,8 +361,24 @@ function saveDebt(payload) {
   try { checkPin_(payload.pin); return readDebts_(); } catch (e) { return null; }
 }
 
+/**
+ * Arkusz potrąceń: na koncie właściciela (debtsSheetUrl), a jeśli link pusty — w tym arkuszu.
+ * Plik właściciela musi być udostępniony dla polishdent.pl@gmail.com jako Edytor.
+ */
+function debtSheet_() {
+  const url = String(getSettings_().debtsSheetUrl || '').trim();
+  let ss;
+  if (url) {
+    try { ss = SpreadsheetApp.openByUrl(url); }
+    catch (e) { throw new Error('Brak dostępu do arkusza potrąceń właściciela. Sprawdź, czy jest udostępniony dla konta recepcji jako Edytor.'); }
+  } else {
+    ss = SpreadsheetApp.getActive();
+  }
+  return ensureSheet_(ss, SHEET_DEBTS, DEBT_HEADERS);
+}
+
 function readDebts_() {
-  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_DEBTS);
+  const sh = debtSheet_();
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, DEBT_COLS.length).getValues()
     .filter(r => r[0])
@@ -338,12 +391,24 @@ function readDebts_() {
 }
 
 /** Podsumowanie potrąceń za poprzedni miesiąc (do raportu z 1. dnia miesiąca). */
-function debtsMonthHtml_() {
+/** Okres raportu miesięcznego: ostatniego dnia miesiąca — bieżący miesiąc, w inne dni — poprzedni. */
+function reportPeriod_() {
   const d = new Date();
-  const from = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
-  const to = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const last = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getDate() === 1;
+  const m = last ? d.getMonth() : d.getMonth() - 1;
+  return { from: new Date(d.getFullYear(), m, 1).getTime(), to: new Date(d.getFullYear(), m + 1, 1).getTime() };
+}
+
+function isLastDayOfMonth_() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getDate() === 1;
+}
+
+function debtsMonthHtml_() {
+  const per0 = reportPeriod_();
+  const from = per0.from, to = per0.to;
   const list = readDebts_().filter(x => x.status !== 'cancelled' && ((x.date >= from && x.date < to) || (x.status === 'open' && x.date < from)));
-  if (!list.length) return '<h3>💰 Potrącenia za poprzedni miesiąc — brak</h3>';
+  if (!list.length) return '<h3>💰 Potrącenia w tym okresie — brak</h3>';
   const per = {};
   list.forEach(x => { const p = per[x.person] = per[x.person] || { sum: 0, open: 0, n: 0 }; p.sum += x.amount; p.n++; if (x.status === 'open') p.open += x.amount; });
   const zl = n => n.toFixed(2).replace('.', ',') + ' zł';
@@ -440,8 +505,9 @@ function resolveDoctor_(found, text, doctors) {
     const d = doctors.filter(x => names(x).some(a => f === a || f.indexOf(a) >= 0 || a.indexOf(f) >= 0))[0];
     if (d) return d.name;
   }
+  // W całej treści szukamy tylko pełnych nazw (min. 2 słowa), żeby „Piotr” pacjenta nie dał lekarza Piotra
   const t = normText_(text);
-  const d = doctors.filter(x => names(x).some(a => t.indexOf(a) >= 0))[0];
+  const d = doctors.filter(x => names(x).some(a => a.trim().split(' ').length >= 2 && t.indexOf(a) >= 0))[0];
   return d ? d.name : (found || '');
 }
 
@@ -735,19 +801,18 @@ function dailyReport() {
     subject: (s.clinicName || 'Gabinet') + ': ' + overdue.length + ' zaległych, ' + stale.length + ' zawieszonych spraw',
     htmlBody: html
   });
-  if (new Date().getDate() === 1) monthlyReport();
+  if (isLastDayOfMonth_()) monthlyReport();
 }
 
 /**
- * Raport miesięczny (1. dnia miesiąca, za poprzedni miesiąc): sprawy, skrzynka, praca recepcji,
+ * Raport miesięczny (ostatniego dnia miesiąca o 20:30, za bieżący miesiąc; uruchomiony ręcznie w innym dniu — za poprzedni): sprawy, skrzynka, praca recepcji,
  * przypomnienia lekarzom, pytania i potrącenia na osobę.
  */
 function monthlyReport() {
   const s = getSettings_();
   if (!s.ownerEmail) return;
-  const d = new Date();
-  const from = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
-  const to = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const per0 = reportPeriod_();
+  const from = per0.from, to = per0.to;
   const inM = ts => ts >= from && ts < to;
   const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
   const label = MONTHS[new Date(from).getMonth()] + ' ' + new Date(from).getFullYear();
@@ -815,6 +880,15 @@ function monthlyReport() {
     '</b> · średnio dni do realizacji: <b>' + avg(done.map(t => t.closedAt - t.createdAt), 864e5) + '</b></p>' +
     '<p>Stan na dziś: otwartych <b>' + open.length + '</b>, zaległych <b style="color:#c62828">' + open.filter(t => t.dueAt && t.dueAt < now).length + '</b>.</p>' +
     '<h3>Sprawy według typów</h3>' + tbl(['Typ', 'Nowe', 'Zrobione', 'Bez realizacji', 'Otwarte teraz', 'Śr. dni'], typeRows) +
+    ['kt', 'rtg', 'plan', 'other'].map(k => {
+      const l = tasks.filter(t => t.type === k && (inM(t.createdAt) || inM(t.closedAt || 0) || t.status === 'open'))
+        .sort((a, b) => a.createdAt - b.createdAt);
+      const st = t => t.status === 'done' ? '✅ ' + esc_(stageName_(t)) : t.status === 'cancelled' ? '✖️ bez realizacji' : '⏳ ' + esc_(stageName_(t)) + (t.dueAt && t.dueAt < now ? ' <b style="color:#c62828">(zaległe)</b>' : '');
+      return '<h3>' + TYPES[k].icon + ' ' + TYPES[k].label + ' — ' + l.length + '</h3>' +
+        tbl(['Pacjent', 'Lekarz', 'O co chodzi', 'Status', 'Utworzono'], l.map(t => [
+          '<b>' + esc_(t.patient) + '</b>', esc_(t.doctor || ''), esc_(String(t.purpose || '').slice(0, 140)), st(t),
+          Utilities.formatDate(new Date(t.createdAt), Session.getScriptTimeZone(), 'dd.MM')]));
+    }).join('') +
     '<h3>📥 Skrzynka: ' + inbox.length + ' wiadomości</h3>' + tbl(['Źródło', 'Wiadomości', 'Obsłużone', 'Zrobiono sprawę', 'Śr. czas reakcji'], inboxRows) +
     '<h3>👩‍💼 Praca recepcji</h3>' + tbl(['Kto', 'Działań', 'Utworzone sprawy', 'Zamknięte', 'Nieodebrane telefony', 'Przypomnienia lekarzom', 'Odpowiedzi na pytania'],
       peopleRows) +
