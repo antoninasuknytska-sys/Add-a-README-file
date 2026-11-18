@@ -27,6 +27,7 @@ const ctx = {
   console, Date, JSON, Math,
   SpreadsheetApp: { getActive: () => ss, openByUrl: u => { if (!/owner/.test(u)) throw new Error('no access'); return ownerSs; }, getUi: () => ({ alert() {}, createMenu: () => ({ addItem() { return this; }, addToUi() {} }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+  Logger: { log: () => {} },
   ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased() { return this; }, everyMinutes() { return this; }, everyDays() { return this; }, atHour() { return this; }, nearMinute() { return this; }, create() {} }), getService: () => ({ getUrl: () => 'http://localhost:8787' }) },
   MailApp: { sendEmail: m => sentMail.push(m) },
   Utilities: { formatDate: (d, tz, f) => f === 'MM.yyyy' ? (d.getMonth() + 1) + '.' + d.getFullYear() : f === 'HH:mm' ? String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : d.toLocaleDateString('pl-PL') },
@@ -48,6 +49,7 @@ ctx.__ownerSheets = ownerSheets;
 const inbox = [];
 ctx.GmailApp = {
   getUserLabelByName: () => ({}), createLabel: () => ({}),
+  getThreadById: id => { const t = inbox.filter(x => x.id === id)[0]; if (!t) throw new Error('no'); return { getLastMessageDate: () => new Date(t.date || Date.now()) }; },
   // t = {id, subject, body, from, to, date, kt}; zapytania z "Portal Lekarza" zwracają tylko maile Diagdent
   search: q => inbox.filter(t => (/Portal Lekarza/.test(q) ? t.kt && !t.done : !t.kt)).map(t => ({
     getId: () => t.id, getMessageCount: () => 1,

@@ -185,6 +185,7 @@ const DEFAULT_SETTINGS = [
   ['callTags', 'Umówiony / zapisał się, Zastanowi się, Oddzwonić, Za drogo, Szuka NFZ, Pomyłka (inna klinika), Pytanie o cenę, Promocja / akcja, Zmiana lub odwołanie wizyty, Pytanie o wizytę / wynik, Nie odebrał, Firma / dostawca / reklama, Inne',
     'Powody i wyniki rozmów do zaznaczania przy telefonach i SMS (po przecinku). Można dopisywać własne'],
   ['inboxAlertMinutes', '30', 'Po ilu minutach nieobsłużona wiadomość w skrzynce robi się czerwona'],
+  ['ktMaxAgeDays', '3', 'Maile Diagdent starsze niż tyle dni nie tworzą spraw (i są zamykane przez „🧹 Porządki”)'],
   ['ktEmailQuery', '"Portal Lekarza" "Nowe badanie"', 'Zapytanie Gmail dla maili Diagdent o gotowej tomografii. Puste = automatyzacja wyłączona']
 ];
 
@@ -195,6 +196,7 @@ function onOpen() {
     .addItem('1. Konfiguracja początkowa', 'setup')
     .addItem('Sprawdź teraz pocztę (skrzynka + tomografie)', 'checkMail')
     .addItem('Wyślij teraz raport dzienny', 'dailyReport')
+    .addItem('🧹 Porządki: zamknij stare tomografie z maili', 'cleanupOldKt')
     .addItem('Wyślij teraz raport miesięczny (poprzedni miesiąc)', 'monthlyReport')
     .addToUi();
 }
@@ -824,8 +826,11 @@ function checkKtEmails() {
   const label = GmailApp.getUserLabelByName(KT_LABEL) || GmailApp.createLabel(KT_LABEL);
   const threads = GmailApp.search('(' + s.ktEmailQuery + ') -label:' + KT_LABEL, 0, 30);
 
+  const maxAge = (Number(s.ktMaxAgeDays) || 3) * 864e5;
   threads.forEach(th => {
     th.getMessages().forEach(msg => {
+      // stare powiadomienia (sprzed uruchomienia tablicy) pomijamy — inaczej zasypałyby tablicę
+      if (Date.now() - msg.getDate().getTime() > maxAge) return;
       const subject = msg.getSubject() || '';
       const body = msg.getPlainBody() || '';
       const info = parseStudyEmail_(body) || parseStudyEmail_(htmlToText_(msg.getBody()));
@@ -842,10 +847,10 @@ function checkKtEmails() {
         match.updatedAt = now;
         match.updatedBy = BOT;
         match.history.push({ t: now, who: BOT, text: '📩 Przyszedł mail: badanie gotowe — ' + what + '. Pokaż lekarzowi. ' + link });
-        saveTask(match);
+        lockedUpsert_(match);
       } else {
-        saveTask({
-          id: newId_(), createdAt: now, createdBy: BOT, type: 'kt',
+        lockedUpsert_({
+          id: newId_(), createdAt: msg.getDate().getTime(), createdBy: BOT, type: 'kt',
           patient: info ? info.name : '❓ Ustalić pacjenta', phone: '', channel: 'E-mail', doctor: '',
           purpose: 'Gotowe badanie w Portalu Lekarza: ' + what + '. Pokazać lekarzowi i uzyskać odpowiedź: kiedy i na ile czasu umówić pacjenta.' +
             (info ? ' Uzupełnij telefon i lekarza.' : ' Nie udało się odczytać pacjenta z maila — sprawdź mail.'),
@@ -857,6 +862,43 @@ function checkKtEmails() {
     });
     th.addLabel(label);
   });
+}
+
+function lockedUpsert_(task) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { upsertTask_(task); } finally { lock.releaseLock(); }
+}
+
+/**
+ * Porządki (menu): zamyka sprawy tomografii utworzone automatycznie ze STARYCH maili Diagdent
+ * (mail starszy niż ktMaxAgeDays dni) i nieruszane przez recepcję. Sprawy, w których ktoś coś zrobił, zostają.
+ */
+function cleanupOldKt() {
+  const s = getSettings_();
+  const maxAge = (Number(s.ktMaxAgeDays) || 3) * 864e5;
+  const now = Date.now();
+  let closed = 0, kept = 0;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    readTasks_().forEach(t => {
+      if (t.status !== 'open' || t.type !== 'kt' || t.createdBy !== BOT) return;
+      if ((t.history || []).some(h => h.who && h.who !== BOT)) { kept++; return; }
+      const m = (t.history || []).map(h => String(h.text).match(/#all\/([0-9a-zA-Z]+)/)).filter(Boolean)[0];
+      let mailDate = 0;
+      try { if (m) mailDate = GmailApp.getThreadById(m[1]).getLastMessageDate().getTime(); } catch (e) { /* mail usunięty */ }
+      if (mailDate && now - mailDate <= maxAge) { kept++; return; }
+      t.status = 'cancelled'; t.closedAt = now; t.dueAt = '';
+      t.history.push({ t: now, who: BOT, text: '🧹 Zamknięto automatycznie: stare powiadomienie Diagdent sprzed uruchomienia tablicy' +
+        (mailDate ? ' (mail z ' + Utilities.formatDate(new Date(mailDate), Session.getScriptTimeZone(), 'dd.MM.yyyy') + ')' : '') });
+      upsertTask_(t);
+      closed++;
+    });
+  } finally { lock.releaseLock(); }
+  const msg = 'Zamknięto ' + closed + ' starych spraw tomografii z maili. Zostawiono ' + kept + ' (nowe albo już ruszone przez recepcję). Zamknięte są w „Archiwum” na tablicy.';
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
+  return msg;
 }
 
 /** „…badanie Tomografia szczęki i żuchwy dla pacjenta Jan Kowalski (02.10.1969).” */

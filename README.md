@@ -78,6 +78,10 @@ Czy plik na koncie właściciela zmienia czytanie poczty recepcji? **Nie**, pod 
 
 Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić pocztę albo wysłać raport dzienny / miesięczny do właściciela, żeby to przetestować.
 
+> **Tablica ≠ arkusz.** Arkusz Google to tylko „magazyn” danych. Z tablicą pracuje się przez **link aplikacji** (Wdróż → Zarządzaj wdrożeniami → „Adres URL aplikacji internetowej”, kończy się na `/exec`). Arkusza na co dzień nie trzeba otwierać.
+
+> **Pierwsze uruchomienie:** maile Diagdent starsze niż `ktMaxAgeDays` (domyślnie 3 dni) nie tworzą spraw. Jeśli wcześniej powstało dużo spraw ze starych maili, użyj menu **🦷 Tablica spraw → 🧹 Porządki: zamknij stare tomografie z maili**. Zamyka tylko sprawy ze starych maili, których nikt nie ruszał; trafiają do „Archiwum”.
+
 ## SMS-y i nieodebrane połączenia z telefonu (Android, karta Play)
 
 Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. Konfiguruje się ją **raz**, potem działa **automatycznie w tle**: nikt nic nie klika. Warunki: telefon włączony, z internetem, a MacroDroid niewyłączony przez oszczędzanie baterii. W darmowej wersji można mieć 5 makr, potrzebne są 4.
