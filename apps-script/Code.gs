@@ -796,7 +796,11 @@ function classifyRaw_(msg, boxes, ignore) {
   if (/znanylekarz|docplanner/i.test(fromL) || /znanylekarz/i.test(flat)) {
     it.source = 'znanylekarz';
     const clean = subject.replace(/^[^A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+/, '');
-    it.name = clean.split(/\s+(odwołał|umówił|zmienił|przełożył|przesunął|wysłał|napisał|zostawił|dodał|ma pytanie|zadał)/i)[0].trim();
+    // Imię: najpierw z bloku „Pacjent” w treści, potem z tematu („… umówiona przez Jan Kowalski …” albo „Jan Kowalski odwołał(a) …”)
+    const fromBody = raw.match(/Pacjent\s*\n\s*([^\n(+]+?)\s*(\(|\n|\+)/);
+    const viaPrzez = subject.match(/przez\s+([A-ZĄĆĘŁŃÓŚŹŻ][^\s,]*(?:\s+[A-ZĄĆĘŁŃÓŚŹŻ][^\s,]*){0,3}?)(?=\s+(?:na|w|dnia|o)\s|\s*[,(–-]|$)/);
+    it.name = (fromBody && fromBody[1].trim()) || (viaPrzez && viaPrzez[1].trim()) ||
+      clean.split(/\s+(odwołał|umówił|zmienił|przełożył|przesunął|wysłał|napisał|zostawił|dodał|ma pytanie|zadał)/i)[0].trim();
     if (/odwoła/i.test(subjL)) it.kind = 'ZnanyLekarz: odwołanie wizyty';
     else if (/umówił|nowa wizyta|zarezerwowa/i.test(subjL)) it.kind = 'ZnanyLekarz: nowa wizyta';
     else if (/zmienił|przełożył|przesun/i.test(subjL)) it.kind = 'ZnanyLekarz: zmiana terminu';
