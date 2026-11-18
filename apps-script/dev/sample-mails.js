@@ -23,6 +23,8 @@ module.exports = function (ctx) {
     { id: 'own', date: now - 1 * H, from: 'PolishDent <polishdent.pl@gmail.com>', subject: 'Re: Zapytanie', body: 'Odpowiedź gabinetu' },
     { id: 'sms1', date: now - 5 * 6e4, from: 'polishdent.pl@gmail.com', subject: 'CRM SMS +48671112233 Piotr Wójcik', body: 'Dzień dobry, czy mogę przesunąć wizytę na piątek?' },
     { id: 'sms2', date: now - 5 * 6e4, from: 'polishdent.pl@gmail.com', subject: 'CRM SMS PLAY', body: 'Twój pakiet internetu się kończy' },
+    { id: 'cl1', date: now - 15 * 6e4, from: 'polishdent.pl@gmail.com', subject: 'CRM WYCHODZĄCE +48 501 234 567 Kowalska', body: '' },
+    { id: 'cl2', date: now - 12 * 6e4, from: 'polishdent.pl@gmail.com', subject: 'CRM ODEBRANE +48 600 700 800 Nowy pacjent', body: '' },
     { id: 'call1', date: now - 40 * 6e4, from: 'polishdent.pl@gmail.com', subject: 'CRM NIEODEBRANE +48 671 112 233', body: '' },
     { id: 'kt1', kt: true, date: now - 30 * 6e4, from: 'Diagdent - Portal Lekarza <portal@diagdent.pl>', subject: 'Nowe badanie w systemie Portal Lekarza DIAGDENT',
       body: 'Na Państwa koncie w Portalu Lekarza pojawiło się już badanie Tomografia szczęki i żuchwy dla pacjenta KOWALSKA ANNA (02.10.1969).' }

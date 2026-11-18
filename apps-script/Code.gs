@@ -259,7 +259,8 @@ function getData() {
   const monthAgo = Date.now() - 30 * 864e5;
   const tasks = readTasks_().filter(t => t.status === 'open' || (t.closedAt || 0) > monthAgo);
   const twoWeeks = Date.now() - 14 * 864e5;
-  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > twoWeeks);
+  const twoDays = Date.now() - 2 * 864e5;
+  const inbox = readInbox_().filter(i => i.status === 'new' || (i.receivedAt || 0) > (i.status === 'log' ? twoDays : twoWeeks));
   return {
     now: Date.now(),
     config: {
@@ -528,15 +529,57 @@ function checkInbox() {
     fresh.push(item);
   })));
 
-  if (fresh.length) {
+  fresh.sort((a, b) => a.receivedAt - b.receivedAt);
+  const changed = processCalls_(fresh);
+
+  if (fresh.length || changed.inbox.length || changed.tasks.length) {
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
       const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
-      fresh.sort((a, b) => a.receivedAt - b.receivedAt).forEach(i => sh.appendRow(inboxToRow_(i)));
+      changed.inbox.forEach(i => { const r = findRow_(sh, i.id); if (r > 0) sh.getRange(r, 1, 1, INBOX_COLS.length).setValues([inboxToRow_(i)]); });
+      fresh.filter(i => !i.drop).forEach(i => sh.appendRow(inboxToRow_(i)));
+      changed.tasks.forEach(t => upsertTask_(t));
     } finally { lock.releaseLock(); }
   }
   props.setProperty('inboxLastCheck', String(now));
+}
+
+/**
+ * Rejestr połączeń (MacroDroid: CRM ODEBRANE / CRM WYCHODZĄCE):
+ *  - odebrane i wychodzące trafiają do skrzynki jako wpis „log” (nie trzeba ich klikać);
+ *  - numer pacjenta z otwartą sprawą → wpis w historii sprawy;
+ *  - oddzwonienie lub ponowny dodzwoniony telefon zamyka wcześniejsze „nieodebrane” z tego numeru.
+ */
+function processCalls_(fresh) {
+  const out = { inbox: [], tasks: [] };
+  if (!fresh.some(i => i.source === 'call_in' || i.source === 'call_out')) return out;
+  const old = readInbox_();
+  const open = readTasks_().filter(t => t.status === 'open');
+  const hm = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'HH:mm');
+  const taskMap = {};
+  fresh.forEach(i => {
+    if (i.source !== 'call_in' && i.source !== 'call_out') return;
+    i.status = 'log'; i.handledBy = BOT; i.handledAt = i.receivedAt;
+    const p9 = digits_(i.phone).slice(-9);
+    if (p9.length !== 9) return;
+    const missedAll = old.concat(fresh).filter(x => x.source === 'call' && digits_(x.phone).slice(-9) === p9 && x.receivedAt <= i.receivedAt);
+    // „odebrane” zaraz po „nieodebranym” z tego samego numeru to ten sam telefon — pomijamy
+    if (i.source === 'call_in' && missedAll.some(x => i.receivedAt - x.receivedAt < 2 * 6e4)) { i.drop = true; return; }
+    missedAll.filter(x => x.status === 'new').forEach(x => {
+      x.status = 'done'; x.handledBy = BOT; x.handledAt = i.receivedAt;
+      x.note = i.source === 'call_out' ? 'Oddzwoniono (połączenie wychodzące ' + hm(i.receivedAt) + ')' : 'Pacjent dodzwonił się ponownie (' + hm(i.receivedAt) + ')';
+      if (old.indexOf(x) >= 0) out.inbox.push(x);
+    });
+    const t = taskMap[p9] || open.filter(x => digits_(x.phone).slice(-9) === p9)[0];
+    if (t) {
+      taskMap[p9] = t;
+      t.history.push({ t: i.receivedAt, who: BOT, text: (i.source === 'call_in' ? '📲 Rozmowa przychodząca' : '📤 Połączenie wychodzące') + ' o ' + hm(i.receivedAt) });
+      i.taskId = t.id;
+    }
+  });
+  out.tasks = Object.keys(taskMap).map(k => taskMap[k]);
+  return out;
 }
 
 /** Rozpoznaj, skąd jest wiadomość, i wyciągnij pacjenta, telefon i najważniejsze informacje. null = pomiń. */
@@ -589,15 +632,20 @@ function classifyRaw_(msg, boxes, ignore) {
   };
 
   // SMS i połączenia z telefonu (MacroDroid)
-  let m = subject.match(/^CRM\s+(SMS|NIEODEBRANE)\s*(.*)$/i);
+  let m = subject.match(/^CRM\s+(SMS|NIEODEBRANE|ODEBRANE|WYCHODZ\S*)\s*(.*)$/i);
   if (m) {
     const rest = m[2].trim();
     const ph = rest.match(/\+?[\d\s-]{6,}/);
     it.phone = ph ? ph[0].trim() : '';
     it.name = (ph ? rest.replace(ph[0], '') : rest).replace(/[\[\]()]/g, '').trim();
-    if (m[1].toUpperCase() === 'SMS') {
+    const kind = m[1].toUpperCase();
+    if (kind === 'SMS') {
       if (digits_(it.phone).length < 9) return null; // SMS-y serwisowe (Play, kody, reklamy)
       it.source = 'sms'; it.kind = 'SMS od pacjenta'; it.text = flat.slice(0, 1000);
+    } else if (kind === 'ODEBRANE') {
+      it.source = 'call_in'; it.kind = 'Rozmowa przychodząca';
+    } else if (kind.indexOf('WYCHODZ') === 0) {
+      it.source = 'call_out'; it.kind = 'Połączenie wychodzące';
     } else {
       it.source = 'call'; it.kind = 'Nieodebrane połączenie — oddzwonić'; it.urgent = '1';
       if (!digits_(it.phone)) it.name = it.name || 'Numer zastrzeżony';
@@ -931,17 +979,18 @@ function monthlyReport() {
   });
 
   // Skrzynka
-  const SRC = { booksy: '📅 Booksy', znanylekarz: '🩺 ZnanyLekarz', www_form: '🌐 Formularz na stronie', www_msg: '💬 Wiadomość ze strony',
+  const SRC = { call_in: '📲 Rozmowy przychodzące', call_out: '📤 Połączenia wychodzące', booksy: '📅 Booksy', znanylekarz: '🩺 ZnanyLekarz', www_form: '🌐 Formularz na stronie', www_msg: '💬 Wiadomość ze strony',
     wetransfer: '📦 WeTransfer', email: '✉️ E-mail', sms: '📱 SMS', call: '📞 Nieodebrane połączenia' };
   const inbox = readInbox_().filter(i => inM(i.receivedAt));
   const inboxRows = Object.keys(SRC).map(k => {
     const l = inbox.filter(i => i.source === k);
     if (!l.length) return null;
+    if (k === 'call_in' || k === 'call_out') return [SRC[k], l.length, '—', l.filter(i => i.taskId).length + ' (dopisane do sprawy)', '—'];
     const h = l.filter(i => i.status !== 'new' && i.handledAt);
     return [SRC[k], l.length, h.length, l.filter(i => i.taskId).length, (h.length ? avg(h.map(i => i.handledAt - i.receivedAt), 6e4) + ' min' : '—')];
   }).filter(Boolean);
   const handledBy = {};
-  inbox.forEach(i => { if (i.handledBy) handledBy[i.handledBy] = (handledBy[i.handledBy] || 0) + 1; });
+  inbox.forEach(i => { if (i.handledBy && i.handledBy !== BOT) handledBy[i.handledBy] = (handledBy[i.handledBy] || 0) + 1; });
 
   const html = '<div style="font-family:Arial,sans-serif;font-size:14px">' +
     '<h2>📅 Raport miesięczny: ' + label + '</h2>' +

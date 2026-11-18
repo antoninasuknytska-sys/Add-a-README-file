@@ -455,7 +455,8 @@
     booksy: ['📅', 'Booksy', 'Booksy'], znanylekarz: ['🩺', 'ZnanyLekarz', 'ZnanyLekarz'],
     www_form: ['🌐', 'Formularz na stronie', 'Telefon'], www_msg: ['💬', 'Wiadomość ze strony', 'Telefon'],
     wetransfer: ['📦', 'WeTransfer (RTG / tomografia)', 'E-mail'],
-    email: ['✉️', 'E-mail', 'E-mail'], sms: ['📱', 'SMS', 'SMS'], call: ['📞', 'Nieodebrane połączenie', 'Telefon']
+    email: ['✉️', 'E-mail', 'E-mail'], sms: ['📱', 'SMS', 'SMS'], call: ['📞', 'Nieodebrane połączenie', 'Telefon'],
+    call_in: ['📲', 'Rozmowa przychodząca', 'Telefon'], call_out: ['📤', 'Połączenie wychodzące', 'Telefon']
   };
   const src = i => SRC[i.source] || ['•', i.source, 'Telefon'];
   const inbox = () => S.data.inbox || [];
@@ -501,7 +502,7 @@
     return list.length ? '<div class="list">' + list.map(inboxCard).join('') + '</div>' : '<div class="empty">' + emptyMsg + '</div>';
   }
   function handled(i, note, taskId) {
-    return Object.assign({}, i, { status: 'done', handledBy: me(), handledAt: now(), note: note || '', taskId: taskId || i.taskId || '' });
+    return Object.assign({}, i, { status: i.status === 'log' ? 'log' : 'done', handledBy: me(), handledAt: now(), note: note || '', taskId: taskId || i.taskId || '' });
   }
   const inboxFacts = i => [i.when, i.service, i.doctor ? 'do: ' + i.doctor : ''].filter(Boolean).join(' · ');
   function inboxLine(i) {
@@ -552,10 +553,21 @@
   }
   function viewInbox() {
     const fresh = newInbox().sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.receivedAt - b.receivedAt);
-    const done = inbox().filter(i => i.status !== 'new').sort((a, b) => b.handledAt - a.handledAt);
+    const done = inbox().filter(i => i.status === 'done').sort((a, b) => b.handledAt - a.handledAt);
+    const logs = inbox().filter(i => i.status === 'log').sort((a, b) => b.receivedAt - a.receivedAt);
+    const logRow = i => {
+      const t = i.taskId ? S.data.tasks.find(x => x.id === i.taskId) : null;
+      return '<tr><td style="white-space:nowrap">' + fmt(i.receivedAt) + '</td><td>' + src(i)[0] + ' ' + esc(src(i)[1]) + '</td><td>' +
+        (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' +
+        (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
+        (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬 Notatka do sprawy</button>' : '<button class="small" data-iact="create" data-id="' + i.id + '">➕ Sprawa</button>') + '</td></tr>';
+    };
     return '<h2>Nowe wiadomości <span class="count' + (fresh.some(isLate) ? ' red' : '') + '">' + fresh.length + '</span> <span class="hint">pilne (⚡) i najstarsze na górze · czerwone czekają dłużej niż ' + cfg().inboxAlertMinutes + ' min</span></h2>' +
       inboxCards(fresh, 'Skrzynka pusta 🎉 Wszystkie wiadomości obsłużone.') +
       '<details><summary>Obsłużone w ostatnich 14 dniach (' + done.length + ')</summary>' + inboxCards(done, 'Brak') + '</details>' +
+      '<details><summary>📞 Rejestr połączeń — dziś i wczoraj (' + logs.length + ')</summary>' +
+      (logs.length ? '<p class="hint">Odebrane i wychodzące rozmowy zapisują się same. Rozmowa z pacjentem, który ma otwartą sprawę, jest już w historii tej sprawy.</p><div class="tablewrap"><table><tr><th>Kiedy</th><th>Rodzaj</th><th>Numer / kontakt</th><th>Sprawa</th><th></th></tr>' + logs.map(logRow).join('') + '</table></div>'
+        : '<div class="empty">Brak — skonfiguruj makra 3 i 4 w MacroDroid (instrukcja)</div>') + '</details>' +
       '<p class="hint" style="margin-top:16px">Instagram i WhatsApp sprawdzaj w Meta Business Suite / na telefonie. Jeśli pacjent czegoś potrzebuje, kliknij „＋ Nowa sprawa” i wybierz kanał Instagram lub WhatsApp.</p>';
   }
 
@@ -828,7 +840,7 @@
     h += '<h2>❓ Pytania i odpowiedzi</h2>' + (qOpen.length + qDone.length
       ? '<div class="tablewrap"><table><tr><th>Sprawa</th><th>Kto pyta</th><th>Pytanie</th><th>Odpowiedź</th></tr>' + qOpen.concat(qDone).map(qRow).join('') + '</table></div>'
       : '<div class="empty">Brak pytań. Pytanie zadasz przyciskiem „❓ Pytanie” na dowolnej karcie.</div>');
-    const wk = inbox().filter(i => i.receivedAt > weekAgo);
+    const wk = inbox().filter(i => i.receivedAt > weekAgo && i.status !== 'log'); // rejestr połączeń nie liczy się do czasu reakcji
     const react = list => { const d = list.filter(i => i.status !== 'new' && i.handledAt); return d.length ? Math.round(d.reduce((s, i) => s + (i.handledAt - i.receivedAt), 0) / d.length / 6e4) + ' min' : '—'; };
     h += '<h2>📥 Skrzynka (7 dni)</h2><div class="tiles">' + tile(wk.length, 'wiadomości') +
       tile(newInbox().length, 'czeka na obsługę', newInbox().some(isLate) ? 'red' : 'green') + tile(react(wk), 'średni czas reakcji') + '</div>' +

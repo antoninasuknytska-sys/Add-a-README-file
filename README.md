@@ -80,7 +80,7 @@ Menu **🦷 Tablica spraw** w arkuszu pozwala ręcznie sprawdzić pocztę albo w
 
 ## SMS-y i nieodebrane połączenia z telefonu (Android, karta Play)
 
-Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. Konfiguruje się ją **raz**, potem działa **automatycznie w tle**: nikt nic nie klika. Warunki: telefon włączony, z internetem, a MacroDroid niewyłączony przez oszczędzanie baterii. W darmowej wersji można mieć 5 makr, potrzebne są 2.
+Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca ArloSoft) przesyła SMS-y i nieodebrane połączenia mailem na `polishdent.pl@gmail.com`, a tablica je odczytuje. Konfiguruje się ją **raz**, potem działa **automatycznie w tle**: nikt nic nie klika. Warunki: telefon włączony, z internetem, a MacroDroid niewyłączony przez oszczędzanie baterii. W darmowej wersji można mieć 5 makr, potrzebne są 4.
 
 1. Zainstaluj **MacroDroid** na telefonie gabinetu i daj mu wymagane uprawnienia (SMS, rejestr połączeń, kontakty, powiadomienia).
 2. **Makro 1 — „SMS do tablicy”**
@@ -92,10 +92,24 @@ Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca Arl
 3. **Makro 2 — „Nieodebrane do tablicy”**
    - Wyzwalacz: **Połączenie nieodebrane** → Dowolny numer.
    - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM NIEODEBRANE ` + (*Magiczny tekst*) **numer dzwoniącego** + spacja + **nazwa kontaktu**. Treść może być pusta.
-4. W ustawieniach Androida wyłącz **optymalizację baterii** dla MacroDroid, inaczej telefon może go usypiać.
-5. Test: wyślij SMS na numer gabinetu i zadzwoń, nie odbierając. Po maks. 5 min obie wiadomości będą w zakładce „📥 Skrzynka”.
+4. **Makro 3 — „Odebrane do tablicy”**
+   - Wyzwalacz: **Połączenie zakończone** → **Przychodzące** → Dowolny numer.
+   - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM ODEBRANE ` + (*Magiczny tekst*) **numer dzwoniącego** + spacja + **nazwa kontaktu**.
+5. **Makro 4 — „Wychodzące do tablicy”**
+   - Wyzwalacz: **Połączenie zakończone** → **Wychodzące** → Dowolny numer.
+   - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`, Temat: `CRM WYCHODZĄCE ` + (*Magiczny tekst*) **numer** + spacja + **nazwa kontaktu**.
+6. W ustawieniach Androida wyłącz **optymalizację baterii** dla MacroDroid, inaczej telefon może go usypiać.
+7. Test: wyślij SMS na numer gabinetu, zadzwoń bez odbierania, potem odbierz drugi telefon i sama zadzwoń na dowolny numer. Po maks. 5 min wszystko będzie w „📥 Skrzynce”.
 
-Temat musi zaczynać się dokładnie od `CRM SMS` lub `CRM NIEODEBRANE`. Po tym tablica je rozpoznaje.
+Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ODEBRANE` lub `CRM WYCHODZĄCE`. Po tym tablica je rozpoznaje.
+
+**Co tablica robi z rozmowami:**
+- **Nieodebrane** → nowa wiadomość w skrzynce (⚡, „oddzwonić”).
+- **Odebrane i wychodzące** → **„📞 Rejestr połączeń”** na dole skrzynki (dziś i wczoraj). Nie trzeba ich klikać.
+- Jeśli numer należy do pacjenta z otwartą sprawą, rozmowa sama zapisze się w historii sprawy („📤 Połączenie wychodzące o 14:32”). Przyciskiem **„💬 Notatka do sprawy”** dopiszesz, o czym była rozmowa.
+- Gdy recepcja **oddzwoni** albo pacjent **dodzwoni się ponownie**, wcześniejsze „nieodebrane” z tego numeru zamyka się samo z notatką „Oddzwoniono 14:32”.
+- Rozmowa z nieznanego numeru → w rejestrze jest przycisk **„➕ Sprawa”**.
+- W raporcie miesięcznym widać, ile było rozmów przychodzących i wychodzących.
 
 ## 💰 Potrącenia: reklamacje i koszty do pokrycia
 
