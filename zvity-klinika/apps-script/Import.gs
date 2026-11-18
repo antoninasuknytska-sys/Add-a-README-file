@@ -328,7 +328,7 @@ function mapRecords(type, rows, header, opts) {
   function g(row, f) { return m[f] === undefined ? undefined : row[m[f]]; }
   function str(v) { return v === undefined || v === null ? '' : String(v).replace(/[ \u00a0]{2,}/g, ' ').trim(); }
   function uniq(key) { seen[key] = (seen[key] || 0) + 1; return key + '#' + seen[key]; }
-  var unknownStatuses = {}, visitSeen = {};
+  var unknownStatuses = {}, visitSeen = {}, staleStatus = 0;
   if (type === 'BANK') {
     var hdrRow = rows[header.row].map(norm), mapped = {};
     Object.keys(m).forEach(function (k) { mapped[m[k]] = true; });
@@ -429,6 +429,8 @@ function mapRecords(type, rows, header, opts) {
       if (!d12 || !p12) { skipped++; continue; }
       var raw12 = str(g(row, 'status'));
       var st12 = mapStatus(raw12, opts.statusRules || []);
+      var a12pre = parseNumber(g(row, 'amount'));
+      if (st12 === 'Пропустити' && a12pre > 0) { st12 = 'Виконано'; staleStatus++; }   // послуги внесені → візит відбувся, статус не оновили
       if (st12 === 'Пропустити') { skipped++; continue; }
       if (!st12) { st12 = raw12; unknownStatuses[raw12] = true; }
       var el = str(g(row, 'elements'));
@@ -495,6 +497,7 @@ function mapRecords(type, rows, header, opts) {
     }
     if (rec) recs.push(rec);
   }
+  if (staleStatus) warnings.push('Позицій з сумою, але статусом «niepotwierdzona/potwierdzona» (пораховано як виконані): ' + staleStatus + '. Варто оновлювати статус візиту у Felgdent.');
   var u = Object.keys(unknownStatuses);
   if (u.length) warnings.push('Невідомі статуси візитів (додайте на аркуш «Імпорт-налаштування»): ' + u.join(', '));
   return { records: recs, skipped: skipped, warnings: warnings.filter(function (w, i, a) { return a.indexOf(w) === i; }) };

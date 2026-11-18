@@ -1062,7 +1062,7 @@ ch = [("Доступно годин крісел (крісла × години �
       ("Неявки + скасування, %", lambda m: noshow(m), PCT),
       ("Втрачена виручка через неявки/скасування", lambda m: f'SUMIFS({VI},{VB},{m},{VM},"Неявка")+SUMIFS({VI},{VB},{m},{VM},"Скасовано")', ZL),
       ("ПОТЕНЦІАЛ: +маржа, якщо заповнити 25% вільних годин", lambda m: f"IFERROR(({cap(m)}-{hrs(m)})*0.25*{marg(m)}/{hrs(m)},0)", ZL),
-      ("Частка візитів повторних пацієнтів, %", lambda m: f'IFERROR(COUNTIFS({VB},{m},{VM},{OK},{VD},"Ні")/{cnt(m)},0)', PCT),
+      ("Частка візитів повторних пацієнтів, %", lambda m: f'IFERROR(COUNTIFS({VB},{m},{VM},{OK},{VD},"Ні",{VT},{FIRST})/{cnt(m)},0)', PCT),
       ("Перенесено візитів (звіт Felgdent)", lambda m: f'COUNTIFS({ZB},{m},{ZD},"Перенесено")', NUM),
       ("Неявки (звіт Felgdent «Status wizyt»)", lambda m: f'SUMIFS({FSD},{FSA},{m},{FSC},"Неявка")', NUM)]
 for i, (lbl, fn, fmt) in enumerate(ch):
@@ -1104,7 +1104,7 @@ cf_rules(db, f"A{rIn+2}:C{rIn+2}", f"$B{rIn+2}>=0", None, f"$B{rIn+2}<0")
 header(db, BK0, ["Звірка", "Нараховано (візити)", "Оплачено з банку", "Розбіжність", "Оцінка"], 5, SUB)
 recon = [("Лабораторія", lab_total(M), f'-{bank_cat(M, chr(34)+"Laboratorium – płatność (звірка)"+chr(34))}'),
          ("Імпланти / препарати", prep_total(M), f'-{bank_cat(M, chr(34)+"Implanty / preparaty – płatność (звірка)"+chr(34))}'),
-         ("Лікарі + персонал", f"{payout_total(M)}+{staff_total(M)}", f'-{bank_cat(M, chr(34)+"Wypłaty lekarzy i personelu (звірка)"+chr(34))}'),
+         ("Лікарі + персонал", f"{payout_total(M)}+{staff_total(M)}", "-(" + "+".join(bank_cat(M, chr(34)+c+chr(34)) for c in ("Wypłaty lekarzy i personelu (звірка)", "Wynagrodzenie lekarza / higienistki (faktura)", "Wynagrodzenia personelu")) + ")"),
          ("Безготівкова виручка → рахунок", noncash(M), f"B{rIn}-B{BK0+5}-B{BK0+6}")]
 rcg, rcm = T("recon")
 for i, (lbl, a, b_) in enumerate(recon):
