@@ -632,7 +632,18 @@
   /** Opis rozmowy: z samej rozmowy albo (gdy recepcja opisała wcześniej) z nieodebranego z jej grupy. */
   function descOf(c) {
     if (c.tags) return c;
-    return (callPairs().all[c.id] || []).filter(m => m.tags).sort((a, b) => b.handledAt - a.handledAt)[0] || null;
+    const own = (callPairs().all[c.id] || []).filter(m => m.tags).sort((a, b) => b.handledAt - a.handledAt)[0];
+    if (own) return own;
+    // jedna opisana rozmowa z tym numerem (±12 godz.) wystarcza dla pozostałych telefonów z tego numeru
+    const n = last9(c);
+    if (n.length !== 9) return null;
+    return inbox().filter(x => x !== c && x.tags && PHONE_SRC.indexOf(x.source) >= 0 && last9(x) === n && Math.abs(x.receivedAt - c.receivedAt) < 12 * H)
+      .sort((a, b) => Math.abs(a.receivedAt - c.receivedAt) - Math.abs(b.receivedAt - c.receivedAt))[0] || null;
+  }
+  /** Gdy opis pochodzi z innej rozmowy z tym numerem — krótka adnotacja, przy której. */
+  function descFromNote(c, d) {
+    if (!d || d === c || (callPairs().all[c.id] || []).indexOf(d) >= 0) return '';
+    return '<div class="hint">✓ opisane przy: ' + esc(src(d)[1].toLowerCase()) + ' ' + hhmm(d.receivedAt) + '</div>';
   }
   const undescribed = () => inbox().filter(i => isTalk(i) && !descOf(i)).sort((a, b) => a.receivedAt - b.receivedAt);
   const tagChips = i => i.tags ? String(i.tags).split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="chip tag">' + esc(t) + '</span>').join(' ') : '';
@@ -702,7 +713,7 @@
         (times.length > 1 ? '<div class="hint">' + esc(times.join(', ')) + '</div>' : '') + '<div class="hint">→ ' +
         (c.source === 'call_out' ? '📤 oddzwoniono ' : '📲 pacjent dodzwonił się ') + hhmm(c.receivedAt) + '</div></td><td>' +
         (m.phone ? '<a class="phone" href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a> ' : '') + esc(c.name || m.name || '') + '</td><td>' +
-        (descOf(c) ? tagChips(descOf(c)) + (descOf(c).note && !/^oddzwoniono|dodzwoni/i.test(descOf(c).note) ? '<div class="hint">' + esc(descOf(c).note) + '</div>' : '') + '<div class="hint">' + esc(descOf(c).handledBy || '') + '</div>'
+        (descOf(c) ? tagChips(descOf(c)) + (descOf(c).note && !/^oddzwoniono|dodzwoni/i.test(descOf(c).note) ? '<div class="hint">' + esc(descOf(c).note) + '</div>' : '') + '<div class="hint">' + esc(descOf(c).handledBy || '') + '</div>' + descFromNote(c, descOf(c))
           : '<span class="hint" style="color:var(--red)">bez opisu</span>') + '</td><td>' +
         (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
         '<button class="small' + (descOf(c) ? '' : ' primary') + '" data-iact="describe" data-id="' + c.id + '">' + (descOf(c) ? '✏️' : '🏷 Opisz') + '</button> ' +
@@ -718,9 +729,9 @@
       return '<tr><td style="white-space:nowrap">' + fmt(i.receivedAt) + '</td><td>' + src(i)[0] + ' ' + esc(src(i)[1]) + '</td><td>' +
         (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' + state + tagChips(i) +
         (i.tags && i.note && i.source !== 'call' ? '<div class="hint">' + esc(i.note) + '</div>' : '') + (i.tags || (i.status !== 'new' && i.status !== 'log') ? '<div class="hint">' + esc(i.handledBy || '') + '</div>' : '') +
-        (isTalk(i) && !i.tags ? '<span class="hint" style="color:var(--red)">bez opisu</span>' : '') + '</td><td>' +
+        (isTalk(i) && !i.tags ? (descOf(i) ? tagChips(descOf(i)) + descFromNote(i, descOf(i)) : '<span class="hint" style="color:var(--red)">bez opisu</span>') : '') + '</td><td>' +
         (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
-        '<button class="small' + (isTalk(i) && !i.tags ? ' primary' : '') + '" data-iact="describe" data-id="' + i.id + '">' + (i.tags ? '✏️' : '🏷 Opisz') + '</button> ' +
+        '<button class="small' + (isTalk(i) && !descOf(i) ? ' primary' : '') + '" data-iact="describe" data-id="' + i.id + '">' + (i.tags ? '✏️' : '🏷 Opisz') + '</button> ' +
         (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬</button>' : '') + '</td></tr>';
     };
     const logTable = list => '<div class="tablewrap"><table><tr><th>Kiedy</th><th>Rodzaj</th><th>Numer / kontakt</th><th>Powód / wynik</th><th>Sprawa</th><th></th></tr>' + list.map(logRow).join('') + '</table></div>';

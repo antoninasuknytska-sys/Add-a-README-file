@@ -113,6 +113,7 @@ Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ROZMO
 
 **Co tablica robi z telefonami i SMS-ami:**
 - Wszystko z telefonu gabinetu trafia do **„📞 Rejestr telefonu: rozmowy i SMS”** w „📥 Skrzynce” (dziś i wczoraj): nieodebrane, odebrane, wychodzące i SMS-y, z godziną, numerem i nazwą z kontaktów.
+- **Wystarczy opisać jedną rozmowę z danym numerem** (w ciągu 12 godz.): pozostałe telefony z tego numeru liczą się jako opisane, z dopiskiem „✓ opisane przy: rozmowa przychodząca 11:19”.
 - **Kilka nieodebranych z jednego numeru** (zanim ktoś oddzwonił) = **jedna pozycja** „Dzwonił(a) 4×: 08:37, 09:01, 09:14, 09:32”. Opisuje się tylko rozmowę (oddzwonienie), raz.
 - **Nieodebrane** → dodatkowo nowa wiadomość „⚡ oddzwonić”. Gdy recepcja **oddzwoni** albo pacjent **dodzwoni się ponownie**, zamyka się samo, a w rejestrze jest **jeden wiersz** *„Nieodebrane → oddzwoniono 14:32”* z przyciskiem **🏷 Opisz** (opis dotyczy rozmowy przy oddzwonieniu).
 - **Każdą rozmowę opisujemy** przyciskiem **🏷 Opisz**: kto to był, **powód / wynik (można zaznaczyć kilka naraz)** i krótka notatka. Lista powodów jest w „Ustawieniach” → `callTags` (można dopisywać własne): *Umówiony / zapisał się, Zastanowi się, Oddzwonić, Za drogo, Szuka NFZ, Pomyłka (inna klinika), Pytanie o cenę, Promocja / akcja, Zmiana lub odwołanie wizyty, Pytanie o wizytę / wynik, Nie odebrał, Firma / dostawca / reklama, Inne*.
