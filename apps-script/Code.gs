@@ -127,6 +127,14 @@ const TYPES = {
       { n: 'Umówiony', done: true }
     ]
   },
+  internal: {
+    label: 'Przypomnienie dla recepcji (bez pacjenta)', icon: '📝', internal: true,
+    stages: [
+      { n: 'Do zrobienia', due: 24 },
+      { n: 'W trakcie', due: 24 },
+      { n: 'Zrobione', done: true }
+    ]
+  },
   other: {
     label: 'Bieżące zadania', icon: '📌',
     stages: [
@@ -152,6 +160,7 @@ const REPORT_GROUPS = [
   { title: '🧪 Laboratorium', types: ['lab'] },
   { title: '✅ Potwierdzenia wizyt', types: ['confirm'] },
   { title: '📌 Bieżące zadania', types: ['other'] },
+  { title: '📝 Przypomnienia dla recepcji', types: ['internal'] },
   { title: '📣 Ogłoszenia FB', types: ['fb'] }
 ];
 

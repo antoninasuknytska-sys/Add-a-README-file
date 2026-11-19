@@ -154,7 +154,7 @@ Raporty można wysłać ręcznie z menu „🦷 Tablica spraw” w arkuszu (rapo
 
 ## Typy spraw
 
-🙋 Nowe zapytanie · 📣 Ogłoszenia FB (pacjenci z reklam na Facebooku/Instagramie) · 🦷 Tomografia · 🩻 RTG · 📋 Plan leczenia · 📞 Telefon po zabiegu · 🧪 Laboratorium · ✅ Potwierdzenie wizyty · 🔁 Wizyta kontrolna · 📌 Bieżące zadania.
+📝 **Przypomnienie dla recepcji (bez pacjenta)**: sprawy wewnętrzne między rejestratorkami (np. „wstawić ogłoszenie na OLX”); zamiast pacjenta i telefonu jest „Czego dotyczy” i „Dla kogo”, w „Teraz” mają osobną sekcję, a typ istniejącej sprawy zmienia się w „Dane” · 🙋 Nowe zapytanie · 📣 Ogłoszenia FB (pacjenci z reklam na Facebooku/Instagramie) · 🦷 Tomografia · 🩻 RTG · 📋 Plan leczenia · 📞 Telefon po zabiegu · 🧪 Laboratorium · ✅ Potwierdzenie wizyty · 🔁 Wizyta kontrolna · 📌 Bieżące zadania.
 
 RTG przysłane przez WeTransfer → „➕ Utwórz sprawę” zakłada sprawę 🩻 RTG (lub 🦷 Tomografia, gdy w nazwie nie ma „rtg”) od razu na etapie „pokazać lekarzowi”.
 

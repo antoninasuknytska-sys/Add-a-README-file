@@ -376,11 +376,13 @@
       '<button type="button" class="small" data-tpl="lab">🧪 Wysłano do laboratorium</button></div>' +
       '<label>Typ sprawy</label><div class="types">' + typeKeys.map(k =>
         '<label><input type="radio" name="type" value="' + k + '"' + ((preset.type || 'call_after') === k ? ' checked' : '') + '>' + types[k].icon + ' ' + esc(types[k].label) + '</label>').join('') + '</div>' +
-      '<div class="grid2"><div><label>Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
-      '<div><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
-      '<div><label>Jak kontaktuje się pacjent</label><select name="channel">' + CHANNELS.map(c => '<option' + (preset.channel === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
-      '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (preset.doctor === d.name ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
-      '<label>O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
+      '<div class="grid2"><div><label id="lblPatient">Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
+      '<div class="int-only" style="display:none"><label>Dla kogo</label><select name="assignee"><option value="">Wszystkie (cała recepcja)</option>' +
+        cfg().admins.map(a => '<option>' + esc(a) + '</option>').join('') + '</select></div>' +
+      '<div class="pt-only"><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
+      '<div class="pt-only"><label>Jak kontaktuje się pacjent</label><select name="channel">' + CHANNELS.map(c => '<option' + (preset.channel === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
+      '<div class="pt-only"><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (preset.doctor === d.name ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+      '<label id="lblPurpose">O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
       '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)">' + esc(preset.purpose || '') + '</textarea>' +
       '<label>Etap</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
       '<p class="hint">Jeśli nie podasz terminu — ustawi się automatycznie według etapu.</p>';
@@ -390,6 +392,13 @@
     const fillStages = () => {
       const k = form.querySelector('input[name=type]:checked').value;
       stageSel.innerHTML = types[k].stages.map((s, i) => s.done ? '' : '<option value="' + i + '">' + esc(s.n) + '</option>').join('');
+      // przypomnienie dla recepcji: bez pacjenta, telefonu i lekarza; zamiast tego „dla kogo”
+      const int = !!types[k].internal;
+      form.querySelectorAll('.pt-only').forEach(el => { el.style.display = int ? 'none' : ''; });
+      form.querySelectorAll('.int-only').forEach(el => { el.style.display = int ? '' : 'none'; });
+      form.querySelector('#lblPatient').textContent = int ? 'Czego dotyczy (krótki tytuł) *' : 'Pacjent (imię i nazwisko) *';
+      form.querySelector('#lblPurpose').innerHTML = int ? 'Szczegóły: co trzeba zrobić *' : 'O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span>';
+      form.querySelector('[name=purpose]').placeholder = int ? 'Np.: wstawić ogłoszenie na OLX; sprawdzić grafiki lekarzy w ZnanyLekarz' : 'Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)';
     };
     form.querySelectorAll('input[name=type]').forEach(r => r.onchange = fillStages);
     fillStages();
@@ -404,8 +413,10 @@
     const r = await p;
     if (!r) return;
     const t = {
-      id: newId(), createdAt: now(), createdBy: me(), type: r.type, patient: r.patient.trim(), phone: r.phone.trim(),
-      channel: r.channel, doctor: r.doctor, purpose: r.purpose.trim(), stage: 0, dueAt: '', status: 'open',
+      id: newId(), createdAt: now(), createdBy: me(), type: r.type, patient: r.patient.trim(),
+      phone: types[r.type].internal ? '' : r.phone.trim(),
+      channel: types[r.type].internal ? 'Dla: ' + (r.assignee || 'wszystkie') : r.channel,
+      doctor: types[r.type].internal ? '' : r.doctor, purpose: r.purpose.trim(), stage: 0, dueAt: '', status: 'open',
       updatedAt: now(), updatedBy: me(), closedAt: '', source: 'manual', history: []
     };
     log(t, '🆕 Utworzono');
@@ -416,9 +427,14 @@
   }
 
   async function editDialog(task) {
+    const tps = cfg().types;
+    const curAs = String(task.channel || '').replace(/^Dla:\s*/, '');
     const r = await dialog({
       title: 'Edytuj: ' + task.patient, ok: 'Zapisz',
-      body: '<div class="grid2"><div><label>Pacjent</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
+      body: '<label>Typ sprawy</label><select name="type">' + Object.keys(tps).map(k => '<option value="' + k + '"' + (k === task.type ? ' selected' : '') + '>' + tps[k].icon + ' ' + esc(tps[k].label) + '</option>').join('') + '</select>' +
+        '<label>Dla kogo <span class="hint">(tylko przypomnienia dla recepcji)</span></label><select name="assignee"><option value="">Wszystkie (cała recepcja)</option>' +
+        cfg().admins.map(a => '<option' + (a === curAs ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select>' +
+        '<div class="grid2"><div><label>Pacjent / czego dotyczy</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
         '<div><label>Telefon</label><input name="phone" value="' + esc(task.phone) + '"></div>' +
         '<div><label>Kanał</label><input name="channel" value="' + esc(task.channel) + '"></div>' +
         '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
@@ -426,7 +442,14 @@
     });
     if (!r) return;
     const t = clone(task), changed = [];
+    if (tps[r.type] && tps[r.type].internal) r.channel = 'Dla: ' + (r.assignee || 'wszystkie');
     ['patient', 'phone', 'channel', 'doctor', 'purpose'].forEach(k => { if ((t[k] || '') !== r[k].trim()) { changed.push(k); t[k] = r[k].trim(); } });
+    if (r.type !== t.type) {
+      const st0 = tps[r.type].stages.findIndex(x => !x.done);
+      t.type = r.type; t.stage = Math.max(0, st0);
+      log(t, '🔀 Typ sprawy: ' + tps[r.type].label);
+      changed.push('type');
+    }
     if (!changed.length) return;
     log(t, '✏️ Zmieniono dane karty');
     call('saveTask', t, 'Zapisano');
@@ -861,8 +884,8 @@
     if (st.nag || (t.type === 'kt' && t.stage === 1)) b += '<button type="button" class="small" data-act="doctor" data-id="' + t.id + '">🔔 ' + (t.stage === 1 && t.type === 'kt' ? 'Napisz do lekarza' : 'Przypomnij lekarzowi') + '</button>';
     b += '<button type="button" class="small" data-act="note" data-id="' + t.id + '">💬 Komentarz / termin</button>';
     b += '<button type="button" class="small" data-act="ask" data-id="' + t.id + '">❓ Pytanie</button>';
-    if (!t.doctor) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Przypisz lekarza</button>';
-    else if (inDetail) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Zmień lekarza</button>';
+    if (!t.doctor && !isInt(t)) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Przypisz lekarza</button>';
+    else if (inDetail && !isInt(t)) b += '<button type="button" class="small" data-act="setdoc" data-id="' + t.id + '">👨‍⚕️ Zmień lekarza</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="debt" data-id="' + t.id + '">💰 Potrącenie</button>';
     if (inDetail) b += '<button type="button" class="small" data-act="edit" data-id="' + t.id + '">✏️ Dane</button><button type="button" class="small danger" data-act="cancel" data-id="' + t.id + '">✖️ Zamknij bez realizacji</button>';
     return b;
@@ -896,6 +919,12 @@
       if (a === 'reopen') reopen(t);
     });
   }
+  const isInt = t => !!(cfg().types[t.type] || {}).internal;
+  function assigneeChip(t) {
+    if (!isInt(t)) return '';
+    const who = String(t.channel || '').replace(/^Dla:\s*/, '') || 'wszystkie';
+    return '<span class="chip' + (who === me() ? ' warn' : '') + '">👤 dla: ' + esc(who) + '</span>';
+  }
   function card(t) {
     const ty = type(t), st = stage(t), u = urgency(t), le = lastEntry(t);
     const dueTxt = t.status !== 'open' ? (t.status === 'done' ? '✅ zrobione ' : '✖️ zamknięte ') + fmt(t.closedAt)
@@ -906,7 +935,7 @@
       (t.phone ? '<a class="phone" href="tel:' + esc(t.phone) + '" onclick="event.stopPropagation()">' + esc(t.phone) + '</a>' : '') +
       '<span class="due ' + u + '">' + dueTxt + '</span></div>' +
       '<div class="chips"><span class="chip">' + ty.icon + ' ' + esc(ty.label) + '</span><span class="chip stage">' + esc(st.n) + '</span>' +
-      (t.doctor ? '<span class="chip">👨‍⚕️ ' + esc(t.doctor) + '</span>' : '') +
+      (t.doctor ? '<span class="chip">👨‍⚕️ ' + esc(t.doctor) + '</span>' : '') + assigneeChip(t) +
       (tries ? '<span class="chip warn">📵 prób: ' + tries + '</span>' : '') +
       (nags ? '<span class="chip warn">🔔 przypomniano ' + nags + '×</span>' : '') +
       (isStale(t) ? '<span class="chip stale">🧊 bez ruchu ' + ago(t.updatedAt || t.createdAt) + '</span>' : '') +
@@ -933,7 +962,9 @@
     const due = open.filter(t => (urgency(t) === 'overdue' || urgency(t) === 'today') && qs.indexOf(t) < 0).sort(byDue);
     const staleOnly = open.filter(t => isStale(t) && due.indexOf(t) < 0 && qs.indexOf(t) < 0);
     let h = qs.length ? '<h2>❓ Pytania do recepcji <span class="count red">' + qs.length + '</span></h2>' + cards(qs, '') : '';
-    h += '<h2>Do zrobienia dziś <span class="hint">zaległe na górze</span></h2>' + cards(due, 'Wszystko zrobione 🎉 Na dziś brak spraw.');
+    const dueInt = due.filter(isInt), duePt = due.filter(t => !isInt(t));
+    h += '<h2>Do zrobienia dziś — pacjenci <span class="hint">zaległe na górze</span></h2>' + cards(duePt, 'Wszystko zrobione 🎉 Na dziś brak spraw pacjentów.');
+    if (dueInt.length) h += '<h2>📝 Przypomnienia dla recepcji <span class="count">' + dueInt.length + '</span> <span class="hint">sprawy bez pacjenta</span></h2>' + cards(dueInt, '');
     if (staleOnly.length) h += '<h2>🧊 Długo bez ruchu <span class="hint">po terminie, nikt nie ruszał ponad ' + cfg().staleHours + ' godz.</span></h2>' + cards(staleOnly, '');
     return h;
   }
