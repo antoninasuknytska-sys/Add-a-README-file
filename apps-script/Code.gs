@@ -555,6 +555,9 @@ function checkInbox() {
     try { item = classifyMail_(msg, boxes, ignore, doctors); }
     catch (e) { logError_('classify ' + (msg.getSubject() || ''), e); return; } // jeden dziwny mail nie zatrzymuje reszty
     if (!item) return;
+    // MacroDroid przy nieodebranym wysyła też „Koniec rozmowy”, czasem kilka sekund PRZED „Nieodebrane”.
+    // Świeży koniec rozmowy bierzemy dopiero w następnym sprawdzeniu, gdy wiadomo, czy było nieodebrane.
+    if (item.source === 'call_end' && Date.now() - msg.getDate().getTime() < 150 * 1000) return;
     item.id = newId_();
     item.msgId = id;
     item.receivedAt = msg.getDate().getTime();
@@ -607,11 +610,28 @@ function processCalls_(fresh) {
   const same = (a, b) => { const p = digits_(a.phone).slice(-9); return p.length === 9 && p === digits_(b.phone).slice(-9); };
   // Nieodebrane: „Koniec rozmowy”, który MacroDroid wysłał przy tym samym dzwonieniu (czasem kilka sekund WCZEŚNIEJ),
   // zapisany już jako rozmowa przychodząca w poprzednim sprawdzeniu — ukrywamy jako duplikat
+  const touch = x => { if (old.indexOf(x) >= 0 && out.inbox.indexOf(x) < 0) out.inbox.push(x); };
   fresh.filter(i => i.source === 'call').forEach(mc => {
     old.filter(x => x.source === 'call_in' && x.status === 'log' && !x.tags && same(x, mc) && near(x, mc)).forEach(x => {
       x.status = 'dup';
-      if (out.inbox.indexOf(x) < 0) out.inbox.push(x);
+      touch(x);
+      // ta „rozmowa” była fałszywa — nieodebrane, które zamknęła jako „dodzwonił się”, wracają do oddzwonienia
+      old.filter(y => y.source === 'call' && y.status === 'done' && y.handledBy === BOT && y.handledAt === x.receivedAt).forEach(y => {
+        y.status = 'new'; y.handledBy = ''; y.handledAt = ''; y.note = '';
+        touch(y);
+      });
     });
+  });
+  // Kolejne nieodebrane z tego samego numeru (do 12 godz.), zanim ktoś oddzwonił = JEDNA pozycja „Dzwonił(a) 3×: …”
+  fresh.filter(i => i.source === 'call' && last9_(i).length === 9).forEach(mc => {
+    const prev = old.concat(fresh).filter(x => x !== mc && !x.drop && x.source === 'call' && x.status === 'new' && same(x, mc) &&
+      x.receivedAt <= mc.receivedAt && mc.receivedAt - x.receivedAt < 12 * 36e5).sort((a, b) => b.receivedAt - a.receivedAt)[0];
+    if (!prev) return;
+    const m = String(prev.text || '').match(/(\d+)×:\s*(.*)$/);
+    prev.text = 'Dzwonił(a) ' + ((m ? Number(m[1]) : 1) + 1) + '×: ' + (m ? m[2] : hm(prev.receivedAt)) + ', ' + hm(mc.receivedAt);
+    prev.urgent = '1';
+    touch(prev);
+    mc.drop = true;
   });
   fresh.forEach(i => {
     if (i.source === 'call_end') {
@@ -651,6 +671,8 @@ function processCalls_(fresh) {
   return out;
 }
 
+function last9_(i) { return digits_(i.phone).slice(-9); }
+
 function logError_(where, e) {
   const msg = new Date().toISOString() + ' ' + where + ': ' + (e && e.message ? e.message : e);
   try { PropertiesService.getScriptProperties().setProperty('lastError', msg.slice(0, 500)); } catch (x) { /* brak */ }
@@ -682,7 +704,7 @@ function diagnoseCalls() {
   msgs.sort((a, b) => b.getDate() - a.getDate());
   lines.push('');
   lines.push('Maile CRM z telefonu (2 dni): ' + msgs.length);
-  msgs.slice(0, 8).forEach(m => {
+  msgs.slice(0, 15).forEach(m => {
     const it = saved[m.getId()];
     lines.push('• ' + fmtD(m.getDate().getTime()) + '  ' + m.getSubject() + '  →  ' +
       (it ? (it.status === 'dup' ? 'pominięty (duplikat / połączony z innym)' : 'na tablicy (' + it.source + ', ' + it.status + ')') : (m.getDate().getTime() > last ? 'czeka na następne sprawdzenie' : 'pominięty (duplikat / połączony)')));

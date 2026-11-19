@@ -610,14 +610,20 @@
   /** Pary „nieodebrane → oddzwonienie” liczone raz na każde dane z serwera (szybko także przy setkach wpisów). */
   function callPairs() {
     if (S.data._pairs) return S.data._pairs;
-    const talks = {}, cb = {}, ms = {};
+    const talks = {}, cb = {}, ms = {}, all = {}, hide = {};
     inbox().forEach(x => { if (isTalk(x) && last9(x).length === 9) talks[last9(x) + '|' + x.receivedAt] = x; });
     inbox().forEach(m => {
       if (m.source !== 'call' || m.status === 'new' || !/oddzwoniono|dodzwoni/i.test(m.note || '') || last9(m).length !== 9) return;
       const c = talks[last9(m) + '|' + m.handledAt];
-      if (c) { cb[m.id] = c; ms[c.id] = m; }
+      if (c) { cb[m.id] = c; (all[c.id] = all[c.id] || []).push(m); }
     });
-    S.data._pairs = { cb: cb, ms: ms };
+    // kilka nieodebranych zamkniętych jednym oddzwonieniem → pokazujemy jeden wiersz (najnowsze), resztę chowamy
+    Object.keys(all).forEach(cid => {
+      const list = all[cid].sort((a, b) => a.receivedAt - b.receivedAt);
+      ms[cid] = list[list.length - 1];
+      list.slice(0, -1).forEach(m => { hide[m.id] = 1; });
+    });
+    S.data._pairs = { cb: cb, ms: ms, all: all, hide: hide };
     return S.data._pairs;
   }
   /** Rozmowa, która zamknęła nieodebrane (oddzwonienie albo ponowne dodzwonienie pacjenta). */
@@ -679,11 +685,15 @@
     const done = inbox().filter(i => i.status === 'done').sort((a, b) => b.handledAt - a.handledAt);
     const since = new Date(); since.setDate(since.getDate() - 1); since.setHours(0, 0, 0, 0);
     // oddzwonienie pokazujemy w jednym wierszu z nieodebranym, więc osobny wiersz rozmowy ukrywamy
-    const logs = inbox().filter(i => PHONE_SRC.indexOf(i.source) >= 0 && i.receivedAt >= since.getTime() && !missedOf(i)).sort((a, b) => b.receivedAt - a.receivedAt);
+    const logs = inbox().filter(i => PHONE_SRC.indexOf(i.source) >= 0 && i.receivedAt >= since.getTime() && !missedOf(i) && !callPairs().hide[i.id]).sort((a, b) => b.receivedAt - a.receivedAt);
     const todo = undescribed();
     const mergedRow = (m, c) => {
       const t = c.taskId ? S.data.tasks.find(x => x.id === c.taskId) : null;
-      return '<tr><td style="white-space:nowrap">' + fmt(m.receivedAt) + '</td><td>📞 Nieodebrane<div class="hint">→ ' +
+      const group = (callPairs().all[c.id] || [m]);
+      const times = [];
+      group.forEach(g => { const t2 = String(g.text || '').match(/×:\s*(.*)$/); if (t2) t2[1].split(',').forEach(x => times.push(x.trim())); else times.push(hhmm(g.receivedAt)); });
+      return '<tr><td style="white-space:nowrap">' + fmt(group[0].receivedAt) + '</td><td>📞 Nieodebrane' + (times.length > 1 ? ' ×' + times.length : '') +
+        (times.length > 1 ? '<div class="hint">' + esc(times.join(', ')) + '</div>' : '') + '<div class="hint">→ ' +
         (c.source === 'call_out' ? '📤 oddzwoniono ' : '📲 pacjent dodzwonił się ') + hhmm(c.receivedAt) + '</div></td><td>' +
         (m.phone ? '<a class="phone" href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a> ' : '') + esc(c.name || m.name || '') + '</td><td>' +
         (c.tags ? tagChips(c) + (c.note ? '<div class="hint">' + esc(c.note) + '</div>' : '') + '<div class="hint">' + esc(c.handledBy || '') + '</div>'
@@ -697,7 +707,7 @@
       if (cb) return mergedRow(i, cb);
       if (ms) return mergedRow(ms, i);
       const t = i.taskId ? S.data.tasks.find(x => x.id === i.taskId) : null;
-      const state = i.source === 'call' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na oddzwonienie</span> ' : '<span class="chip tag">✔ ' + esc(i.note || 'obsłużone') + '</span> ')
+      const state = i.source === 'call' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na oddzwonienie' + (/×:/.test(i.text || '') ? ' · ' + esc(i.text) : '') + '</span> ' : '<span class="chip tag">✔ ' + esc(i.note || 'obsłużone') + '</span> ')
         : i.source === 'sms' && i.status === 'new' ? '<span class="chip warn">⚡ czeka na odpowiedź</span> ' : '';
       return '<tr><td style="white-space:nowrap">' + fmt(i.receivedAt) + '</td><td>' + src(i)[0] + ' ' + esc(src(i)[1]) + '</td><td>' +
         (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' + state + tagChips(i) +
