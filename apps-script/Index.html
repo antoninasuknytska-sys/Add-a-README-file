@@ -535,7 +535,7 @@
       '<span class="chip stage">' + fmt(i.receivedAt) + '</span></div>' +
       (i.when || i.service || i.doctor ? '<div class="chips">' + (i.when ? '<span class="chip">📅 ' + esc(i.when) + '</span>' : '') +
         (i.service ? '<span class="chip">🦷 ' + esc(i.service) + '</span>' : '') + (i.doctor ? '<span class="chip">👨‍⚕️ ' + esc(i.doctor) + '</span>' : '') + '</div>' : '') +
-      (i.text ? '<div class="purpose clamp">' + esc(i.source === 'sms' && String(i.text).split('\n').length > 4 ? '… ' + String(i.text).split('\n').slice(-4).join('\n') : i.text) + '</div>' : '') +
+      (i.text ? '<div class="purpose clamp">' + esc((i.source === 'sms' || i.source === 'email') && String(i.text).split('\n').length > 4 ? '… ' + String(i.text).split('\n').slice(-4).join('\n') : i.text) + '</div>' : '') +
       (m ? '<div class="match">🔗 Ten pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + ', ' + esc(stage(m).n) + '. <i>' + esc(m.purpose) + '</i></div>' : '') +
       (i.status !== 'new' && i.note ? '<div class="last">Notatka: ' + esc(i.note) + '</div>' : '') +
       '<div class="actions">' + (i.status === 'new'

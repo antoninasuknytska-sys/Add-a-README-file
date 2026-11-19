@@ -113,6 +113,7 @@ Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ROZMO
 
 **Co tablica robi z telefonami i SMS-ami:**
 - Wszystko z telefonu gabinetu trafia do **„📞 Rejestr telefonu: rozmowy i SMS”** w „📥 Skrzynce” (dziś i wczoraj): nieodebrane, odebrane, wychodzące i SMS-y, z godziną, numerem i nazwą z kontaktów.
+- **Maile od jednej osoby = jedna korespondencja** (ten sam adres, do 7 dni): „E-mail: … (3)”, kolejne wiadomości z datą i godziną, bez cytowanej historii. Nowy mail dopisuje się i przywraca korespondencję jako nową; opis zostaje.
 - **SMS-y od jednego pacjenta = jedna rozmowa** („SMS od pacjenta (3)”, wiadomości z godzinami). Nowy SMS dopisuje się do rozmowy; jeśli była „Załatwiona”, wraca jako nowa, a opis zostaje.
 - **Wystarczy opisać jedną rozmowę z danym numerem** (w ciągu 12 godz.): pozostałe telefony z tego numeru liczą się jako opisane, z dopiskiem „✓ opisane przy: rozmowa przychodząca 11:19”.
 - **Kilka nieodebranych z jednego numeru** (zanim ktoś oddzwonił) = **jedna pozycja** „Dzwonił(a) 4×: 08:37, 09:01, 09:14, 09:32”. Opisuje się tylko rozmowę (oddzwonienie), raz.

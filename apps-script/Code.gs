@@ -598,7 +598,7 @@ function checkInbox() {
  */
 function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
-  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end', 'sms'].indexOf(i.source) >= 0)) return out;
+  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end', 'sms', 'email'].indexOf(i.source) >= 0)) return out;
   const old = readInbox_();
   out.orig = {}; // wersje sprzed zmian — do scalania przy zapisie (recepcja mogła w tym czasie coś opisać)
   old.forEach(x => { out.orig[x.id] = Object.assign({}, x); });
@@ -620,6 +620,26 @@ function processCalls_(fresh) {
         touch(y);
       });
     });
+  });
+  // Korespondencja e-mail z jednym adresem (do 7 dni od poprzedniego maila) = JEDNA pozycja, jak przy SMS-ach
+  const fmtD = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'dd.MM HH:mm');
+  fresh.filter(i => i.source === 'email' && i.email).forEach(em => {
+    const key = String(em.email).toLowerCase();
+    const prev = old.concat(fresh).filter(x => x !== em && !x.drop && x.status !== 'dup' && x.source === 'email' &&
+      String(x.email || '').toLowerCase() === key && x.receivedAt <= em.receivedAt && em.receivedAt - x.receivedAt < 7 * 864e5)
+      .sort((a, b) => b.receivedAt - a.receivedAt)[0];
+    if (!prev) return;
+    const isConv = /^\[\d{2}\.\d{2} \d{1,2}:\d{2}\]/.test(prev.text || '');
+    const n = isConv ? (String(prev.text).match(/^\[\d{2}\.\d{2} \d{1,2}:\d{2}\]/gm) || []).length : 1;
+    prev.text = ((isConv ? prev.text : '[' + fmtD(prev.receivedAt) + '] ' + (prev.text || '')) + '\n[' + fmtD(em.receivedAt) + '] ' + (em.text || '')).slice(-2500);
+    prev.kind = String(em.kind || prev.kind).replace(/\s*\(\d+\)$/, '') + ' (' + (n + 1) + ')';
+    prev.subject = em.subject || prev.subject;
+    prev.link = em.link || prev.link;
+    prev.receivedAt = em.receivedAt;
+    if (!prev.phone && em.phone) prev.phone = em.phone;
+    if (prev.status !== 'new') { prev.status = 'new'; prev.handledBy = ''; prev.handledAt = ''; }
+    touch(prev);
+    em.drop = true;
   });
   // Korespondencja SMS z jednym numerem (do 12 godz. od poprzedniego SMS-a) = JEDNA pozycja; nowy SMS dopisuje się
   // do rozmowy, a jeśli była już „załatwiona”, wraca jako nowa (opis zostaje)
@@ -684,6 +704,22 @@ function processCalls_(fresh) {
   });
   out.tasks = Object.keys(taskMap).map(k => taskMap[k]);
   return out;
+}
+
+/** Tylko nowa część maila — bez cytowanej wcześniejszej korespondencji. */
+function stripQuoted_(raw) {
+  const t = String(raw || '').replace(/\r/g, '');
+  const marks = [
+    /\n\s*_{8,}/,                                         // Outlook: linia ________
+    /\n\s*-{3,}\s*(Original Message|Wiadomość oryginalna|Oryginalna wiadomość)/i,
+    /\n\s*(Od|From):\s.+\n\s*(Wysłane|Wysłano|Sent|Data|Date):/i, // nagłówek cytatu Outlooka
+    /\n[^\n]{0,160}(napisał\(a\)|napisał|napisała|pisze|wrote):\s*(\n|$)/i, // Gmail: „… napisał(a):”, „On … wrote:”
+    /\n\s*>/                                              // linie cytatu „>”
+  ];
+  let cut = t.length;
+  marks.forEach(re => { const m = t.match(re); if (m && m.index < cut) cut = m.index; });
+  const out = t.slice(0, cut).trim();
+  return out || t.trim();
 }
 
 function last9_(i) { return digits_(i.phone).slice(-9); }
@@ -911,7 +947,7 @@ function classifyRaw_(msg, boxes, ignore) {
   it.name = displayName_(from);
   it.email = (from.match(/[^\s<>"]+@[^\s<>"]+/) || [''])[0].toLowerCase();
   it.phone = findPhone_(flat);
-  it.text = raw.split(/\n\s*(On .{5,120}wrote:|W dniu .{5,160}pisze:|Dnia .{5,160}napisał)/)[0].replace(/\s+/g, ' ').trim().slice(0, 1000);
+  it.text = stripQuoted_(raw).replace(/\s+/g, ' ').trim().slice(0, 1000);
   return it;
 }
 
