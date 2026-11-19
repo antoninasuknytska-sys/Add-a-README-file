@@ -377,11 +377,11 @@
       '<label>Typ sprawy</label><div class="types">' + typeKeys.map(k =>
         '<label><input type="radio" name="type" value="' + k + '"' + ((preset.type || 'call_after') === k ? ' checked' : '') + '>' + types[k].icon + ' ' + esc(types[k].label) + '</label>').join('') + '</div>' +
       '<div class="grid2"><div><label id="lblPatient">Pacjent (imię i nazwisko) *</label><input name="patient" required autofocus value="' + esc(preset.patient || '') + '"></div>' +
-      '<div class="int-only" style="display:none"><label>Dla kogo</label><select name="assignee"><option value="">Wszystkie (cała recepcja)</option>' +
-        cfg().admins.map(a => '<option>' + esc(a) + '</option>').join('') + '</select></div>' +
+
       '<div class="pt-only"><label>Telefon</label><input name="phone" type="tel" placeholder="+48…" value="' + esc(preset.phone || '') + '"></div>' +
       '<div class="pt-only"><label>Jak kontaktuje się pacjent</label><select name="channel">' + CHANNELS.map(c => '<option' + (preset.channel === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
       '<div class="pt-only"><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (preset.doctor === d.name ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
+      '<div class="int-only" style="display:none">' + assigneeBoxes('') + '</div>' +
       '<label id="lblPurpose">O co chodzi: po co i co trzeba zrobić * <span class="hint">(żeby koleżanka od razu zrozumiała, jeśli pacjent oddzwoni)</span></label>' +
       '<textarea name="purpose" required placeholder="Np.: telefon — jak się czuje po ekstrakcji zęba 36 (wczoraj, dr Nowak)">' + esc(preset.purpose || '') + '</textarea>' +
       '<label>Etap</label><select name="stage"></select>' + duePicker(preset.dueAt || '') +
@@ -415,7 +415,7 @@
     const t = {
       id: newId(), createdAt: now(), createdBy: me(), type: r.type, patient: r.patient.trim(),
       phone: types[r.type].internal ? '' : r.phone.trim(),
-      channel: types[r.type].internal ? 'Dla: ' + (r.assignee || 'wszystkie') : r.channel,
+      channel: types[r.type].internal ? assigneeValue(form) : r.channel,
       doctor: types[r.type].internal ? '' : r.doctor, purpose: r.purpose.trim(), stage: 0, dueAt: '', status: 'open',
       updatedAt: now(), updatedBy: me(), closedAt: '', source: 'manual', history: []
     };
@@ -429,20 +429,21 @@
   async function editDialog(task) {
     const tps = cfg().types;
     const curAs = String(task.channel || '').replace(/^Dla:\s*/, '');
-    const r = await dialog({
+    const p = dialog({
       title: 'Edytuj: ' + task.patient, ok: 'Zapisz',
       body: '<label>Typ sprawy</label><select name="type">' + Object.keys(tps).map(k => '<option value="' + k + '"' + (k === task.type ? ' selected' : '') + '>' + tps[k].icon + ' ' + esc(tps[k].label) + '</option>').join('') + '</select>' +
-        '<label>Dla kogo <span class="hint">(tylko przypomnienia dla recepcji)</span></label><select name="assignee"><option value="">Wszystkie (cała recepcja)</option>' +
-        cfg().admins.map(a => '<option' + (a === curAs ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select>' +
+        assigneeBoxes(curAs).replace('</span></label>', '; tylko przypomnienia dla recepcji</span></label>') +
         '<div class="grid2"><div><label>Pacjent / czego dotyczy</label><input name="patient" required value="' + esc(task.patient) + '"></div>' +
         '<div><label>Telefon</label><input name="phone" value="' + esc(task.phone) + '"></div>' +
         '<div><label>Kanał</label><input name="channel" value="' + esc(task.channel) + '"></div>' +
         '<div><label>Lekarz</label><select name="doctor"><option value="">—</option>' + cfg().doctors.map(d => '<option' + (d.name === task.doctor ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select></div></div>' +
         '<label>O co chodzi</label><textarea name="purpose" required>' + esc(task.purpose) + '</textarea>'
     });
+    const form = $('#modalRoot form');
+    const r = await p;
     if (!r) return;
     const t = clone(task), changed = [];
-    if (tps[r.type] && tps[r.type].internal) r.channel = 'Dla: ' + (r.assignee || 'wszystkie');
+    if (tps[r.type] && tps[r.type].internal) r.channel = assigneeValue(form);
     ['patient', 'phone', 'channel', 'doctor', 'purpose'].forEach(k => { if ((t[k] || '') !== r[k].trim()) { changed.push(k); t[k] = r[k].trim(); } });
     if (r.type !== t.type) {
       const st0 = tps[r.type].stages.findIndex(x => !x.done);
@@ -919,11 +920,22 @@
       if (a === 'reopen') reopen(t);
     });
   }
+  /** Kwadraciki „Dla kogo” (kilka osób naraz; nic nie zaznaczone = wszystkie). */
+  function assigneeBoxes(cur) {
+    const sel = String(cur || '').replace(/^Dla:\s*/, '').split(',').map(x => x.trim());
+    return '<label>Dla kogo <span class="hint">(można zaznaczyć kilka osób; nic nie zaznaczone = cała recepcja)</span></label><div class="tags">' +
+      cfg().admins.map(a => '<label><input type="checkbox" name="assignee" value="' + esc(a) + '"' + (sel.indexOf(a) >= 0 ? ' checked' : '') + '>' + esc(a) + '</label>').join('') + '</div>';
+  }
+  function assigneeValue(form) {
+    const list = Array.prototype.slice.call(form.querySelectorAll('[name=assignee]:checked')).map(c => c.value);
+    return 'Dla: ' + (list.length ? list.join(', ') : 'wszystkie');
+  }
   const isInt = t => !!(cfg().types[t.type] || {}).internal;
   function assigneeChip(t) {
     if (!isInt(t)) return '';
     const who = String(t.channel || '').replace(/^Dla:\s*/, '') || 'wszystkie';
-    return '<span class="chip' + (who === me() ? ' warn' : '') + '">👤 dla: ' + esc(who) + '</span>';
+    const mine = who.split(',').map(x => x.trim()).indexOf(me()) >= 0;
+    return '<span class="chip' + (mine ? ' warn' : '') + '">👤 dla: ' + esc(who) + '</span>';
   }
   function card(t) {
     const ty = type(t), st = stage(t), u = urgency(t), le = lastEntry(t);
