@@ -9,6 +9,9 @@
  *   Ustawienia  — recepcjonistki, e-mail właściciela, filtr maili z tomografią itd.
  */
 
+/** Wersja kodu — ta sama musi być w Index.html (tablica ostrzeże, jeśli się różnią). */
+const APP_VERSION = '2026-11-19.3';
+
 const SHEET_TASKS = 'Sprawy';
 const SHEET_SHIFTS = 'Zmiany';
 const SHEET_DOCTORS = 'Lekarze';
@@ -298,6 +301,7 @@ function getData() {
       viewer: activeEmail_(),
       viewerIsOwner: !!activeEmail_() && activeEmail_() === String(s.ownerEmail || '').toLowerCase().trim(),
       debtsUrl: String(s.debtsSheetUrl || '').trim(),
+      version: APP_VERSION,
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30,
       callTags: String(s.callTags || DEFAULT_SETTINGS.filter(r => r[0] === 'callTags')[0][1]).split(',').map(x => x.trim()).filter(Boolean)
     },
@@ -607,7 +611,6 @@ function checkInbox() {
  */
 function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
-  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end', 'sms', 'email'].indexOf(i.source) >= 0)) return out;
   const old = readInbox_();
   out.orig = {}; // wersje sprzed zmian — do scalania przy zapisie (recepcja mogła w tym czasie coś opisać)
   old.forEach(x => { out.orig[x.id] = Object.assign({}, x); });
@@ -630,41 +633,51 @@ function processCalls_(fresh) {
       });
     });
   });
-  // Korespondencja e-mail z jednym adresem (do 7 dni od poprzedniego maila) = JEDNA pozycja, jak przy SMS-ach
+  // ---- Korespondencja: kolejne maile od jednej osoby (7 dni) i SMS-y z jednego numeru (12 godz.) = JEDNA pozycja
   const fmtD = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'dd.MM HH:mm');
-  fresh.filter(i => i.source === 'email' && i.email).forEach(em => {
-    const key = String(em.email).toLowerCase();
-    const prev = old.concat(fresh).filter(x => x !== em && !x.drop && x.status !== 'dup' && x.source === 'email' &&
-      String(x.email || '').toLowerCase() === key && x.receivedAt <= em.receivedAt && em.receivedAt - x.receivedAt < 7 * 864e5)
-      .sort((a, b) => b.receivedAt - a.receivedAt)[0];
-    if (!prev) return;
-    const isConv = /^\[\d{2}\.\d{2} \d{1,2}:\d{2}\]/.test(prev.text || '');
-    const n = isConv ? (String(prev.text).match(/^\[\d{2}\.\d{2} \d{1,2}:\d{2}\]/gm) || []).length : 1;
-    prev.text = ((isConv ? prev.text : '[' + fmtD(prev.receivedAt) + '] ' + (prev.text || '')) + '\n[' + fmtD(em.receivedAt) + '] ' + (em.text || '')).slice(-2500);
-    prev.kind = String(em.kind || prev.kind).replace(/\s*\(\d+\)$/, '') + ' (' + (n + 1) + ')';
-    prev.subject = em.subject || prev.subject;
-    prev.link = em.link || prev.link;
-    prev.receivedAt = em.receivedAt;
-    if (!prev.phone && em.phone) prev.phone = em.phone;
-    if (prev.status !== 'new') { prev.status = 'new'; prev.handledBy = ''; prev.handledAt = ''; }
-    touch(prev);
-    em.drop = true;
-  });
-  // Korespondencja SMS z jednym numerem (do 12 godz. od poprzedniego SMS-a) = JEDNA pozycja; nowy SMS dopisuje się
-  // do rozmowy, a jeśli była już „załatwiona”, wraca jako nowa (opis zostaje)
-  fresh.filter(i => i.source === 'sms' && last9_(i).length === 9).forEach(sm => {
-    const prev = old.concat(fresh).filter(x => x !== sm && !x.drop && x.status !== 'dup' && x.source === 'sms' && same(x, sm) &&
-      x.receivedAt <= sm.receivedAt && sm.receivedAt - x.receivedAt < 12 * 36e5).sort((a, b) => b.receivedAt - a.receivedAt)[0];
-    if (!prev) return;
-    const isConv = /^\[\d{1,2}:\d{2}\]/.test(prev.text || '');
-    const n = isConv ? (String(prev.text).match(/^\[\d{1,2}:\d{2}\]/gm) || []).length : 1;
-    prev.text = ((isConv ? prev.text : '[' + hm(prev.receivedAt) + '] ' + (prev.text || '')) + '\n[' + hm(sm.receivedAt) + '] ' + (sm.text || '')).slice(-1500);
-    prev.kind = 'SMS od pacjenta (' + (n + 1) + ')';
-    prev.receivedAt = sm.receivedAt;         // „czeka” liczy się od ostatniej wiadomości
-    if (!prev.name && sm.name) prev.name = sm.name;
-    if (prev.status !== 'new') { prev.status = 'new'; prev.handledBy = ''; prev.handledAt = ''; }
-    touch(prev);
-    sm.drop = true;
+  const CONV = {
+    email: { key: x => String(x.email || '').toLowerCase(), win: 7 * 864e5, stamp: fmtD, max: 2500,
+      kind: (head, x, n) => String(x.kind || head.kind).replace(/\s*\(\d+\)$/, '') + ' (' + n + ')' },
+    sms: { key: x => (last9_(x).length === 9 ? last9_(x) : ''), win: 12 * 36e5, stamp: hm, max: 1500,
+      kind: (head, x, n) => 'SMS od pacjenta (' + n + ')' }
+  };
+  /** Dopisz wiadomość x do korespondencji head (head = najstarsza pozycja tej osoby). */
+  const appendConv = (head, x, c) => {
+    const isConv = /^\[[^\]\n]{4,12}\]/.test(head.text || '');
+    const n = isConv ? (String(head.text).match(/^\[[^\]\n]{4,12}\]/gm) || []).length : 1;
+    head.text = ((isConv ? head.text : '[' + c.stamp(head.receivedAt) + '] ' + (head.text || '')) + '\n[' + c.stamp(x.receivedAt) + '] ' + (x.text || '')).slice(-c.max);
+    head.kind = c.kind(head, x, n + 1);
+    if (x.subject) head.subject = x.subject;
+    if (x.link) head.link = x.link;
+    if (x.receivedAt > head.receivedAt) head.receivedAt = x.receivedAt; // „czeka” liczy się od ostatniej wiadomości
+    if (!head.phone && x.phone) head.phone = x.phone;
+    if (!head.name && x.name) head.name = x.name;
+  };
+  Object.keys(CONV).forEach(srcName => {
+    const c = CONV[srcName];
+    // a) porządki: kilka NIEOBSŁUŻONYCH pozycji tej samej osoby, które już są w skrzynce (np. sprzed tej wersji) → jedna
+    const groups = {};
+    old.filter(x => x.source === srcName && x.status === 'new' && c.key(x)).forEach(x => { (groups[c.key(x)] = groups[c.key(x)] || []).push(x); });
+    Object.keys(groups).forEach(k => {
+      const list = groups[k].sort((p1, p2) => p1.receivedAt - p2.receivedAt);
+      let head = list[0];
+      list.slice(1).forEach(x => {
+        if (x.receivedAt - head.receivedAt > c.win) { head = x; return; }
+        appendConv(head, x, c);
+        x.status = 'dup';
+        touch(x); touch(head);
+      });
+    });
+    // b) nowe wiadomości dopisują się do ostatniej korespondencji tej osoby; „załatwiona” wraca jako nowa (opis zostaje)
+    fresh.filter(i => i.source === srcName && c.key(i)).forEach(x => {
+      const prev = old.concat(fresh).filter(y => y !== x && !y.drop && y.status !== 'dup' && y.source === srcName && c.key(y) === c.key(x) &&
+        y.receivedAt <= x.receivedAt && x.receivedAt - y.receivedAt < c.win).sort((p1, p2) => p2.receivedAt - p1.receivedAt)[0];
+      if (!prev) return;
+      appendConv(prev, x, c);
+      if (prev.status !== 'new') { prev.status = 'new'; prev.handledBy = ''; prev.handledAt = ''; }
+      touch(prev);
+      x.drop = true;
+    });
   });
   // Kolejne nieodebrane z tego samego numeru (do 12 godz.), zanim ktoś oddzwonił = JEDNA pozycja „Dzwonił(a) 3×: …”
   fresh.filter(i => i.source === 'call' && last9_(i).length === 9).forEach(mc => {
@@ -750,6 +763,7 @@ function diagnoseCalls() {
   const lines = [];
   let runner = '';
   try { runner = Session.getEffectiveUser().getEmail(); } catch (e) { /* brak */ }
+  lines.push('Wersja Kod.gs: ' + APP_VERSION);
   lines.push('Konto: ' + runner + (runningAsReception_() ? ' (OK, recepcja)' : ' (UWAGA: to nie konto recepcji!)'));
   lines.push('Ostatnie sprawdzenie poczty: ' + fmtD(last));
   const trig = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
