@@ -572,14 +572,14 @@
     if (act === 'done') {
       const r = await dialog({ title: 'Załatwione', ok: 'Zapisz', body: '<label>Co zrobiono? (opcjonalnie)</label><textarea name="note" autofocus placeholder="Np.: potwierdzono w Booksy / oddzwoniono, umówiono na 25.11 10:00"></textarea>' });
       if (!r) return;
-      call('saveInbox', { item: handled(i, r.note.trim()) }, '✔ Obsłużone');
+      call('saveInbox', { item: handled(i, r.note.trim()), base: i }, '✔ Obsłużone');
     }
     if (act === 'attach') {
       const m = matchTask(i); if (!m) return;
       const t = clone(m);
       log(t, inboxLine(i));
       t.dueAt = Math.min(t.dueAt || 9e15, now() + 30 * 6e4);
-      call('saveInbox', { item: handled(i, 'Dodano do sprawy', t.id), task: t }, 'Dodano do sprawy — jest w zakładce „Teraz”');
+      call('saveInbox', { item: handled(i, 'Dodano do sprawy', t.id), base: i, task: t }, 'Dodano do sprawy — jest w zakładce „Teraz”');
     }
     if (act === 'create') {
       const cancel = /odwoła/i.test(i.kind || ''), wt = i.source === 'wetransfer', f = inboxFacts(i);
@@ -591,15 +591,15 @@
           (i.text ? ': ' + i.text.slice(0, 400) : '') + (i.email ? ' (' + i.email + ')' : '')
       }, t => {
         t.history.push({ t: now() + 1, who: me(), text: inboxLine(i) });
-        call('saveInbox', { item: handled(i, 'Utworzono sprawę', t.id), task: t }, 'Sprawa utworzona');
+        call('saveInbox', { item: handled(i, 'Utworzono sprawę', t.id), base: i, task: t }, 'Sprawa utworzona');
       });
     }
     if (act === 'ignore') {
       const r = await dialog({ title: 'Ignorować nadawcę?', ok: 'Ignoruj', okCls: 'danger', body: '<p>Maile od <b>' + esc(i.email) + '</b> nie będą już trafiać do skrzynki (np. newslettery, faktury). Można to cofnąć w arkuszu „Ustawienia” → inboxIgnore.</p>' });
       if (!r) return;
-      call('ignoreSender', { email: i.email, item: handled(i, 'Zignorowano nadawcę') }, 'Nadawca ignorowany');
+      call('ignoreSender', { email: i.email, item: handled(i, 'Zignorowano nadawcę'), base: i }, 'Nadawca ignorowany');
     }
-    if (act === 'reopen') call('saveInbox', { item: Object.assign({}, i, { status: 'new', handledBy: '', handledAt: '', note: '' }) }, 'Przywrócono');
+    if (act === 'reopen') call('saveInbox', { item: Object.assign({}, i, { status: 'new', handledBy: '', handledAt: '', note: '' }), base: i }, 'Przywrócono');
   }
   /* ---------- opis rozmów (telefony, SMS, zapytania) ---------- */
   const CONTACT_SRC = ['call', 'call_in', 'call_out', 'sms', 'www_form', 'www_msg', 'email'];
@@ -629,7 +629,12 @@
   /** Rozmowa, która zamknęła nieodebrane (oddzwonienie albo ponowne dodzwonienie pacjenta). */
   function callbackOf(m) { return callPairs().cb[m.id] || null; }
   function missedOf(c) { return callPairs().ms[c.id] || null; }
-  const undescribed = () => inbox().filter(i => isTalk(i) && !i.tags).sort((a, b) => a.receivedAt - b.receivedAt);
+  /** Opis rozmowy: z samej rozmowy albo (gdy recepcja opisała wcześniej) z nieodebranego z jej grupy. */
+  function descOf(c) {
+    if (c.tags) return c;
+    return (callPairs().all[c.id] || []).filter(m => m.tags).sort((a, b) => b.handledAt - a.handledAt)[0] || null;
+  }
+  const undescribed = () => inbox().filter(i => isTalk(i) && !descOf(i)).sort((a, b) => a.receivedAt - b.receivedAt);
   const tagChips = i => i.tags ? String(i.tags).split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="chip tag">' + esc(t) + '</span>').join(' ') : '';
   const REMIND_TAGS = /oddzwoni|zastanowi/i;
 
@@ -637,14 +642,15 @@
   async function describeDialog(i) {
     if (!me()) return toast('Najpierw wybierz, kto jest na zmianie');
     const m = i.taskId ? S.data.tasks.find(x => x.id === i.taskId && x.status === 'open') : matchTask(i);
-    const cur = String(i.tags || '').split(',').map(x => x.trim());
+    const dsrc = isTalk(i) ? (descOf(i) || i) : i; // opis mógł zostać wpisany przy nieodebranym
+    const cur = String(dsrc.tags || '').split(',').map(x => x.trim());
     const p = dialog({
       title: src(i)[0] + ' ' + (i.status === 'new' && i.source === 'call' ? 'Nieodebrane — opisz po oddzwonieniu' : 'Opisz: ' + (i.kind || src(i)[1])), ok: 'Zapisz', wide: true,
       body: '<p class="hint">' + fmt(i.receivedAt) + (i.phone ? ' · ' + esc(i.phone) : '') + (i.text ? ' · ' + esc(String(i.text).slice(0, 160)) : '') + '</p>' +
         '<label>Kto to był (imię i nazwisko)</label><input name="name" value="' + esc(i.name || '') + '" placeholder="np. Anna Kowalska">' +
         '<label>Powód / wynik rozmowy — zaznacz wszystko, co pasuje</label><div class="tags">' +
         cfg().callTags.map(t => '<label><input type="checkbox" name="tag" value="' + esc(t) + '"' + (cur.indexOf(t) >= 0 ? ' checked' : '') + '>' + esc(t) + '</label>').join('') + '</div>' +
-        '<label>Notatka (o czym rozmawiano)</label><textarea name="note" placeholder="np. pyta o implant, cena 4500 zł za drogo, porówna z inną kliniką">' + esc(i.status !== 'new' ? (i.note || '') : '') + '</textarea>' +
+        '<label>Notatka (o czym rozmawiano)</label><textarea name="note" placeholder="np. pyta o implant, cena 4500 zł za drogo, porówna z inną kliniką">' + esc(dsrc.tags ? String(dsrc.note || '').replace(/\s*·?\s*(Oddzwoniono|Pacjent dodzwonił)[^·]*$/i, '') : '') + '</textarea>' +
         (m ? '<div class="match">🔗 Pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + '. Opis zapisze się też w historii tej sprawy.</div>' : '') +
         '<label style="margin-top:14px"><input type="checkbox" name="remind" value="1" style="width:auto;margin-right:6px">📅 Przypomnij ' + (m ? '(ustaw nowy termin w sprawie)' : '(utwórz sprawę „Nowe zapytanie”)') + '</label>' +
         duePicker(tomorrowAt(10))
@@ -677,7 +683,7 @@
       };
       item.taskId = task.id;
     }
-    call('saveInbox', task ? { item: item, task: task } : { item: item }, task && !m ? 'Zapisano + przypomnienie ' + fmt(due) : 'Zapisano');
+    call('saveInbox', task ? { item: item, base: i, task: task } : { item: item, base: i }, task && !m ? 'Zapisano + przypomnienie ' + fmt(due) : 'Zapisano');
   }
 
   function viewInbox() {
@@ -696,10 +702,10 @@
         (times.length > 1 ? '<div class="hint">' + esc(times.join(', ')) + '</div>' : '') + '<div class="hint">→ ' +
         (c.source === 'call_out' ? '📤 oddzwoniono ' : '📲 pacjent dodzwonił się ') + hhmm(c.receivedAt) + '</div></td><td>' +
         (m.phone ? '<a class="phone" href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a> ' : '') + esc(c.name || m.name || '') + '</td><td>' +
-        (c.tags ? tagChips(c) + (c.note ? '<div class="hint">' + esc(c.note) + '</div>' : '') + '<div class="hint">' + esc(c.handledBy || '') + '</div>'
+        (descOf(c) ? tagChips(descOf(c)) + (descOf(c).note && !/^oddzwoniono|dodzwoni/i.test(descOf(c).note) ? '<div class="hint">' + esc(descOf(c).note) + '</div>' : '') + '<div class="hint">' + esc(descOf(c).handledBy || '') + '</div>'
           : '<span class="hint" style="color:var(--red)">bez opisu</span>') + '</td><td>' +
         (t ? '<b>' + esc(t.patient) + '</b> <span class="hint">' + esc(type(t).label) + '</span>' : '<span class="hint">—</span>') + '</td><td style="white-space:nowrap">' +
-        '<button class="small' + (c.tags ? '' : ' primary') + '" data-iact="describe" data-id="' + c.id + '">' + (c.tags ? '✏️' : '🏷 Opisz') + '</button> ' +
+        '<button class="small' + (descOf(c) ? '' : ' primary') + '" data-iact="describe" data-id="' + c.id + '">' + (descOf(c) ? '✏️' : '🏷 Opisz') + '</button> ' +
         (t ? '<button class="small" data-act="note" data-id="' + t.id + '">💬</button>' : '') + '</td></tr>';
     };
     const logRow = i => {

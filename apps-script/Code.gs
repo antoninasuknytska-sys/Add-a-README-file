@@ -327,10 +327,7 @@ function saveInbox(payload) {
     if (payload.task) upsertTask_(payload.task);
     const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
     ensureHeaders_(sh, INBOX_HEADERS);
-    const row = inboxToRow_(payload.item);
-    const rowIdx = findRow_(sh, payload.item.id);
-    if (rowIdx > 0) sh.getRange(rowIdx, 1, 1, row.length).setValues([row]);
-    else sh.appendRow(row);
+    writeInboxRow_(sh, payload.item, payload.base);
   } finally {
     lock.releaseLock();
   }
@@ -350,7 +347,7 @@ function ignoreSender(payload) {
       }
     }
   }
-  return saveInbox({ item: payload.item });
+  return saveInbox({ item: payload.item, base: payload.base });
 }
 
 /** Przekazanie zmiany (wpis bez acceptedBy) lub przejęcie (wpis z id i acceptedBy). */
@@ -584,7 +581,7 @@ function checkInbox() {
     try {
       const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_INBOX);
       ensureHeaders_(sh, INBOX_HEADERS);
-      changed.inbox.forEach(i => { const r = findRow_(sh, i.id); if (r > 0) sh.getRange(r, 1, 1, INBOX_COLS.length).setValues([inboxToRow_(i)]); });
+      changed.inbox.forEach(i => writeInboxRow_(sh, i, (changed.orig || {})[i.id], true));
       // pominięte (duplikaty / koniec naszego wychodzącego) zapisujemy jako „dup” — ukryte, ale już nigdy nie przetwarzane ponownie
       fresh.forEach(i => { if (i.drop) i.status = 'dup'; sh.appendRow(inboxToRow_(i)); });
       changed.tasks.forEach(t => upsertTask_(t));
@@ -603,6 +600,8 @@ function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
   if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end'].indexOf(i.source) >= 0)) return out;
   const old = readInbox_();
+  out.orig = {}; // wersje sprzed zmian — do scalania przy zapisie (recepcja mogła w tym czasie coś opisać)
+  old.forEach(x => { out.orig[x.id] = Object.assign({}, x); });
   const open = readTasks_().filter(t => t.status === 'open');
   const hm = ts => Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'HH:mm');
   const taskMap = {};
@@ -1283,12 +1282,44 @@ function readInbox_() {
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, INBOX_COLS.length).getValues()
     .filter(r => r[0])
-    .map(r => {
-      const o = {};
-      INBOX_COLS.forEach((c, i) => { o[c] = r[i] instanceof Date ? r[i].getTime() : r[i]; });
-      o.msgId = String(o.msgId).replace(/^'/, ''); o.phone = String(o.phone).replace(/^'/, '');
-      return o;
-    });
+    .map(rowToInbox_);
+}
+
+function rowToInbox_(r) {
+  const o = {};
+  INBOX_COLS.forEach((c, i) => { o[c] = r[i] instanceof Date ? r[i].getTime() : r[i]; });
+  o.msgId = String(o.msgId).replace(/^'/, ''); o.phone = String(o.phone).replace(/^'/, '');
+  return o;
+}
+
+/**
+ * Scalanie trójstronne: do aktualnego wiersza (cur) przenosimy tylko pola, które TEN zapis zmienił
+ * względem wersji, od której zaczął (base). Dzięki temu opis recepcji i zmiany robione w tle
+ * (łączenie z oddzwonieniem) nie nadpisują się nawzajem.
+ */
+function merge3_(cur, base, mine) {
+  const out = Object.assign({}, cur);
+  const v = x => (x === undefined || x === null) ? '' : String(x);
+  INBOX_COLS.forEach(c => { if (v(mine[c]) !== v(base[c])) out[c] = mine[c]; });
+  return out;
+}
+
+/** Zapis wiersza skrzynki: z base → scalanie z tym, co jest teraz w arkuszu; bez base → cały wiersz. */
+function writeInboxRow_(sh, item, base, fromServer) {
+  const r = findRow_(sh, item.id);
+  if (r < 0) { sh.appendRow(inboxToRow_(item)); return; }
+  let row = item;
+  if (base) {
+    const cur = rowToInbox_(sh.getRange(r, 1, 1, INBOX_COLS.length).getValues()[0]);
+    row = merge3_(cur, base, item);
+    // tło (łączenie z oddzwonieniem) nie kasuje tego, co recepcja w międzyczasie wpisała: notatki się sumują, osoba zostaje
+    const human = cur.handledBy && cur.handledBy !== BOT && String(cur.handledBy) !== String(base.handledBy || '');
+    if (fromServer && human) {
+      row.handledBy = cur.handledBy;
+      row.note = cur.note && String(cur.note) !== String(item.note) ? cur.note + ' · ' + item.note : item.note;
+    }
+  }
+  sh.getRange(r, 1, 1, INBOX_COLS.length).setValues([inboxToRow_(row)]);
 }
 
 function inboxToRow_(i) {
