@@ -535,7 +535,7 @@
       '<span class="chip stage">' + fmt(i.receivedAt) + '</span></div>' +
       (i.when || i.service || i.doctor ? '<div class="chips">' + (i.when ? '<span class="chip">📅 ' + esc(i.when) + '</span>' : '') +
         (i.service ? '<span class="chip">🦷 ' + esc(i.service) + '</span>' : '') + (i.doctor ? '<span class="chip">👨‍⚕️ ' + esc(i.doctor) + '</span>' : '') + '</div>' : '') +
-      (i.text ? '<div class="purpose clamp">' + esc(i.text) + '</div>' : '') +
+      (i.text ? '<div class="purpose clamp">' + esc(i.source === 'sms' && String(i.text).split('\n').length > 4 ? '… ' + String(i.text).split('\n').slice(-4).join('\n') : i.text) + '</div>' : '') +
       (m ? '<div class="match">🔗 Ten pacjent ma otwartą sprawę: <b>' + esc(m.patient) + '</b> — ' + esc(type(m).label) + ', ' + esc(stage(m).n) + '. <i>' + esc(m.purpose) + '</i></div>' : '') +
       (i.status !== 'new' && i.note ? '<div class="last">Notatka: ' + esc(i.note) + '</div>' : '') +
       '<div class="actions">' + (i.status === 'new'
@@ -725,7 +725,8 @@
       if (ms) return mergedRow(ms, i);
       const t = i.taskId ? S.data.tasks.find(x => x.id === i.taskId) : null;
       const state = i.source === 'call' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na oddzwonienie' + (/×:/.test(i.text || '') ? ' · ' + esc(i.text) : '') + '</span> ' : '<span class="chip tag">✔ ' + esc(i.note || 'obsłużone') + '</span> ')
-        : i.source === 'sms' && i.status === 'new' ? '<span class="chip warn">⚡ czeka na odpowiedź</span> ' : '';
+        : i.source === 'sms' ? (i.status === 'new' ? '<span class="chip warn">⚡ czeka na odpowiedź</span> ' : '') +
+          (i.text ? '<div class="hint">' + esc(String(i.text).split('\n').pop().slice(0, 120)) + '</div>' : '') : '';
       return '<tr><td style="white-space:nowrap">' + fmt(i.receivedAt) + '</td><td>' + src(i)[0] + ' ' + esc(src(i)[1]) + '</td><td>' +
         (i.phone ? '<a class="phone" href="tel:' + esc(i.phone) + '">' + esc(i.phone) + '</a> ' : '') + esc(i.name || '') + '</td><td>' + state + tagChips(i) +
         (i.tags && i.note && i.source !== 'call' ? '<div class="hint">' + esc(i.note) + '</div>' : '') + (i.tags || (i.status !== 'new' && i.status !== 'log') ? '<div class="hint">' + esc(i.handledBy || '') + '</div>' : '') +

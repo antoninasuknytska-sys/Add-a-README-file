@@ -598,7 +598,7 @@ function checkInbox() {
  */
 function processCalls_(fresh) {
   const out = { inbox: [], tasks: [] };
-  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end'].indexOf(i.source) >= 0)) return out;
+  if (!fresh.some(i => ['call', 'call_in', 'call_out', 'call_end', 'sms'].indexOf(i.source) >= 0)) return out;
   const old = readInbox_();
   out.orig = {}; // wersje sprzed zmian — do scalania przy zapisie (recepcja mogła w tym czasie coś opisać)
   old.forEach(x => { out.orig[x.id] = Object.assign({}, x); });
@@ -620,6 +620,22 @@ function processCalls_(fresh) {
         touch(y);
       });
     });
+  });
+  // Korespondencja SMS z jednym numerem (do 12 godz. od poprzedniego SMS-a) = JEDNA pozycja; nowy SMS dopisuje się
+  // do rozmowy, a jeśli była już „załatwiona”, wraca jako nowa (opis zostaje)
+  fresh.filter(i => i.source === 'sms' && last9_(i).length === 9).forEach(sm => {
+    const prev = old.concat(fresh).filter(x => x !== sm && !x.drop && x.status !== 'dup' && x.source === 'sms' && same(x, sm) &&
+      x.receivedAt <= sm.receivedAt && sm.receivedAt - x.receivedAt < 12 * 36e5).sort((a, b) => b.receivedAt - a.receivedAt)[0];
+    if (!prev) return;
+    const isConv = /^\[\d{1,2}:\d{2}\]/.test(prev.text || '');
+    const n = isConv ? (String(prev.text).match(/^\[\d{1,2}:\d{2}\]/gm) || []).length : 1;
+    prev.text = ((isConv ? prev.text : '[' + hm(prev.receivedAt) + '] ' + (prev.text || '')) + '\n[' + hm(sm.receivedAt) + '] ' + (sm.text || '')).slice(-1500);
+    prev.kind = 'SMS od pacjenta (' + (n + 1) + ')';
+    prev.receivedAt = sm.receivedAt;         // „czeka” liczy się od ostatniej wiadomości
+    if (!prev.name && sm.name) prev.name = sm.name;
+    if (prev.status !== 'new') { prev.status = 'new'; prev.handledBy = ''; prev.handledAt = ''; }
+    touch(prev);
+    sm.drop = true;
   });
   // Kolejne nieodebrane z tego samego numeru (do 12 godz.), zanim ktoś oddzwonił = JEDNA pozycja „Dzwonił(a) 3×: …”
   fresh.filter(i => i.source === 'call' && last9_(i).length === 9).forEach(mc => {
@@ -773,7 +789,14 @@ function classifyRaw_(msg, boxes, ignore) {
     const kind = m[1].toUpperCase();
     if (kind === 'SMS') {
       if (digits_(it.phone).length < 9) return null; // SMS-y serwisowe (Play, kody, reklamy)
-      it.source = 'sms'; it.kind = 'SMS od pacjenta'; it.text = flat.slice(0, 1000);
+      it.source = 'sms'; it.kind = 'SMS od pacjenta';
+      let body = /^\s*(\[?sms_message\]?|przychodząca wiadomość sms)\s*$/i.test(flat) ? '' : flat;
+      // w temacie zamiast nazwy kontaktu jest treść SMS-a (długi tekst, zdanie) → to jest wiadomość, nie imię
+      if (it.name && (it.name.split(/\s+/).length > 4 || /[?!.,:;]/.test(it.name))) {
+        body = body ? it.name + ' ' + body : it.name;
+        it.name = '';
+      }
+      it.text = body.slice(0, 1000);
     } else if (kind === 'ROZMOWA' || kind === 'KONIEC') {
       // „Koniec rozmowy” bez kierunku — processCalls_ rozpozna: koniec wychodzącego albo rozmowa przychodząca
       it.source = 'call_end'; it.kind = 'Koniec rozmowy';

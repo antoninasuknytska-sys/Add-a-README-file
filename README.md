@@ -92,7 +92,7 @@ Darmowa aplikacja **MacroDroid — Device Automation** (Google Play, wydawca Arl
 2. **Makro 1 — „SMS do tablicy”**
    - Wyzwalacz: **SMS odebrany** → Dowolny numer.
    - Akcja: **Wyślij e-mail** → Do: `polishdent.pl@gmail.com`
-   - Temat: `CRM SMS ` + (przycisk **…** / *Magiczny tekst*) **numer nadawcy SMS** + spacja + **nazwa kontaktu SMS**
+   - Temat: `CRM SMS ` + (przycisk **…** / *Magiczny tekst*) **numer nadawcy SMS** + spacja + **nazwa kontaktu SMS** (nie treść!)
    - Treść: (*Magiczny tekst*) **treść SMS**
    - Wysyłka: przez konto Gmail (zaloguj się w MacroDroid kontem PolishDent.pl).
 3. **Makro 2 — „Nieodebrane do tablicy”**
@@ -113,6 +113,7 @@ Temat musi zaczynać się dokładnie od `CRM SMS`, `CRM NIEODEBRANE`, `CRM ROZMO
 
 **Co tablica robi z telefonami i SMS-ami:**
 - Wszystko z telefonu gabinetu trafia do **„📞 Rejestr telefonu: rozmowy i SMS”** w „📥 Skrzynce” (dziś i wczoraj): nieodebrane, odebrane, wychodzące i SMS-y, z godziną, numerem i nazwą z kontaktów.
+- **SMS-y od jednego pacjenta = jedna rozmowa** („SMS od pacjenta (3)”, wiadomości z godzinami). Nowy SMS dopisuje się do rozmowy; jeśli była „Załatwiona”, wraca jako nowa, a opis zostaje.
 - **Wystarczy opisać jedną rozmowę z danym numerem** (w ciągu 12 godz.): pozostałe telefony z tego numeru liczą się jako opisane, z dopiskiem „✓ opisane przy: rozmowa przychodząca 11:19”.
 - **Kilka nieodebranych z jednego numeru** (zanim ktoś oddzwonił) = **jedna pozycja** „Dzwonił(a) 4×: 08:37, 09:01, 09:14, 09:32”. Opisuje się tylko rozmowę (oddzwonienie), raz.
 - **Nieodebrane** → dodatkowo nowa wiadomość „⚡ oddzwonić”. Gdy recepcja **oddzwoni** albo pacjent **dodzwoni się ponownie**, zamyka się samo, a w rejestrze jest **jeden wiersz** *„Nieodebrane → oddzwoniono 14:32”* z przyciskiem **🏷 Opisz** (opis dotyczy rozmowy przy oddzwonieniu).
