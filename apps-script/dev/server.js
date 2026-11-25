@@ -49,6 +49,7 @@ ctx.__ownerSheets = ownerSheets;
 const inbox = [];
 ctx.GmailApp = {
   getUserLabelByName: () => ({}), createLabel: () => ({}),
+  getMessagesForThreads: ths => ths.map(t => t.getMessages()),
   getThreadById: id => { const t = inbox.filter(x => x.id === id)[0]; if (!t) throw new Error('no'); return { getLastMessageDate: () => new Date(t.date || Date.now()) }; },
   // t = {id, subject, body, from, to, date, kt}; zapytania z "Portal Lekarza" zwracają tylko maile Diagdent
   search: q => inbox.filter(t => (/Portal Lekarza/.test(q) ? t.kt && !t.done : !t.kt)).map(t => ({

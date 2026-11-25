@@ -10,7 +10,7 @@
  */
 
 /** Wersja kodu — ta sama musi być w Index.html (tablica ostrzeże, jeśli się różnią). */
-const APP_VERSION = '2026-11-19.3';
+const APP_VERSION = '2026-11-25.1';
 
 const SHEET_TASKS = 'Sprawy';
 const SHEET_SHIFTS = 'Zmiany';
@@ -302,6 +302,10 @@ function getData() {
       viewerIsOwner: !!activeEmail_() && activeEmail_() === String(s.ownerEmail || '').toLowerCase().trim(),
       debtsUrl: String(s.debtsSheetUrl || '').trim(),
       version: APP_VERSION,
+      mail: (function () {
+        const pr = PropertiesService.getScriptProperties();
+        return { okAt: Number(pr.getProperty('mailOkAt')) || 0, errAt: Number(pr.getProperty('lastErrorAt')) || 0, err: pr.getProperty('lastError') || '' };
+      })(),
       inboxAlertMinutes: Number(s.inboxAlertMinutes) || 30,
       callTags: String(s.callTags || DEFAULT_SETTINGS.filter(r => r[0] === 'callTags')[0][1]).split(',').map(x => x.trim()).filter(Boolean)
     },
@@ -516,9 +520,13 @@ function checkMail() {
   let lock = null;
   try { lock = LockService.getDocumentLock(); } catch (e) { /* brak */ }
   if (lock && !lock.tryLock(1000)) return;
+  const props = PropertiesService.getScriptProperties();
   try {
-    checkKtEmails();
+    try { checkKtEmails(); } catch (e) { logError_('Tomografie (Diagdent)', e); }
     checkInbox();
+    props.setProperty('mailOkAt', String(Date.now()));
+  } catch (e) {
+    logError_('Sprawdzanie poczty', e); // np. dzienny limit Google — widać to na tablicy i w Diagnostyce
   } finally { if (lock) lock.releaseLock(); }
 }
 
@@ -529,7 +537,7 @@ function checkMail() {
 function checkNow() {
   try {
     const last = Number(PropertiesService.getScriptProperties().getProperty('inboxLastCheck')) || 0;
-    if (runningAsReception_() && Date.now() - last > 50 * 1000) checkMail();
+    if (runningAsReception_() && Date.now() - last > 80 * 1000) checkMail();
   } catch (e) { logError_('checkNow', e); }
   return getData();
 }
@@ -544,11 +552,12 @@ function checkInbox() {
   const props = PropertiesService.getScriptProperties();
   const now = Date.now();
   const last = Number(props.getProperty('inboxLastCheck')) || (now - 24 * 36e5);
-  const since = last - 15 * 6e4; // zapas na opóźnienia Gmaila
+  const since = last - 10 * 6e4; // zapas na opóźnienia Gmaila / telefonu bez internetu (i na odłożony „Koniec rozmowy”)
   const after = ' after:' + Math.floor(since / 1000);
   const queries = [
     'in:inbox category:primary' + after,
-    'in:inbox' + after + ' (booksy OR znanylekarz OR docplanner OR "Twoje imię" OR "New message from" OR "Nowa wiadomość od" OR subject:CRM)'
+    // bez „in:inbox”: maile CRM z telefonu i systemów liczą się także zarchiwizowane albo przefiltrowane poza Odebrane
+    after.trim() + ' (booksy OR znanylekarz OR docplanner OR "Twoje imię" OR "New message from" OR "Nowa wiadomość od" OR subject:CRM)'
   ];
   const boxes = mailboxes_(s);
   const doctors = readDoctors_();
@@ -556,7 +565,12 @@ function checkInbox() {
   const seen = {};
   readInbox_().forEach(i => { seen[i.msgId] = 1; });
   const fresh = [];
-  queries.forEach(q => GmailApp.search(q, 0, 50).forEach(th => th.getMessages().forEach(msg => {
+  // jedno wywołanie getMessagesForThreads na wszystkie wątki zamiast osobnego na każdy (dzienny limit Gmaila!)
+  const threadsById = {};
+  queries.forEach(q => GmailApp.search(q, 0, 50).forEach(th => { threadsById[th.getId()] = th; }));
+  const threads = Object.keys(threadsById).map(k => threadsById[k]);
+  const msgsPerThread = threads.length ? GmailApp.getMessagesForThreads(threads) : [];
+  threads.forEach((th, ti) => (msgsPerThread[ti] || []).forEach(msg => {
     const id = msg.getId();
     if (seen[id]) return;
     seen[id] = 1;
@@ -574,7 +588,7 @@ function checkInbox() {
     item.link = mailLink_(th.getId());
     item.status = 'new';
     fresh.push(item);
-  })));
+  }));
 
   fresh.sort((a, b) => a.receivedAt - b.receivedAt);
   let changed = { inbox: [], tasks: [] };
@@ -748,7 +762,11 @@ function last9_(i) { return digits_(i.phone).slice(-9); }
 
 function logError_(where, e) {
   const msg = new Date().toISOString() + ' ' + where + ': ' + (e && e.message ? e.message : e);
-  try { PropertiesService.getScriptProperties().setProperty('lastError', msg.slice(0, 500)); } catch (x) { /* brak */ }
+  try {
+    const pr = PropertiesService.getScriptProperties();
+    pr.setProperty('lastError', msg.slice(0, 500));
+    pr.setProperty('lastErrorAt', String(Date.now()));
+  } catch (x) { /* brak */ }
   try { console.error(msg); } catch (x) { /* brak */ }
 }
 
@@ -765,7 +783,7 @@ function diagnoseCalls() {
   try { runner = Session.getEffectiveUser().getEmail(); } catch (e) { /* brak */ }
   lines.push('Wersja Kod.gs: ' + APP_VERSION);
   lines.push('Konto: ' + runner + (runningAsReception_() ? ' (OK, recepcja)' : ' (UWAGA: to nie konto recepcji!)'));
-  lines.push('Ostatnie sprawdzenie poczty: ' + fmtD(last));
+  lines.push('Ostatnie sprawdzenie poczty: ' + fmtD(last) + ' · ostatnie UDANE: ' + fmtD(Number(props.getProperty('mailOkAt')) || 0));
   const trig = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   lines.push('Wyzwalacze tego konta: ' + (trig.length ? trig.join(', ') : 'BRAK — uruchom setup z konta recepcji'));
   lines.push('Ostatni błąd: ' + (props.getProperty('lastError') || 'brak'));
@@ -1034,8 +1052,9 @@ function checkKtEmails() {
   const threads = GmailApp.search('(' + s.ktEmailQuery + ') -label:' + KT_LABEL, 0, 30);
 
   const maxAge = (Number(s.ktMaxAgeDays) || 3) * 864e5;
-  threads.forEach(th => {
-    th.getMessages().forEach(msg => {
+  const ktMsgs = threads.length ? GmailApp.getMessagesForThreads(threads) : [];
+  threads.forEach((th, ti) => {
+    (ktMsgs[ti] || []).forEach(msg => {
       // stare powiadomienia (sprzed uruchomienia tablicy) pomijamy — inaczej zasypałyby tablicę
       if (Date.now() - msg.getDate().getTime() > maxAge) return;
       const subject = msg.getSubject() || '';

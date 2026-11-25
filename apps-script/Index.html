@@ -125,7 +125,7 @@
 <script>
 (function () {
   const H = 36e5;
-  const UI_VERSION = '2026-11-19.3'; // ta sama musi być w Kod.gs
+  const UI_VERSION = '2026-11-25.1'; // ta sama musi być w Kod.gs
   const S = { data: null, tab: 'now', q: '', busy: false, modalOpen: false };
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1142,6 +1142,12 @@
     let h = '';
     if (c.version !== UI_VERSION)
       h += '<div class="banner" style="background:var(--red-bg);color:var(--red)">⚠️ <span>Pliki są z różnych wersji: Kod.gs <b>' + esc(c.version || 'stara') + '</b>, Index.html <b>' + UI_VERSION + '</b>. Wklej oba najnowsze pliki i zrób „Wdróż → Nowa wersja”.</span></div>';
+    // poczta / telefony nie są sprawdzane (np. dzienny limit Google, brak wyzwalaczy) — widać od razu, a nie po fakcie
+    const ms = c.mail || {};
+    if (ms.okAt && now() - ms.okAt > 20 * 6e4)
+      h += '<div class="banner" style="background:var(--red-bg);color:var(--red)">⚠️ <span>Poczta i telefony nie były sprawdzane od <b>' + fmt(ms.okAt) + '</b>' +
+        (ms.errAt > ms.okAt ? ': ' + esc(String(ms.err).replace(/^\S+\s/, '').slice(0, 160)) : '') +
+        '. W arkuszu kliknij <b>Tablica spraw → 🔎 Diagnostyka telefonów</b> i wyślij zdjęcie.</span></div>';
     if (!me()) h += '<div class="banner">👋 Wybierz u góry, kto jest teraz na zmianie: wszystkie działania zapisują się pod tym imieniem.</div>';
     if (pend && me() && pend.from !== me() && S.tab !== 'shift')
       h += '<div class="banner">🔄 <span><b>' + esc(pend.from) + '</b> przekazała zmianę ' + fmt(pend.at) + (pend.note ? ': „' + esc(pend.note) + '”' : '') +
